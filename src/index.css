@@ -2,41 +2,75 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Sistema de Design Moderno para Avaliação de Desempenho */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Core Colors - Paleta profissional com tons de azul e verde */
+    --background: 247 250 254;
+    --foreground: 215 25% 27%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 255 255 255;
+    --card-foreground: 215 25% 27%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 255 255 255;
+    --popover-foreground: 215 25% 27%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Azul profissional moderno */
+    --primary: 216 87% 53%;
+    --primary-foreground: 255 255 255;
+    --primary-hover: 216 87% 47%;
+    --primary-light: 216 87% 97%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary - Tons neutros elegantes */
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 215 25% 27%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Success - Verde para metas atingidas */
+    --success: 142 76% 36%;
+    --success-foreground: 255 255 255;
+    --success-light: 142 76% 96%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Warning - Laranja para alertas */
+    --warning: 38 92% 50%;
+    --warning-foreground: 255 255 255;
+    --warning-light: 38 92% 95%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Destructive - Vermelho para metas não atingidas */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 255 255 255;
+    --destructive-light: 0 84% 97%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Muted - Tons suaves */
+    --muted: 220 14% 96%;
+    --muted-foreground: 215 16% 47%;
 
-    --radius: 0.5rem;
+    /* Accent - Roxo para destaques */
+    --accent: 262 83% 58%;
+    --accent-foreground: 255 255 255;
+    --accent-light: 262 83% 97%;
+
+    /* Borders e inputs */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 216 87% 53%;
+
+    /* Gradientes modernos */
+    --gradient-primary: linear-gradient(135deg, hsl(216 87% 53%), hsl(262 83% 58%));
+    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 46%));
+    --gradient-card: linear-gradient(145deg, hsl(255 255 255 / 0.8), hsl(255 255 255 / 0.4));
+
+    /* Sombras elegantes */
+    --shadow-soft: 0 1px 3px 0 hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+    --shadow-medium: 0 4px 6px -1px hsl(0 0% 0% / 0.1), 0 2px 4px -2px hsl(0 0% 0% / 0.1);
+    --shadow-large: 0 10px 15px -3px hsl(0 0% 0% / 0.1), 0 4px 6px -4px hsl(0 0% 0% / 0.1);
+    --shadow-primary: 0 10px 30px -10px hsl(216 87% 53% / 0.3);
+
+    /* Animações suaves */
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
 
