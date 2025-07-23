@@ -6,65 +6,65 @@
 
 @layer base {
   :root {
-    /* Core Colors - Paleta profissional com tons de azul e verde */
-    --background: 247 250 254;
-    --foreground: 215 25% 27%;
+    /* Core Colors - Paleta suave e moderna */
+    --background: 248 250 252;
+    --foreground: 203 23% 30%;
 
     --card: 255 255 255;
-    --card-foreground: 215 25% 27%;
+    --card-foreground: 203 23% 30%;
 
     --popover: 255 255 255;
-    --popover-foreground: 215 25% 27%;
+    --popover-foreground: 203 23% 30%;
 
-    /* Primary - Azul profissional moderno */
-    --primary: 216 87% 53%;
+    /* Primary - Azul suave e elegante */
+    --primary: 211 68% 64%;
     --primary-foreground: 255 255 255;
-    --primary-hover: 216 87% 47%;
-    --primary-light: 216 87% 97%;
+    --primary-hover: 211 68% 58%;
+    --primary-light: 211 68% 96%;
 
-    /* Secondary - Tons neutros elegantes */
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 215 25% 27%;
+    /* Secondary - Tons neutros suaves */
+    --secondary: 210 15% 94%;
+    --secondary-foreground: 203 23% 30%;
 
-    /* Success - Verde para metas atingidas */
-    --success: 142 76% 36%;
+    /* Success - Verde suave para metas atingidas */
+    --success: 155 60% 54%;
     --success-foreground: 255 255 255;
-    --success-light: 142 76% 96%;
+    --success-light: 155 60% 95%;
 
-    /* Warning - Laranja para alertas */
-    --warning: 38 92% 50%;
+    /* Warning - Âmbar suave para alertas */
+    --warning: 43 74% 66%;
     --warning-foreground: 255 255 255;
-    --warning-light: 38 92% 95%;
+    --warning-light: 43 74% 95%;
 
-    /* Destructive - Vermelho para metas não atingidas */
-    --destructive: 0 84% 60%;
+    /* Destructive - Coral suave para metas não atingidas */
+    --destructive: 355 78% 70%;
     --destructive-foreground: 255 255 255;
-    --destructive-light: 0 84% 97%;
+    --destructive-light: 355 78% 95%;
 
     /* Muted - Tons suaves */
-    --muted: 220 14% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 210 15% 94%;
+    --muted-foreground: 203 16% 54%;
 
-    /* Accent - Roxo para destaques */
-    --accent: 262 83% 58%;
+    /* Accent - Lavanda suave para destaques */
+    --accent: 250 55% 74%;
     --accent-foreground: 255 255 255;
-    --accent-light: 262 83% 97%;
+    --accent-light: 250 55% 96%;
 
     /* Borders e inputs */
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 216 87% 53%;
+    --border: 210 12% 87%;
+    --input: 210 12% 87%;
+    --ring: 211 68% 64%;
 
-    /* Gradientes modernos */
-    --gradient-primary: linear-gradient(135deg, hsl(216 87% 53%), hsl(262 83% 58%));
-    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 46%));
-    --gradient-card: linear-gradient(145deg, hsl(255 255 255 / 0.8), hsl(255 255 255 / 0.4));
+    /* Gradientes suaves e modernos */
+    --gradient-primary: linear-gradient(135deg, hsl(211 68% 64%), hsl(250 55% 74%));
+    --gradient-success: linear-gradient(135deg, hsl(155 60% 54%), hsl(155 60% 64%));
+    --gradient-card: linear-gradient(145deg, hsl(255 255 255 / 0.9), hsl(248 250 252 / 0.6));
 
-    /* Sombras elegantes */
-    --shadow-soft: 0 1px 3px 0 hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
-    --shadow-medium: 0 4px 6px -1px hsl(0 0% 0% / 0.1), 0 2px 4px -2px hsl(0 0% 0% / 0.1);
-    --shadow-large: 0 10px 15px -3px hsl(0 0% 0% / 0.1), 0 4px 6px -4px hsl(0 0% 0% / 0.1);
-    --shadow-primary: 0 10px 30px -10px hsl(216 87% 53% / 0.3);
+    /* Sombras suaves */
+    --shadow-soft: 0 1px 3px 0 hsl(0 0% 0% / 0.08), 0 1px 2px -1px hsl(0 0% 0% / 0.08);
+    --shadow-medium: 0 4px 6px -1px hsl(0 0% 0% / 0.08), 0 2px 4px -2px hsl(0 0% 0% / 0.08);
+    --shadow-large: 0 10px 15px -3px hsl(0 0% 0% / 0.08), 0 4px 6px -4px hsl(0 0% 0% / 0.08);
+    --shadow-primary: 0 8px 25px -8px hsl(211 68% 64% / 0.25);
 
     /* Animações suaves */
     --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
