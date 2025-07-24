@@ -1,373 +1,204 @@
+// src/components/import/ImportDialog.tsx
 import React, { useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Upload, FileText, CheckCircle, AlertTriangle, X } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertTriangle, X, Link as LinkIcon } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { DadosImportacao } from '@/types/evaluation';
 import { useToast } from '@/hooks/use-toast';
 
+type ImportType = '360' | 'gerencia';
+
 interface ImportDialogProps {
-  onImport: (dados: DadosImportacao[]) => void;
+  onImport: (dados: DadosImportacao[], importType: ImportType) => void;
   children: React.ReactNode;
+  importType: ImportType;
+  periodoAtual: string;
 }
 
 interface PreviewData {
   valid: DadosImportacao[];
-  invalid: any[];
   errors: string[];
 }
 
-export function ImportDialog({ onImport, children }: ImportDialogProps) {
+const normalizeText = (text: string = '') => {
+  return text.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
+};
+
+export function ImportDialog({ onImport, children, importType, periodoAtual }: ImportDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const [sheetUrl, setSheetUrl] = useState('');
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
-  const processFile = useCallback(async (file: File) => {
-    setIsProcessing(true);
-    
-    try {
-      let data: any[] = [];
-      
-      if (file.name.endsWith('.csv')) {
-        // Processar CSV
-        const text = await file.text();
-        const result = Papa.parse(text, { header: true, skipEmptyLines: true });
-        data = result.data as any[];
-      } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        // Processar Excel
-        const buffer = await file.arrayBuffer();
-        const workbook = XLSX.read(buffer);
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        data = XLSX.utils.sheet_to_json(worksheet);
-      } else {
-        throw new Error('Formato de arquivo não suportado. Use CSV ou Excel (.xlsx, .xls)');
+  const processRowOrientedData = (data: any[]): PreviewData => {
+    // Lógica para planilhas onde cada linha é um registro (Gerência)
+    const valid: DadosImportacao[] = [];
+    const errors: string[] = [];
+    data.forEach((row, index) => {
+      const nomeOperador = row['Operador'] || row['operador'];
+      if (!nomeOperador) {
+        if (Object.values(row).some(val => val)) {
+          errors.push(`Linha ${index + 9}: A coluna 'Operador' é obrigatória.`);
+        }
+        return;
       }
+      const importedData: DadosImportacao = { nome_operador: String(nomeOperador).trim(), periodo: periodoAtual };
+      for (const key in row) {
+        if (key.toLowerCase() !== 'operador') {
+          importedData[normalizeText(key)] = row[key];
+        }
+      }
+      valid.push(importedData);
+    });
+    return { valid, errors };
+  };
+  
+  const processColumnarDataFromLink = (data: any[]): PreviewData => {
+    // Lógica para planilhas onde cada coluna é um operador (360 via link)
+    const valid: DadosImportacao[] = [];
+    const errors: string[] = [];
+    
+    if (data.length === 0) {
+      errors.push("A planilha 360 parece estar vazia.");
+      return { valid, errors };
+    }
 
-      // Validar e processar dados
-      const preview = validateData(data);
-      setPreviewData(preview);
-      
-      if (preview.valid.length === 0) {
-        toast({
-          title: "Erro na importação",
-          description: "Nenhum registro válido encontrado no arquivo.",
-          variant: "destructive"
+    const headers = Object.keys(data[0]);
+    const criteriaColumnKey = headers[1]; // Critérios estão na coluna B
+    const operatorHeaders = headers.slice(2);
+
+    const operatorDataMap = new Map<string, DadosImportacao>();
+
+    operatorHeaders.forEach(header => {
+      if (!header || typeof header !== 'string') return;
+      const operatorNameMatch = header.match(/\[(.*?)\]/);
+      if (operatorNameMatch && operatorNameMatch[1]) {
+        const nomeOperador = operatorNameMatch[1].trim();
+        operatorDataMap.set(header, { nome_operador: nomeOperador, periodo: periodoAtual });
+      } else {
+        errors.push(`Cabeçalho de coluna inválido: "${header}". Use o formato "[Nome Operador]".`);
+      }
+    });
+
+    data.forEach(row => {
+      const criterion = row[criteriaColumnKey];
+      if (criterion) {
+        const normalizedCriterion = normalizeText(criterion);
+        operatorHeaders.forEach(header => {
+          if (operatorDataMap.has(header)) {
+            const operatorData = operatorDataMap.get(header)!;
+            operatorData[normalizedCriterion] = row[header];
+          }
         });
       }
-    } catch (error) {
-      toast({
-        title: "Erro ao processar arquivo",
-        description: error instanceof Error ? error.message : "Erro desconhecido",
-        variant: "destructive"
+    });
+
+    operatorDataMap.forEach(value => valid.push(value));
+
+    return { valid, errors };
+  };
+
+  const handleUrlImport = useCallback(async () => {
+    if (!sheetUrl) return;
+    setIsProcessing(true);
+    setPreviewData(null);
+    try {
+      const response = await fetch(sheetUrl);
+      if (!response.ok) throw new Error(`Erro na rede: ${response.statusText}`);
+      const csvText = await response.text();
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const preview = processColumnarDataFromLink(results.data);
+          setPreviewData(preview);
+          setIsProcessing(false);
+        },
+        error: () => { throw new Error("Não foi possível processar o CSV da URL."); }
       });
-    } finally {
+    } catch (error) {
+      toast({ title: "Erro na Importação", description: `Verifique o link e se a planilha está publicada como CSV. Detalhe: ${error.message}`, variant: "destructive" });
       setIsProcessing(false);
     }
+  }, [sheetUrl, toast]);
+
+  const handleFileImport = useCallback((file: File) => {
+    setIsProcessing(true);
+    setPreviewData(null);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:Z1000');
+        range.s.r = 8; // Começa a ler da linha 9
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { range, blankrows: false });
+        setPreviewData(processRowOrientedData(jsonData));
+
+      } catch (error) {
+           toast({ title: "Erro no Arquivo", description: `Não foi possível ler o arquivo: ${error instanceof Error ? error.message : String(error)}`, variant: "destructive" });
+      } finally {
+          setIsProcessing(false);
+      }
+    };
+    reader.readAsArrayBuffer(file);
   }, [toast]);
 
-  const validateData = (data: any[]): PreviewData => {
-    const valid: DadosImportacao[] = [];
-    const invalid: any[] = [];
-    const errors: string[] = [];
-
-    data.forEach((row, index) => {
-      try {
-        // Mapear colunas (flexibilidade nos nomes)
-        const normalizedRow = normalizeColumnNames(row);
-        
-        const dadosImportacao: DadosImportacao = {
-          nome_operador: normalizedRow.nome_operador || '',
-          atraso_1_contato_percentual: parseFloat(normalizedRow.atraso_1_contato_percentual) || 0,
-          preenchimento_incorreto_percentual: parseFloat(normalizedRow.preenchimento_incorreto_percentual) || 0,
-          satisfacao_clientes_percentual: parseFloat(normalizedRow.satisfacao_clientes_percentual) || 0,
-          solicitacao_apoio_indevida_percentual: parseFloat(normalizedRow.solicitacao_apoio_indevida_percentual) || 0,
-          reabertura_tickets_percentual: parseFloat(normalizedRow.reabertura_tickets_percentual) || 0,
-          periodo: normalizedRow.periodo || ''
-        };
-
-        // Validações
-        if (!dadosImportacao.nome_operador.trim()) {
-          errors.push(`Linha ${index + 2}: Nome do operador não informado`);
-          invalid.push(row);
-          return;
-        }
-
-        if (!dadosImportacao.periodo.match(/^\d{4}-\d{2}$/)) {
-          errors.push(`Linha ${index + 2}: Período inválido (use formato YYYY-MM)`);
-          invalid.push(row);
-          return;
-        }
-
-        valid.push(dadosImportacao);
-      } catch (error) {
-        errors.push(`Linha ${index + 2}: Erro de formatação`);
-        invalid.push(row);
-      }
-    });
-
-    return { valid, invalid, errors };
-  };
-
-  const normalizeColumnNames = (row: any) => {
-    const normalized: any = {};
-    
-    Object.keys(row).forEach(key => {
-      const normalizedKey = key.toLowerCase()
-        .replace(/[^a-z0-9]/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_|_$/g, '');
-      
-      // Mapeamento de colunas comuns
-      const keyMappings: { [key: string]: string } = {
-        'nome': 'nome_operador',
-        'operador': 'nome_operador',
-        'atraso': 'atraso_1_contato_percentual',
-        'atraso_1_contato': 'atraso_1_contato_percentual',
-        'preenchimento': 'preenchimento_incorreto_percentual',
-        'satisfacao': 'satisfacao_clientes_percentual',
-        'apoio': 'solicitacao_apoio_indevida_percentual',
-        'reabertura': 'reabertura_tickets_percentual',
-        'mes': 'periodo',
-        'periodo': 'periodo'
-      };
-
-      const finalKey = keyMappings[normalizedKey] || normalizedKey;
-      normalized[finalKey] = row[key];
-    });
-
-    return normalized;
-  };
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    
-    const files = Array.from(e.dataTransfer.files);
-    const file = files[0];
-    
-    if (file) {
-      processFile(file);
-    }
-  }, [processFile]);
-
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processFile(file);
-    }
-  }, [processFile]);
-
   const handleConfirmImport = () => {
-    if (previewData?.valid) {
-      onImport(previewData.valid);
+    if (previewData?.valid && previewData.valid.length > 0) {
+      onImport(previewData.valid, importType);
       setIsOpen(false);
-      setPreviewData(null);
-      toast({
-        title: "Importação concluída",
-        description: `${previewData.valid.length} registros importados com sucesso.`,
-        variant: "default"
-      });
     }
   };
 
   const resetDialog = () => {
     setPreviewData(null);
     setIsProcessing(false);
+    setSheetUrl('');
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      setIsOpen(open);
-      if (!open) resetDialog();
-    }}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetDialog(); }}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Importar Dados de Avaliação
+            {importType === '360' ? <LinkIcon className="h-5 w-5" /> : <Upload className="h-5 w-5" />}
+            {importType === '360' ? 'Importar Avaliação 360 (via Link)' : 'Importar Dados da Gerência (Arquivo)'}
           </DialogTitle>
         </DialogHeader>
-
-        <div className="space-y-6">
+        <div className="flex-1 overflow-y-auto pr-2 space-y-4">
           {!previewData && !isProcessing && (
-            <Card
-              className={`border-2 border-dashed transition-colors ${
-                isDragging ? 'border-primary bg-primary/10' : 'border-muted-foreground/25'
-              }`}
-              onDrop={handleDrop}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={() => setIsDragging(false)}
-            >
-              <CardContent className="p-8 text-center">
-                <div className="space-y-4">
-                  <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-                    <FileText className="h-8 w-8 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">Arraste seu arquivo aqui</h3>
-                    <p className="text-muted-foreground">ou clique para selecionar</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      Formatos aceitos: CSV, Excel (.xlsx, .xls)
-                    </p>
-                    <div className="flex flex-wrap gap-2 justify-center">
-                      <Badge variant="outline">CSV</Badge>
-                      <Badge variant="outline">XLSX</Badge>
-                      <Badge variant="outline">XLS</Badge>
-                    </div>
-                  </div>
-                  <input
-                    type="file"
-                    accept=".csv,.xlsx,.xls"
-                    onChange={handleFileInput}
-                    className="hidden"
-                    id="file-input"
-                  />
-                  <Button asChild>
-                    <label htmlFor="file-input" className="cursor-pointer">
-                      Selecionar Arquivo
+            importType === '360' ? (
+                <div className="space-y-4 pt-4">
+                    <p className="text-sm text-muted-foreground">Cole o link da sua planilha do Google Sheets publicada como CSV. (Vá em <strong>Arquivo &gt; Compartilhar &gt; Publicar na web</strong>).</p>
+                    <div className="flex items-center gap-2"><Input id="sheet-url" placeholder="https://docs.google.com/spreadsheets/d/..." value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleUrlImport()} className="flex-1"/><Button onClick={handleUrlImport} disabled={!sheetUrl}><Upload className="h-4 w-4 mr-2" />Processar Link</Button></div>
+                </div>
+            ) : (
+                <div className="pt-4">
+                    <label htmlFor={`file-input-${importType}`} className="cursor-pointer border-2 border-dashed rounded-lg p-8 text-center block hover:border-primary transition-colors">
+                        <FileText className="h-12 w-12 mx-auto text-muted-foreground" /><p className="mt-2 font-semibold">Arraste um arquivo Excel ou clique para selecionar</p><p className="text-xs text-muted-foreground mt-1">A leitura começará da linha 9.</p>
+                        <Input id={`file-input-${importType}`} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && handleFileImport(e.target.files[0])} />
                     </label>
-                  </Button>
                 </div>
-              </CardContent>
-            </Card>
+            )
           )}
-
-          {isProcessing && (
-            <div className="text-center py-8">
-              <div className="inline-flex items-center gap-2">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                <span>Processando arquivo...</span>
-              </div>
-            </div>
-          )}
-
+          {isProcessing && (<div className="text-center py-8 flex items-center justify-center gap-2 text-muted-foreground"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div><span>Processando dados...</span></div>)}
           {previewData && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Preview dos Dados</h3>
-                <Button variant="outline" onClick={resetDialog}>
-                  <X className="h-4 w-4 mr-2" />
-                  Cancelar
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <div className="flex items-center justify-center gap-2 text-success">
-                      <CheckCircle className="h-5 w-5" />
-                      <span className="font-semibold">Válidos</span>
-                    </div>
-                    <div className="text-2xl font-bold text-success">
-                      {previewData.valid.length}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <div className="flex items-center justify-center gap-2 text-destructive">
-                      <AlertTriangle className="h-5 w-5" />
-                      <span className="font-semibold">Inválidos</span>
-                    </div>
-                    <div className="text-2xl font-bold text-destructive">
-                      {previewData.invalid.length}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <FileText className="h-5 w-5" />
-                      <span className="font-semibold">Total</span>
-                    </div>
-                    <div className="text-2xl font-bold">
-                      {previewData.valid.length + previewData.invalid.length}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {previewData.errors.length > 0 && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    <div className="space-y-1">
-                      <p className="font-semibold">Erros encontrados:</p>
-                      <ul className="list-disc list-inside space-y-1 text-sm">
-                        {previewData.errors.slice(0, 5).map((error, index) => (
-                          <li key={index}>{error}</li>
-                        ))}
-                        {previewData.errors.length > 5 && (
-                          <li>... e mais {previewData.errors.length - 5} erro(s)</li>
-                        )}
-                      </ul>
-                    </div>
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {previewData.valid.length > 0 && (
-                <div className="space-y-4">
-                  <h4 className="font-semibold">Dados válidos para importação:</h4>
-                  <div className="max-h-60 overflow-y-auto border rounded-lg">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/50 sticky top-0">
-                        <tr>
-                          <th className="text-left p-2">Operador</th>
-                          <th className="text-center p-2">Período</th>
-                          <th className="text-center p-2">Atraso</th>
-                          <th className="text-center p-2">Preenchimento</th>
-                          <th className="text-center p-2">Satisfação</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {previewData.valid.slice(0, 10).map((item, index) => (
-                          <tr key={index} className="border-b">
-                            <td className="p-2 font-medium">{item.nome_operador}</td>
-                            <td className="p-2 text-center">{item.periodo}</td>
-                            <td className="p-2 text-center">{item.atraso_1_contato_percentual}%</td>
-                            <td className="p-2 text-center">{item.preenchimento_incorreto_percentual}%</td>
-                            <td className="p-2 text-center">{item.satisfacao_clientes_percentual}%</td>
-                          </tr>
-                        ))}
-                        {previewData.valid.length > 10 && (
-                          <tr>
-                            <td colSpan={5} className="p-2 text-center text-muted-foreground">
-                              ... e mais {previewData.valid.length - 10} registro(s)
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={resetDialog}>
-                      Cancelar
-                    </Button>
-                    <Button onClick={handleConfirmImport}>
-                      Importar {previewData.valid.length} Registro(s)
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
+               <div className="space-y-4">
+                  <div className="flex items-center justify-between"><h3 className="text-lg font-semibold">Pré-visualização</h3><Button variant="outline" size="sm" onClick={resetDialog}><X className="h-4 w-4 mr-2" />Novo Envio</Button></div>
+                  {previewData.valid.length > 0 && <Alert className="bg-success/10 border-success/50"><CheckCircle className="h-4 w-4 !text-success" /><AlertDescription>{previewData.valid.length} operador(es) com dados válidos para importação.</AlertDescription></Alert>}
+                  {previewData.errors.length > 0 && <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription className="max-h-40 overflow-y-auto"><p className="font-semibold">{previewData.errors.length} erro(s):</p><ul className="list-disc list-inside text-xs">{previewData.errors.map((e, i) => <li key={i}>{e}</li>)}</ul></AlertDescription></Alert>}
+                  {previewData.valid.length > 0 && <div className="flex justify-end gap-2 pt-4 border-t mt-4"><Button variant="outline" onClick={() => setIsOpen(false)}>Cancelar</Button><Button onClick={handleConfirmImport}>Confirmar e Importar</Button></div>}
+               </div>
           )}
         </div>
       </DialogContent>

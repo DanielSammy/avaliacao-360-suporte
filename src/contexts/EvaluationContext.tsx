@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { Operador, Criterio, Avaliacao, ConfiguracaoSistema } from '../types/evaluation';
 import { DEFAULT_OPERADORES, DEFAULT_CRITERIOS } from '../data/defaultData';
 
@@ -43,24 +43,20 @@ const initialState: EvaluationState = {
   error: null
 };
 
-// Reducer
+// Reducer (sem alterações)
 function evaluationReducer(state: EvaluationState, action: EvaluationAction): EvaluationState {
   switch (action.type) {
     case 'SET_LOADING':
       return { ...state, loading: action.payload };
-    
     case 'SET_ERROR':
       return { ...state, error: action.payload };
-    
     case 'SET_OPERADORES':
       return { ...state, operadores: action.payload };
-    
     case 'ADD_OPERADOR':
       return { 
         ...state, 
         operadores: [...state.operadores, action.payload] 
       };
-    
     case 'UPDATE_OPERADOR':
       return {
         ...state,
@@ -68,16 +64,13 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
           op.id === action.payload.id ? action.payload : op
         )
       };
-    
     case 'DELETE_OPERADOR':
       return {
         ...state,
         operadores: state.operadores.filter(op => op.id !== action.payload)
       };
-    
     case 'SET_CRITERIOS':
       return { ...state, criterios: action.payload };
-    
     case 'UPDATE_CRITERIO':
       return {
         ...state,
@@ -85,16 +78,13 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
           cr.id === action.payload.id ? action.payload : cr
         )
       };
-    
     case 'SET_AVALIACOES':
       return { ...state, avaliacoes: action.payload };
-    
     case 'ADD_AVALIACAO':
       return {
         ...state,
         avaliacoes: [...state.avaliacoes, action.payload]
       };
-    
     case 'UPDATE_AVALIACAO':
       return {
         ...state,
@@ -102,29 +92,32 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
           av.id === action.payload.id ? action.payload : av
         )
       };
-    
     case 'DELETE_AVALIACAO':
       return {
         ...state,
         avaliacoes: state.avaliacoes.filter(av => av.id !== action.payload)
       };
-    
     case 'INITIALIZE_SYSTEM':
+       const initializedOperadores = DEFAULT_OPERADORES.map(op => ({
+        ...op,
+        dataInclusao: new Date(op.dataInclusao),
+      }));
       return {
         ...state,
-        operadores: DEFAULT_OPERADORES,
+        operadores: initializedOperadores,
         criterios: DEFAULT_CRITERIOS,
         configuracao: {
           ...state.configuracao,
-          operadores: DEFAULT_OPERADORES,
-          criterios: DEFAULT_CRITERIOS
+          operadores: initializedOperadores,
+          criterios: DEFAULT_CRITERIOS,
+          ultimaAtualizacao: new Date(),
         }
       };
-    
     default:
       return state;
   }
 }
+
 
 // Contexto
 const EvaluationContext = createContext<{
@@ -133,7 +126,7 @@ const EvaluationContext = createContext<{
 } | null>(null);
 
 // Provider
-export function EvaluationProvider({ children }: { children: React.ReactNode }) {
+export function EvaluationProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(evaluationReducer, initialState);
 
   // Inicialização do sistema e persistência no localStorage
@@ -143,14 +136,29 @@ export function EvaluationProvider({ children }: { children: React.ReactNode }) 
         const savedData = localStorage.getItem('avalia-mais-data');
         if (savedData) {
           const parsed = JSON.parse(savedData);
-          dispatch({ type: 'SET_OPERADORES', payload: parsed.operadores || DEFAULT_OPERADORES });
+          
+          // CORREÇÃO: Hidratar as datas
+          const hydratedOperadores = (parsed.operadores || []).map((op: Operador) => ({
+            ...op,
+            dataInclusao: new Date(op.dataInclusao),
+          }));
+          
+          const hydratedAvaliacoes = (parsed.avaliacoes || []).map((av: Avaliacao) => ({
+            ...av,
+            dataCriacao: new Date(av.dataCriacao),
+            dataUltimaEdicao: new Date(av.dataUltimaEdicao),
+          }));
+
+          dispatch({ type: 'SET_OPERADORES', payload: hydratedOperadores.length ? hydratedOperadores : DEFAULT_OPERADORES });
           dispatch({ type: 'SET_CRITERIOS', payload: parsed.criterios || DEFAULT_CRITERIOS });
-          dispatch({ type: 'SET_AVALIACOES', payload: parsed.avaliacoes || [] });
+          dispatch({ type: 'SET_AVALIACOES', payload: hydratedAvaliacoes });
         } else {
           dispatch({ type: 'INITIALIZE_SYSTEM' });
         }
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
+        // Em caso de erro, reinicia com os dados padrão para evitar crash
+        localStorage.removeItem('avalia-mais-data');
         dispatch({ type: 'INITIALIZE_SYSTEM' });
       }
     };
@@ -160,16 +168,25 @@ export function EvaluationProvider({ children }: { children: React.ReactNode }) 
 
   // Salvar dados no localStorage sempre que o estado mudar
   useEffect(() => {
-    if (state.operadores.length > 0 || state.criterios.length > 0) {
-      const dataToSave = {
-        operadores: state.operadores,
-        criterios: state.criterios,
-        avaliacoes: state.avaliacoes,
-        configuracao: state.configuracao
-      };
-      localStorage.setItem('avalia-mais-data', JSON.stringify(dataToSave));
+    // Evita salvar o estado inicial vazio
+    if (state.operadores.length > 0 || state.criterios.length > 0 || state.avaliacoes.length > 0) {
+      try {
+        const dataToSave = {
+          operadores: state.operadores,
+          criterios: state.criterios,
+          avaliacoes: state.avaliacoes,
+          configuracao: {
+            ...state.configuracao,
+            ultimaAtualizacao: new Date(), // Atualiza a data de última modificação
+          }
+        };
+        localStorage.setItem('avalia-mais-data', JSON.stringify(dataToSave));
+      } catch (error) {
+        console.error("Erro ao salvar dados no localStorage:", error)
+      }
     }
   }, [state.operadores, state.criterios, state.avaliacoes, state.configuracao]);
+
 
   return (
     <EvaluationContext.Provider value={{ state, dispatch }}>

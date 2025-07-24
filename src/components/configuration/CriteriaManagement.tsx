@@ -278,6 +278,7 @@ export function CriteriaManagement() {
                                   <RotateCcw className="h-3 w-3" />
                                 </Button>
                                 <Button
+                                  variant="outline"
                                   size="sm"
                                   onClick={() => salvarCriterio(criterio.id)}
                                 >

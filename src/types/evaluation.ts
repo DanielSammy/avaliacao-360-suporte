@@ -1,5 +1,4 @@
-// Tipos principais do sistema de avaliação
-
+// src/types/evaluation.ts
 export interface Operador {
   id: string;
   nome: string;
@@ -15,7 +14,7 @@ export interface Criterio {
   valorBonus: number;
   ordem: number;
   ativo: boolean;
-  permiteImportacao: boolean; // false para "Quantitativo"
+  permiteImportacao: boolean;
 }
 
 export interface CriterioAvaliacao {
@@ -36,22 +35,12 @@ export interface Avaliacao {
   dataUltimaEdicao: Date;
 }
 
+// Interface unificada para todos os tipos de importação
 export interface DadosImportacao {
   nome_operador: string;
-  atraso_1_contato_percentual: number;
-  preenchimento_incorreto_percentual: number;
-  satisfacao_clientes_percentual: number;
-  solicitacao_apoio_indevida_percentual: number;
-  reabertura_tickets_percentual: number;
   periodo: string;
-}
-
-export interface EstatisticasOperador {
-  operadorId: string;
-  totalAvaliacoes: number;
-  mediaBonus: number;
-  ultimaAvaliacao?: Date;
-  metasAtingidasPorcentagem: number;
+  // Permite qualquer outra chave, que será o nome da coluna normalizado
+  [key: string]: string | number | undefined;
 }
 
 export type StatusAvaliacao = 'pendente' | 'em_andamento' | 'concluida';
