@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { Operador, Criterio, Avaliacao, ConfiguracaoSistema } from '../types/evaluation';
 import { DEFAULT_OPERADORES, DEFAULT_CRITERIOS } from '../data/defaultData';
+import { 
+  serializeData, 
+  deserializeData, 
+  validateStorageData, 
+  logSecurityEvent, 
+  checkDataIntegrity,
+  SECURITY_CONSTRAINTS 
+} from '../utils/security';
 
 // Estado global do sistema
 interface EvaluationState {
@@ -139,19 +147,53 @@ export function EvaluationProvider({ children }: { children: React.ReactNode }) 
   // Inicialização do sistema e persistência no localStorage
   useEffect(() => {
     const loadData = () => {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      
       try {
         const savedData = localStorage.getItem('avalia-mais-data');
         if (savedData) {
-          const parsed = JSON.parse(savedData);
-          dispatch({ type: 'SET_OPERADORES', payload: parsed.operadores || DEFAULT_OPERADORES });
-          dispatch({ type: 'SET_CRITERIOS', payload: parsed.criterios || DEFAULT_CRITERIOS });
-          dispatch({ type: 'SET_AVALIACOES', payload: parsed.avaliacoes || [] });
+          // Try new secure deserialization first
+          let parsed;
+          try {
+            parsed = deserializeData(savedData);
+          } catch {
+            // Fallback to old format and migrate
+            parsed = JSON.parse(savedData);
+            logSecurityEvent('data_migration_required', { reason: 'old_format_detected' });
+          }
+          
+          // Validate and sanitize data
+          const validation = validateStorageData(parsed);
+          if (!validation.valid) {
+            logSecurityEvent('data_validation_failed', { errors: validation.errors });
+            dispatch({ type: 'SET_ERROR', payload: 'Dados corrompidos detectados. Sistema será reinicializado.' });
+            dispatch({ type: 'INITIALIZE_SYSTEM' });
+            return;
+          }
+          
+          const migratedData = validation.migrated || parsed;
+          
+          // Check data integrity
+          const integrityCheck = checkDataIntegrity(migratedData);
+          if (!integrityCheck.valid) {
+            logSecurityEvent('data_integrity_failed', { issues: integrityCheck.issues });
+            console.warn('Problemas de integridade detectados:', integrityCheck.issues);
+          }
+          
+          // Load validated and migrated data
+          dispatch({ type: 'SET_OPERADORES', payload: migratedData.operadores || DEFAULT_OPERADORES });
+          dispatch({ type: 'SET_CRITERIOS', payload: migratedData.criterios || DEFAULT_CRITERIOS });
+          dispatch({ type: 'SET_AVALIACOES', payload: migratedData.avaliacoes || [] });
         } else {
           dispatch({ type: 'INITIALIZE_SYSTEM' });
         }
       } catch (error) {
+        logSecurityEvent('data_load_error', { error: error instanceof Error ? error.message : 'unknown' });
         console.error('Erro ao carregar dados:', error);
+        dispatch({ type: 'SET_ERROR', payload: 'Erro ao carregar dados. Sistema será reinicializado.' });
         dispatch({ type: 'INITIALIZE_SYSTEM' });
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
 
@@ -160,16 +202,32 @@ export function EvaluationProvider({ children }: { children: React.ReactNode }) 
 
   // Salvar dados no localStorage sempre que o estado mudar
   useEffect(() => {
+    if (state.loading || state.error) return; // Don't save during loading or error states
+    
     if (state.operadores.length > 0 || state.criterios.length > 0) {
-      const dataToSave = {
-        operadores: state.operadores,
-        criterios: state.criterios,
-        avaliacoes: state.avaliacoes,
-        configuracao: state.configuracao
-      };
-      localStorage.setItem('avalia-mais-data', JSON.stringify(dataToSave));
+      try {
+        const dataToSave = {
+          version: SECURITY_CONSTRAINTS.CURRENT_DATA_VERSION,
+          timestamp: new Date().toISOString(),
+          operadores: state.operadores,
+          criterios: state.criterios,
+          avaliacoes: state.avaliacoes,
+          configuracao: {
+            ...state.configuracao,
+            ultimaAtualizacao: new Date(),
+            versao: SECURITY_CONSTRAINTS.CURRENT_DATA_VERSION
+          }
+        };
+        
+        // Use secure serialization
+        const serializedData = serializeData(dataToSave);
+        localStorage.setItem('avalia-mais-data', serializedData);
+      } catch (error) {
+        logSecurityEvent('data_save_error', { error: error instanceof Error ? error.message : 'unknown' });
+        console.error('Erro ao salvar dados:', error);
+      }
     }
-  }, [state.operadores, state.criterios, state.avaliacoes, state.configuracao]);
+  }, [state.operadores, state.criterios, state.avaliacoes, state.configuracao, state.loading, state.error]);
 
   return (
     <EvaluationContext.Provider value={{ state, dispatch }}>

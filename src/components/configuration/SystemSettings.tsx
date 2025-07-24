@@ -6,6 +6,14 @@ import { useEvaluation } from '@/contexts/EvaluationContext';
 import { DEFAULT_OPERADORES, DEFAULT_CRITERIOS } from '@/data/defaultData';
 import { Download, Upload, RotateCcw, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  serializeData, 
+  deserializeData, 
+  validateBackupData, 
+  logSecurityEvent,
+  generateChecksum,
+  SECURITY_CONSTRAINTS 
+} from '@/utils/security';
 
 export function SystemSettings() {
   const { state, dispatch } = useEvaluation();
@@ -14,6 +22,8 @@ export function SystemSettings() {
   const exportarDados = () => {
     try {
       const dados = {
+        version: SECURITY_CONSTRAINTS.CURRENT_DATA_VERSION,
+        timestamp: new Date().toISOString(),
         operadores: state.operadores,
         criterios: state.criterios,
         avaliacoes: state.avaliacoes,
@@ -21,7 +31,13 @@ export function SystemSettings() {
         exportadoEm: new Date().toISOString()
       };
 
-      const blob = new Blob([JSON.stringify(dados, null, 2)], { 
+      // Generate checksum for integrity verification
+      const checksum = generateChecksum(dados);
+      const dataWithChecksum = { ...dados, checksum };
+
+      // Use secure serialization
+      const serializedData = serializeData(dataWithChecksum);
+      const blob = new Blob([serializedData], { 
         type: 'application/json' 
       });
       
@@ -34,12 +50,20 @@ export function SystemSettings() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
+      logSecurityEvent('backup_created', { 
+        recordCount: state.operadores.length + state.criterios.length + state.avaliacoes.length,
+        checksum 
+      });
+
       toast({
         title: "Backup criado",
         description: "Os dados foram exportados com sucesso.",
         variant: "default"
       });
     } catch (error) {
+      logSecurityEvent('backup_export_error', { 
+        error: error instanceof Error ? error.message : 'unknown' 
+      });
       toast({
         title: "Erro no backup",
         description: "Não foi possível exportar os dados.",
@@ -55,17 +79,55 @@ export function SystemSettings() {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const dados = JSON.parse(e.target?.result as string);
+        const jsonString = e.target?.result as string;
         
-        // Validar estrutura básica
-        if (!dados.operadores || !dados.criterios || !dados.avaliacoes) {
-          throw new Error('Arquivo de backup inválido');
+        // Try secure deserialization first
+        let dados;
+        try {
+          dados = deserializeData(jsonString);
+        } catch {
+          // Fallback to regular JSON parse
+          dados = JSON.parse(jsonString);
+          logSecurityEvent('backup_import_legacy_format', { filename: file.name });
+        }
+        
+        // Validate backup structure
+        const validation = validateBackupData(dados);
+        if (!validation.valid) {
+          logSecurityEvent('backup_validation_failed', { 
+            errors: validation.errors,
+            filename: file.name 
+          });
+          throw new Error('Arquivo de backup inválido: ' + validation.errors.join(', '));
         }
 
-        // Importar dados
+        // Verify checksum if present
+        if (dados.checksum) {
+          const { checksum, ...dataWithoutChecksum } = dados;
+          const calculatedChecksum = generateChecksum(dataWithoutChecksum);
+          if (checksum !== calculatedChecksum) {
+            logSecurityEvent('backup_checksum_mismatch', { 
+              expected: checksum,
+              calculated: calculatedChecksum,
+              filename: file.name 
+            });
+            toast({
+              title: "Aviso",
+              description: "Integridade do backup não pode ser verificada, mas continuando com a importação.",
+              variant: "destructive"
+            });
+          }
+        }
+
+        // Import validated data
         dispatch({ type: 'SET_OPERADORES', payload: dados.operadores });
         dispatch({ type: 'SET_CRITERIOS', payload: dados.criterios });
         dispatch({ type: 'SET_AVALIACOES', payload: dados.avaliacoes });
+
+        logSecurityEvent('backup_imported_successfully', { 
+          recordCount: dados.operadores.length + dados.criterios.length + dados.avaliacoes.length,
+          filename: file.name 
+        });
 
         toast({
           title: "Dados importados",
@@ -73,9 +135,13 @@ export function SystemSettings() {
           variant: "default"
         });
       } catch (error) {
+        logSecurityEvent('backup_import_error', { 
+          error: error instanceof Error ? error.message : 'unknown',
+          filename: file.name 
+        });
         toast({
           title: "Erro na importação",
-          description: "Arquivo de backup inválido ou corrompido.",
+          description: error instanceof Error ? error.message : "Arquivo de backup inválido ou corrompido.",
           variant: "destructive"
         });
       }

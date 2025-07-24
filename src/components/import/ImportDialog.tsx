@@ -9,6 +9,13 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { DadosImportacao } from '@/types/evaluation';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  validateFile, 
+  validateImportData, 
+  sanitizeString, 
+  logSecurityEvent,
+  SECURITY_CONSTRAINTS 
+} from '@/utils/security';
 
 interface ImportDialogProps {
   onImport: (dados: DadosImportacao[]) => void;
@@ -32,35 +39,77 @@ export function ImportDialog({ onImport, children }: ImportDialogProps) {
     setIsProcessing(true);
     
     try {
+      // Validate file first
+      const fileValidation = validateFile(file);
+      if (!fileValidation.valid) {
+        logSecurityEvent('file_validation_failed', { filename: file.name, error: fileValidation.error });
+        throw new Error(fileValidation.error);
+      }
+      
       let data: any[] = [];
       
       if (file.name.endsWith('.csv')) {
-        // Processar CSV
+        // Processar CSV com limitações de segurança
         const text = await file.text();
-        const result = Papa.parse(text, { header: true, skipEmptyLines: true });
+        if (text.length > SECURITY_CONSTRAINTS.MAX_FILE_SIZE) {
+          throw new Error('Arquivo CSV muito grande');
+        }
+        
+        const result = Papa.parse(text, { 
+          header: true, 
+          skipEmptyLines: true,
+          preview: SECURITY_CONSTRAINTS.MAX_IMPORT_ROWS // Limit rows for security
+        });
+        
         data = result.data as any[];
       } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        // Processar Excel
+        // Processar Excel com limitações de segurança
         const buffer = await file.arrayBuffer();
+        if (buffer.byteLength > SECURITY_CONSTRAINTS.MAX_FILE_SIZE) {
+          throw new Error('Arquivo Excel muito grande');
+        }
+        
         const workbook = XLSX.read(buffer);
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        data = XLSX.utils.sheet_to_json(worksheet);
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        // Limit rows for security
+        data = jsonData.slice(0, SECURITY_CONSTRAINTS.MAX_IMPORT_ROWS);
       } else {
         throw new Error('Formato de arquivo não suportado. Use CSV ou Excel (.xlsx, .xls)');
       }
 
-      // Validar e processar dados
-      const preview = validateData(data);
+      // Use secure validation from security utils
+      const validation = validateImportData(data);
+      
+      // Map to old format for compatibility
+      const preview: PreviewData = {
+        valid: validation.valid,
+        invalid: data.filter(item => !validation.valid.includes(item as DadosImportacao)),
+        errors: validation.errors
+      };
+      
       setPreviewData(preview);
       
       if (preview.valid.length === 0) {
+        logSecurityEvent('no_valid_data_found', { totalRows: data.length });
         toast({
           title: "Erro na importação",
           description: "Nenhum registro válido encontrado no arquivo.",
           variant: "destructive"
         });
+      } else {
+        logSecurityEvent('file_processed_successfully', { 
+          validRows: preview.valid.length, 
+          invalidRows: preview.invalid.length,
+          filename: file.name 
+        });
       }
     } catch (error) {
+      logSecurityEvent('file_processing_error', { 
+        error: error instanceof Error ? error.message : 'unknown',
+        filename: file.name 
+      });
       toast({
         title: "Erro ao processar arquivo",
         description: error instanceof Error ? error.message : "Erro desconhecido",
@@ -71,48 +120,6 @@ export function ImportDialog({ onImport, children }: ImportDialogProps) {
     }
   }, [toast]);
 
-  const validateData = (data: any[]): PreviewData => {
-    const valid: DadosImportacao[] = [];
-    const invalid: any[] = [];
-    const errors: string[] = [];
-
-    data.forEach((row, index) => {
-      try {
-        // Mapear colunas (flexibilidade nos nomes)
-        const normalizedRow = normalizeColumnNames(row);
-        
-        const dadosImportacao: DadosImportacao = {
-          nome_operador: normalizedRow.nome_operador || '',
-          atraso_1_contato_percentual: parseFloat(normalizedRow.atraso_1_contato_percentual) || 0,
-          preenchimento_incorreto_percentual: parseFloat(normalizedRow.preenchimento_incorreto_percentual) || 0,
-          satisfacao_clientes_percentual: parseFloat(normalizedRow.satisfacao_clientes_percentual) || 0,
-          solicitacao_apoio_indevida_percentual: parseFloat(normalizedRow.solicitacao_apoio_indevida_percentual) || 0,
-          reabertura_tickets_percentual: parseFloat(normalizedRow.reabertura_tickets_percentual) || 0,
-          periodo: normalizedRow.periodo || ''
-        };
-
-        // Validações
-        if (!dadosImportacao.nome_operador.trim()) {
-          errors.push(`Linha ${index + 2}: Nome do operador não informado`);
-          invalid.push(row);
-          return;
-        }
-
-        if (!dadosImportacao.periodo.match(/^\d{4}-\d{2}$/)) {
-          errors.push(`Linha ${index + 2}: Período inválido (use formato YYYY-MM)`);
-          invalid.push(row);
-          return;
-        }
-
-        valid.push(dadosImportacao);
-      } catch (error) {
-        errors.push(`Linha ${index + 2}: Erro de formatação`);
-        invalid.push(row);
-      }
-    });
-
-    return { valid, invalid, errors };
-  };
 
   const normalizeColumnNames = (row: any) => {
     const normalized: any = {};
