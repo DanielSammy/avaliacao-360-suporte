@@ -48,7 +48,7 @@ export function OperatorSelector({
     }
   };
 
-  const operadoresAtivos = operadores.filter(op => op.ativo);
+  const operadoresAtivos = operadores.filter(op => op.ativo && op.participaAvaliacao);
 
   return (
     <Card className="shadow-medium">
@@ -63,7 +63,7 @@ export function OperatorSelector({
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Escolha um operador para avaliar" />
             </SelectTrigger>
-            <SelectContent className="bg-popover z-50">
+            <SelectContent className="bg-white z-50">
               {operadoresAtivos.map((operador) => {
                 const status = getStatusAvaliacao(operador.id);
                 return (

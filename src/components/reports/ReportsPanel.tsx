@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -134,14 +135,21 @@ export function ReportsPanel() {
 
   // Dados para tabela de resultados
   const dadosTabela = useMemo(() => {
+    const activeOperators = state.operadores.filter(op => op.ativo);
+    const totalOperatorsCount = activeOperators.length;
+
     return avaliacoesFiltradas.map(avaliacao => {
       const operador = state.operadores.find(op => op.id === avaliacao.operadorId);
       const metasAtingidas = avaliacao.criterios.filter(c => c.metaAtingida).length;
       const totalMetas = avaliacao.criterios.length;
       const percentualMetas = totalMetas > 0 ? (metasAtingidas / totalMetas) * 100 : 0;
-      const performance = avaliacao.valorTotalMeta > 0 
-        ? (avaliacao.valorTotalAlcancado / avaliacao.valorTotalMeta) * 100 
+      const performance = avaliacao.valorTotalMeta > 0
+        ? (avaliacao.valorTotalAlcancado / avaliacao.valorTotalMeta) * 100
         : 0;
+
+      const evaluationsReceived = state.avaliacoes.filter(evalItem => evalItem.operadorId === avaliacao.operadorId);
+      const evaluationsExpectedToReceive = totalOperatorsCount > 1 ? totalOperatorsCount - 1 : 0;
+      const isCompleted = evaluationsReceived.length === evaluationsExpectedToReceive;
 
       return {
         avaliacao,
@@ -149,16 +157,24 @@ export function ReportsPanel() {
         metasAtingidas,
         totalMetas,
         percentualMetas,
-        performance
+        performance,
+        isCompleted
       };
     }).sort((a, b) => b.avaliacao.valorTotalAlcancado - a.avaliacao.valorTotalAlcancado);
-  }, [avaliacoesFiltradas, state.operadores]);
+  }, [avaliacoesFiltradas, state.operadores, state.avaliacoes]);
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-3xl font-bold text-primary mb-2">Relatórios e Análises</h2>
-        <p className="text-muted-foreground">Acompanhe o desempenho e gere relatórios detalhados</p>
+        <div className="flex justify-between items-center">
+            <div className="text-left">
+                <h2 className="text-3xl font-bold text-primary mb-2">Relatórios e Análises</h2>
+                <p className="text-muted-foreground">Acompanhe o desempenho e gere relatórios detalhados</p>
+            </div>
+            <Link to="/ranking">
+                <Button>
+                    <Award className="mr-2 h-4 w-4" /> Ver Ranking Geral
+                </Button>
+            </Link>
       </div>
 
       {/* Filtros */}
@@ -334,7 +350,9 @@ export function ReportsPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {dadosTabela.map(({ avaliacao, operador, metasAtingidas, totalMetas, percentualMetas, performance }) => (
+                  {dadosTabela.map(({ avaliacao, operador, metasAtingidas, totalMetas, percentualMetas, performance, isCompleted }) => {
+                    console.log(`Operador: ${operador?.nome}, isCompleted: ${isCompleted}`);
+                    return (
                     <tr key={avaliacao.id} className="border-b hover:bg-muted/30 transition-colors">
                       <td className="p-4">
                         <div className="font-medium">{operador?.nome || 'Operador não encontrado'}</div>
@@ -368,7 +386,7 @@ export function ReportsPanel() {
                         {formatarMoeda(avaliacao.valorTotalAlcancado)}
                       </td>
                       <td className="p-4 text-center">
-                        {operador && (
+                        {operador && isCompleted && (
                           <PDFGenerator
                             avaliacao={avaliacao}
                             operador={operador}
@@ -377,7 +395,7 @@ export function ReportsPanel() {
                         )}
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>

@@ -2,6 +2,8 @@ import React from 'react';
 import { useEvaluation } from '@/contexts/EvaluationContext';
 import { Header } from '@/components/layout/Header';
 import { NavigationTabs } from '@/components/navigation/NavigationTabs';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 
 const Index = () => {
   const { state } = useEvaluation();
@@ -25,6 +27,14 @@ const Index = () => {
           totalOperadores={totalOperadores}
           avaliacoesPendentes={avaliacoesPendentes} 
         />
+        <div className="flex gap-4 mb-6">
+          <Link to="/evaluate-operators">
+            <Button>Avaliar Operadores</Button>
+          </Link>
+          <Link to="/evaluation-tracking">
+            <Button variant="outline">Acompanhamento de Avaliações</Button>
+          </Link>
+        </div>
         <NavigationTabs />
       </div>
     </div>

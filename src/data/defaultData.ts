@@ -1,18 +1,17 @@
 import { Operador, Criterio } from '../types/evaluation';
 
 export const DEFAULT_OPERADORES: Operador[] = [
-  { id: '1', nome: 'Ana Carolina Ribeiro', ativo: true, dataInclusao: new Date() },
-  { id: '2', nome: 'Erick Douglas', ativo: true, dataInclusao: new Date() },
-  { id: '3', nome: 'Evandro Pereira', ativo: true, dataInclusao: new Date() },
-  { id: '4', nome: 'Gabriel Medeiros', ativo: true, dataInclusao: new Date() },
-  { id: '5', nome: 'Jonathan Nascimento', ativo: true, dataInclusao: new Date() },
-  { id: '6', nome: 'João Pedro Costa', ativo: true, dataInclusao: new Date() },
-  { id: '7', nome: 'Luciano Augusto', ativo: true, dataInclusao: new Date() },
-  { id: '8', nome: 'Luís Romero', ativo: true, dataInclusao: new Date() },
-  { id: '9', nome: 'Mayara Duarte', ativo: true, dataInclusao: new Date() },
-  { id: '10', nome: 'Paulo Silva', ativo: true, dataInclusao: new Date() },
-  { id: '11', nome: 'Samuel Ivens', ativo: true, dataInclusao: new Date() },
-  { id: '12', nome: 'Wesley Fagundes', ativo: true, dataInclusao: new Date() },
+  { id: '1', nome: 'Ana Carolina Ribeiro', login: 'anacarolina@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true },
+  { id: '2', nome: 'Erick Douglas', login: 'erick@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true },
+  { id: '3', nome: 'Evandro Pereira', login: 'evandro@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true },
+  { id: '4', nome: 'Gabriel Medeiros', login: 'gabrielmedeiros@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true },
+  { id: '5', nome: 'Jonathan Nascimento', login: 'jonathan.nascimento@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true },
+  { id: '6', nome: 'Luciano Augusto', login: 'luciano@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true },
+  { id: '7', nome: 'Luís Romero', login: 'luis.romero@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true },
+  { id: '8', nome: 'Mayara Duarte', login: 'mayaraduarte@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true },
+  { id: '9', nome: 'Paulo Silva', login: 'paulosilva@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true },
+  { id: '10', nome: 'Samuel Ivens', login: 'samuelxavier@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true },
+  { id: '11', nome: 'Wesley Fagundes', login: 'wesleylima@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true },
 ];
 
 export const DEFAULT_CRITERIOS: Criterio[] = [
@@ -25,7 +24,7 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 100.00,
     ordem: 1,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
   {
     id: 'gerencia_preenchimento_tkt',
@@ -35,7 +34,7 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 140.00,
     ordem: 2,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
   {
     id: 'gerencia_satisfacao_clientes',
@@ -45,7 +44,7 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 50.00,
     ordem: 3,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
   {
     id: 'gerencia_apoio_indevido',
@@ -55,7 +54,7 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 20.00,
     ordem: 4,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
   {
     id: 'gerencia_reabertura_tkt',
@@ -65,7 +64,7 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 20.00,
     ordem: 5,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
   {
     id: 'gerencia_quantitativo',
@@ -75,20 +74,10 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 110.00,
     ordem: 6,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'quantitativo'
   },
 
   // --- Critérios 360 (Valor Total: R$ 340,00) ---
-  {
-    id: '360_pontualidade',
-    nome: 'Pontualidade e Compromisso com Horários',
-    tipoMeta: 'maior_melhor',
-    valorMeta: 95,
-    valorBonus: 26.00,
-    ordem: 7,
-    ativo: true,
-    permiteImportacao: true
-  },
   {
     id: '360_solucoes_eficazes',
     nome: 'Fornece Soluções Precisas e Eficazes',
@@ -97,7 +86,7 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 26.00,
     ordem: 8,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
   {
     id: '360_comunicacao_clara',
@@ -107,7 +96,7 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 26.00,
     ordem: 9,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
   {
     id: '360_lida_clientes_dificeis',
@@ -117,7 +106,7 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 26.00,
     ordem: 10,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
   {
     id: '360_resposta_rapida',
@@ -127,7 +116,7 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 26.00,
     ordem: 11,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
   {
     id: '360_atitude_proativa',
@@ -137,7 +126,7 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 26.00,
     ordem: 12,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
   {
     id: '360_respeito_simpatia',
@@ -147,7 +136,7 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 26.00,
     ordem: 13,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
   {
     id: '360_alinhamento_equipe',
@@ -157,7 +146,7 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 26.00,
     ordem: 14,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
   {
     id: '360_responsabilidade',
@@ -167,7 +156,7 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 26.00,
     ordem: 15,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
   {
     id: '360_iniciativa_aprendizado',
@@ -177,7 +166,7 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 26.00,
     ordem: 16,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
   {
     id: '360_compreensao_processos',
@@ -187,7 +176,7 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 26.00,
     ordem: 17,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
   {
     id: '360_evita_distracoes',
@@ -197,7 +186,7 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 26.00,
     ordem: 18,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
   {
     id: '360_trabalho_conjunto',
@@ -207,6 +196,6 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     valorBonus: 28.00, // Ajustado para fechar em R$ 340
     ordem: 19,
     ativo: true,
-    permiteImportacao: true
+    tipo: 'qualitativo'
   },
 ];

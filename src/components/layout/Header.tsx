@@ -18,11 +18,11 @@ export function Header({ periodoAtual, totalOperadores, avaliacoesPendentes }: H
           <div className="flex items-center gap-3">
             {/* <div className="p-3 bg-gradient-primary rounded-xl shadow-primary"> */}
               {/* <TrendingUp className="h-8 w-8 text-primary-foreground" /> */}
-              <img src="/src/assets/logo.png" alt="Logo Space" className="h-14 w-14" />
+              <img src={`${import.meta.env.BASE_URL}src/assets/logo.png`} alt="Logo Space" className="h-14 w-18" />
             {/* </div> */}
             <div>
               <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                Avalia+
+                Space Informática
               </h1>
               <p className="text-muted-foreground">Sistema de Avaliação de Desempenho</p>
             </div>

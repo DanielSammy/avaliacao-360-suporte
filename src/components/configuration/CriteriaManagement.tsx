@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,72 @@ import { useToast } from '@/hooks/use-toast';
 export function CriteriaManagement() {
   const { state, dispatch } = useEvaluation();
   const [editedCriteria, setEditedCriteria] = useState<{ [key: string]: Criterio }>({});
+  const [newCriterionName, setNewCriterionName] = useState<string>('');
+  const [totalTeamTickets, setTotalTeamTickets] = useState<number>(state.totalTeamTickets);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setTotalTeamTickets(state.totalTeamTickets);
+  }, [state.totalTeamTickets]);
+
+  useEffect(() => {
+    const quantitativoGerenciaCriterio = state.criterios.find(
+      (c) => c.id === 'gerencia_quantitativo' && c.tipo === 'quantitativo'
+    );
+
+    if (quantitativoGerenciaCriterio) {
+      const activeOperatorsCount = state.operadores.filter(
+        (op) => op.participaAvaliacao
+      ).length;
+
+      let newValorMeta = 0;
+      if (activeOperatorsCount > 0) {
+        newValorMeta = Math.round((state.totalTeamTickets / activeOperatorsCount) * 0.80);
+      }
+
+      // Only dispatch if the value has actually changed to avoid unnecessary re-renders
+      if (newValorMeta !== quantitativoGerenciaCriterio.valorMeta) {
+        dispatch({
+          type: 'UPDATE_CRITERIO',
+          payload: {
+            ...quantitativoGerenciaCriterio,
+            valorMeta: newValorMeta,
+          },
+        });
+      }
+    }
+  }, [state.totalTeamTickets, state.operadores, state.criterios, dispatch]);
+
+  const addNewCriterion = () => {
+    if (!newCriterionName.trim()) {
+      toast({
+        title: "Erro",
+        description: "O nome do critério não pode ser vazio.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const newId = `criterio-${Date.now()}`; // Simple unique ID for now
+    const newCriterion: Criterio = {
+      id: newId,
+      nome: newCriterionName.trim(),
+      tipoMeta: 'maior_melhor',
+      valorMeta: 1,
+      valorBonus: 0.01,
+      ordem: state.criterios.length + 1, // Place at the end
+      ativo: true,
+      tipo: 'qualitativo',
+    };
+
+    dispatch({ type: 'ADD_CRITERIO', payload: newCriterion });
+    setNewCriterionName('');
+    toast({
+      title: "Critério adicionado",
+      description: `"${newCriterion.nome}" foi adicionado com sucesso.`,
+      variant: "default"
+    });
+  };
 
   const updateCriterio = (criterioId: string, updates: Partial<Criterio>) => {
     const criterioOriginal = state.criterios.find(c => c.id === criterioId);
@@ -44,10 +109,10 @@ export function CriteriaManagement() {
     if (!criterioAtualizado) return;
 
     // Validações
-    if (criterioAtualizado.valorMeta <= 0) {
+    if (criterioAtualizado.tipo === 'qualitativo' && (criterioAtualizado.valorMeta < 0 || criterioAtualizado.valorMeta > 100 || !Number.isInteger(criterioAtualizado.valorMeta))) {
       toast({
         title: "Erro",
-        description: "O valor da meta deve ser maior que zero.",
+        description: "O valor da meta deve ser um número inteiro entre 0 e 100.",
         variant: "destructive"
       });
       return;
@@ -86,7 +151,11 @@ export function CriteriaManagement() {
     let hasErrors = false;
     
     Object.values(editedCriteria).forEach(criterio => {
-      if (criterio.valorMeta <= 0 || criterio.valorBonus <= 0) {
+      if (criterio.tipo === 'qualitativo' && (criterio.valorMeta < 0 || criterio.valorMeta > 100 || !Number.isInteger(criterio.valorMeta))) {
+        hasErrors = true;
+        return;
+      }
+      if (criterio.valorBonus <= 0) {
         hasErrors = true;
         return;
       }
@@ -96,7 +165,7 @@ export function CriteriaManagement() {
     if (hasErrors) {
       toast({
         title: "Erro",
-        description: "Todos os valores devem ser maiores que zero.",
+        description: "Todos os valores devem ser um número inteiro entre 0 e 100 para a meta e maior que zero para o bônus.",
         variant: "destructive"
       });
       return;
@@ -150,11 +219,11 @@ export function CriteriaManagement() {
               <thead className="bg-muted/50">
                 <tr>
                   <th className="text-left p-4 font-semibold">Critério</th>
+                  <th className="text-center p-4 font-semibold">Tipo</th>
                   <th className="text-center p-4 font-semibold">Tipo de Meta</th>
                   <th className="text-center p-4 font-semibold">Valor da Meta</th>
                   <th className="text-center p-4 font-semibold">Valor do Bônus</th>
                   <th className="text-center p-4 font-semibold">Status</th>
-                  <th className="text-center p-4 font-semibold">Importação</th>
                   <th className="text-center p-4 font-semibold">Ações</th>
                 </tr>
               </thead>
@@ -173,12 +242,37 @@ export function CriteriaManagement() {
                         }`}
                       >
                         <td className="p-4">
-                          <div className="font-medium">{criterio.nome}</div>
+                          <Input
+                            value={criterio.nome}
+                            onChange={(e) => updateCriterio(criterio.id, { nome: e.target.value })}
+                            className="font-medium"
+                          />
                           {hasChangesForCriterio && (
                             <Badge variant="outline" className="mt-1 text-xs">
                               Alterado
                             </Badge>
                           )}
+                        </td>
+                        
+                        <td className="p-4 text-center">
+                          <Select
+                            value={criterio.tipo}
+                            onValueChange={(value: 'qualitativo' | 'quantitativo') =>
+                              updateCriterio(criterio.id, { tipo: value })
+                            }
+                          >
+                            <SelectTrigger className="w-40 mx-auto">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="qualitativo">
+                                Qualitativo
+                              </SelectItem>
+                              <SelectItem value="quantitativo">
+                                Quantitativo
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
                         </td>
                         
                         <td className="p-4 text-center">
@@ -213,11 +307,13 @@ export function CriteriaManagement() {
                             type="number"
                             value={criterio.valorMeta}
                             onChange={(e) => updateCriterio(criterio.id, { 
-                              valorMeta: parseFloat(e.target.value) || 0 
+                              valorMeta: parseInt(e.target.value) || 0 
                             })}
                             className="w-24 text-center mx-auto"
-                            step={criterio.nome === 'Quantitativo' ? '1' : '0.1'}
+                            step="1"
                             min="0"
+                            max="100"
+                            disabled={criterio.tipo === 'quantitativo' && criterio.id === 'gerencia_quantitativo'}
                           />
                         </td>
                         
@@ -248,21 +344,6 @@ export function CriteriaManagement() {
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">
                             {criterio.ativo ? 'Ativo' : 'Inativo'}
-                          </div>
-                        </td>
-                        
-                        <td className="p-4 text-center">
-                          <div className="flex items-center justify-center">
-                            <Switch
-                              checked={criterio.permiteImportacao}
-                              onCheckedChange={(checked) => 
-                                updateCriterio(criterio.id, { permiteImportacao: checked })
-                              }
-                              disabled={criterio.nome === 'Quantitativo'}
-                            />
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {criterio.permiteImportacao ? 'Sim' : 'Manual'}
                           </div>
                         </td>
                         
@@ -302,7 +383,7 @@ export function CriteriaManagement() {
           <CardTitle>Resumo dos Critérios</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-primary">
                 {state.criterios.length}
@@ -315,12 +396,7 @@ export function CriteriaManagement() {
               </div>
               <div className="text-sm text-muted-foreground">Ativos</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-accent">
-                {state.criterios.filter(c => c.permiteImportacao).length}
-              </div>
-              <div className="text-sm text-muted-foreground">Importáveis</div>
-            </div>
+            
             <div className="text-center">
               <div className="text-2xl font-bold text-warning">
                 {formatarMoeda(state.criterios.filter(c => c.ativo).reduce((total, c) => total + c.valorBonus, 0))}
@@ -328,6 +404,49 @@ export function CriteriaManagement() {
               <div className="text-sm text-muted-foreground">Bônus Total</div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-medium">
+        <CardHeader>
+          <CardTitle>Configuração de Tickets</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div>
+            <label htmlFor="total-team-tickets" className="block text-sm font-medium text-gray-700 mb-2">
+              Total de Tickets Atendidos pela Equipe:
+            </label>
+            <Input
+              id="total-team-tickets"
+              type="number"
+              value={totalTeamTickets}
+              onChange={(e) => setTotalTeamTickets(parseInt(e.target.value) || 0)}
+              placeholder="Digite a quantidade total de tickets"
+              min="0"
+            />
+          </div>
+          <Button onClick={() => dispatch({ type: 'SET_TOTAL_TEAM_TICKETS', payload: totalTeamTickets })}>
+            Salvar Configuração de Tickets
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-medium">
+        <CardHeader>
+          <CardTitle>Adicionar Novo Critério</CardTitle>
+        </CardHeader>
+        <CardContent className="flex gap-2">
+          <Input
+            placeholder="Nome do novo critério"
+            value={newCriterionName}
+            onChange={(e) => setNewCriterionName(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                addNewCriterion();
+              }
+            }}
+          />
+          <Button onClick={addNewCriterion}>Adicionar</Button>
         </CardContent>
       </Card>
     </div>

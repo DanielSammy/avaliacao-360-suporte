@@ -2,19 +2,22 @@
 export interface Operador {
   id: string;
   nome: string;
+  login: string; // Corresponde ao 'email' do frontend, mas 'login' da API
   ativo: boolean;
-  dataInclusao: Date;
+  grupo: number; // Adicionado para o campo 'grupo' da API
+  dataInclusao: Date; // Manter para compatibilidade com dados locais
+  participaAvaliacao: boolean;
 }
 
 export interface Criterio {
   id: string;
   nome: string;
+  tipo: 'qualitativo' | 'quantitativo'; // Added new property
   tipoMeta: 'maior_melhor' | 'menor_melhor';
   valorMeta: number;
   valorBonus: number;
   ordem: number;
   ativo: boolean;
-  permiteImportacao: boolean;
 }
 
 export interface CriterioAvaliacao {
@@ -26,7 +29,8 @@ export interface CriterioAvaliacao {
 
 export interface Avaliacao {
   id: string;
-  operadorId: string;
+  operadorId: string; // ID do operador avaliado
+  avaliadorId: string; // ID do operador que realizou a avaliação
   periodo: string; // formato: "YYYY-MM"
   criterios: CriterioAvaliacao[];
   valorTotalMeta: number;

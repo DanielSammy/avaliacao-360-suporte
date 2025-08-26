@@ -1,4 +1,4 @@
-import { Criterio, CriterioAvaliacao } from '../types/evaluation';
+import { Criterio, CriterioAvaliacao, Avaliacao, Operador } from '../types/evaluation';
 
 // Determina se a meta foi atingida
 export function metaAtingida(criterio: Criterio, valorAlcancado: number): boolean {
@@ -80,4 +80,41 @@ export function formatarPeriodo(periodo: string): string {
 // Gera ID único
 export function gerarId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+export function calcularResultadoFinal(criterio: Criterio, avaliacoes: Avaliacao[], operadores: Operador[]): number {
+  const isManagementCriterion = criterio.nome.endsWith('(Gerência)');
+
+  const relevantEvaluations = avaliacoes.filter(av => av.criterios.some(c => c.criterioId === criterio.id));
+
+  if (isManagementCriterion) {
+    const managerEvaluation = relevantEvaluations.find(av => {
+      const avaliador = operadores.find(op => op.id === av.avaliadorId);
+      return avaliador?.grupo === 6;
+    });
+
+    if (managerEvaluation) {
+      const criterioAvaliado = managerEvaluation.criterios.find(c => c.criterioId === criterio.id);
+      return criterioAvaliado?.valorAlcancado || 0;
+    }
+    return 0; // Or some other default value if no manager evaluation is found
+  } else {
+    // Calculate the average of all evaluations for this criterion from non-managers
+    const nonManagerEvaluations = relevantEvaluations.filter(av => {
+        const avaliador = operadores.find(op => op.id === av.avaliadorId);
+        return avaliador?.grupo !== 6;
+    });
+
+    const allValues = nonManagerEvaluations.map(av => {
+      const criterioAvaliado = av.criterios.find(c => c.criterioId === criterio.id);
+      return criterioAvaliado?.valorAlcancado || 0;
+    });
+
+    if (allValues.length === 0) {
+        return 0;
+    }
+
+    const sum = allValues.reduce((a, b) => a + b, 0);
+    return sum / allValues.length;
+  }
 }

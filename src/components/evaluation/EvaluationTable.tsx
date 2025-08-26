@@ -9,7 +9,7 @@ import { CheckCircle, XCircle, Target, TrendingUp, TrendingDown } from 'lucide-r
 interface EvaluationTableProps {
   criterios: Criterio[];
   criteriosAvaliacao: CriterioAvaliacao[];
-  onUpdateCriterio: (criterioId: string, valor: number) => void;
+  onUpdateCriterio?: (criterioId: string, valor: number) => void;
   isEditable?: boolean;
 }
 
@@ -41,7 +41,7 @@ export function EvaluationTable({
   };
 
   const formatarValor = (criterio: Criterio, valor: number) => {
-    if (criterio.nome === 'Quantitativo') {
+    if (criterio.tipo === 'quantitativo') {
       return valor.toString();
     }
     return `${valor.toFixed(1)}%`;
@@ -106,7 +106,7 @@ export function EvaluationTable({
                       </td>
                       
                       <td className="p-4 text-center">
-                        {isEditable ? (
+                        {isEditable && onUpdateCriterio ? (
                           <Input
                             type="number"
                             value={valorAlcancado}

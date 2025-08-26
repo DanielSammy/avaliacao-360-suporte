@@ -10,6 +10,7 @@ interface EvaluationState {
   configuracao: ConfiguracaoSistema;
   loading: boolean;
   error: string | null;
+  totalTeamTickets: number; // Added
 }
 
 // Ações do sistema
@@ -21,27 +22,33 @@ type EvaluationAction =
   | { type: 'UPDATE_OPERADOR'; payload: Operador }
   | { type: 'DELETE_OPERADOR'; payload: string }
   | { type: 'SET_CRITERIOS'; payload: Criterio[] }
+  | { type: 'ADD_CRITERIO'; payload: Criterio } // Added this line
   | { type: 'UPDATE_CRITERIO'; payload: Criterio }
   | { type: 'SET_AVALIACOES'; payload: Avaliacao[] }
   | { type: 'ADD_AVALIACAO'; payload: Avaliacao }
   | { type: 'UPDATE_AVALIACAO'; payload: Avaliacao }
   | { type: 'DELETE_AVALIACAO'; payload: string }
-  | { type: 'INITIALIZE_SYSTEM' };
+  | { type: 'SET_TOTAL_TEAM_TICKETS'; payload: number }; // Added
 
 // Estado inicial
-const initialState: EvaluationState = {
-  operadores: [],
-  criterios: [],
-  avaliacoes: [],
-  configuracao: {
-    versao: '1.0.0',
-    ultimaAtualizacao: new Date(),
-    criterios: [],
-    operadores: []
-  },
-  loading: false,
-  error: null
-};
+const initialState: EvaluationState = (() => {
+  const storedTotalTeamTickets = localStorage.getItem('totalTeamTickets');
+  const storedCriterios = localStorage.getItem('criterios');
+  return {
+    operadores: [],
+    criterios: storedCriterios ? JSON.parse(storedCriterios) : DEFAULT_CRITERIOS,
+    avaliacoes: [],
+    configuracao: {
+      versao: '1.0.0',
+      ultimaAtualizacao: new Date(),
+      criterios: [],
+      operadores: []
+    },
+    loading: false,
+    error: null,
+    totalTeamTickets: storedTotalTeamTickets ? parseInt(storedTotalTeamTickets, 10) : 0,
+  };
+})();
 
 // Reducer (sem alterações)
 function evaluationReducer(state: EvaluationState, action: EvaluationAction): EvaluationState {
@@ -64,13 +71,21 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
           op.id === action.payload.id ? action.payload : op
         )
       };
-    case 'DELETE_OPERADOR':
+    case 'DELETE_OPERADOR': {
+      const operadorId = action.payload;
       return {
         ...state,
-        operadores: state.operadores.filter(op => op.id !== action.payload)
+        operadores: state.operadores.filter(op => op.id !== operadorId),
+        avaliacoes: state.avaliacoes.filter(av => av.operadorId !== operadorId)
       };
+    }
     case 'SET_CRITERIOS':
       return { ...state, criterios: action.payload };
+    case 'ADD_CRITERIO':
+      return { 
+        ...state, 
+        criterios: [...state.criterios, action.payload] 
+      };
     case 'UPDATE_CRITERIO':
       return {
         ...state,
@@ -97,22 +112,8 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
         ...state,
         avaliacoes: state.avaliacoes.filter(av => av.id !== action.payload)
       };
-    case 'INITIALIZE_SYSTEM':
-       const initializedOperadores = DEFAULT_OPERADORES.map(op => ({
-        ...op,
-        dataInclusao: new Date(op.dataInclusao),
-      }));
-      return {
-        ...state,
-        operadores: initializedOperadores,
-        criterios: DEFAULT_CRITERIOS,
-        configuracao: {
-          ...state.configuracao,
-          operadores: initializedOperadores,
-          criterios: DEFAULT_CRITERIOS,
-          ultimaAtualizacao: new Date(),
-        }
-      };
+    case 'SET_TOTAL_TEAM_TICKETS': // Added
+      return { ...state, totalTeamTickets: action.payload };
     default:
       return state;
   }
@@ -129,64 +130,23 @@ const EvaluationContext = createContext<{
 export function EvaluationProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(evaluationReducer, initialState);
 
-  // Inicialização do sistema e persistência no localStorage
   useEffect(() => {
-    const loadData = () => {
-      try {
-        const savedData = localStorage.getItem('avalia-mais-data');
-        if (savedData) {
-          const parsed = JSON.parse(savedData);
-          
-          // CORREÇÃO: Hidratar as datas
-          const hydratedOperadores = (parsed.operadores || []).map((op: Operador) => ({
-            ...op,
-            dataInclusao: new Date(op.dataInclusao),
-          }));
-          
-          const hydratedAvaliacoes = (parsed.avaliacoes || []).map((av: Avaliacao) => ({
-            ...av,
-            dataCriacao: new Date(av.dataCriacao),
-            dataUltimaEdicao: new Date(av.dataUltimaEdicao),
-          }));
+    const hydratedOperadores = DEFAULT_OPERADORES.map(op => ({
+      ...op,
+      login: op.login || '',
+      dataInclusao: new Date(op.dataInclusao),
+    }));
 
-          dispatch({ type: 'SET_OPERADORES', payload: hydratedOperadores.length ? hydratedOperadores : DEFAULT_OPERADORES });
-          dispatch({ type: 'SET_CRITERIOS', payload: parsed.criterios || DEFAULT_CRITERIOS });
-          dispatch({ type: 'SET_AVALIACOES', payload: hydratedAvaliacoes });
-        } else {
-          dispatch({ type: 'INITIALIZE_SYSTEM' });
-        }
-      } catch (error) {
-        console.error('Erro ao carregar dados:', error);
-        // Em caso de erro, reinicia com os dados padrão para evitar crash
-        localStorage.removeItem('avalia-mais-data');
-        dispatch({ type: 'INITIALIZE_SYSTEM' });
-      }
-    };
-
-    loadData();
+    dispatch({ type: 'SET_OPERADORES', payload: hydratedOperadores });
   }, []);
 
-  // Salvar dados no localStorage sempre que o estado mudar
   useEffect(() => {
-    // Evita salvar o estado inicial vazio
-    if (state.operadores.length > 0 || state.criterios.length > 0 || state.avaliacoes.length > 0) {
-      try {
-        const dataToSave = {
-          operadores: state.operadores,
-          criterios: state.criterios,
-          avaliacoes: state.avaliacoes,
-          configuracao: {
-            ...state.configuracao,
-            ultimaAtualizacao: new Date(), // Atualiza a data de última modificação
-          }
-        };
-        localStorage.setItem('avalia-mais-data', JSON.stringify(dataToSave));
-      } catch (error) {
-        console.error("Erro ao salvar dados no localStorage:", error)
-      }
-    }
-  }, [state.operadores, state.criterios, state.avaliacoes, state.configuracao]);
+    localStorage.setItem('totalTeamTickets', state.totalTeamTickets.toString());
+  }, [state.totalTeamTickets]);
 
+  useEffect(() => {
+    localStorage.setItem('criterios', JSON.stringify(state.criterios));
+  }, [state.criterios]);
 
   return (
     <EvaluationContext.Provider value={{ state, dispatch }}>

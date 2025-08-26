@@ -23,7 +23,7 @@ export function PDFGenerator({ avaliacao, operador, criterios }: PDFGeneratorPro
         description: "Preparando relatório...",
       });
 
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdf = new jsPDF('l', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 20;
@@ -59,7 +59,7 @@ export function PDFGenerator({ avaliacao, operador, criterios }: PDFGeneratorPro
 
       // Cabeçalho da tabela
       const tableHeaders = ['Critério', 'Meta', 'Alcançado', 'Status', 'R$ Meta', 'R$ Alcançado'];
-      const colWidths = [50, 20, 25, 25, 25, 25];
+      const colWidths = [120, 30, 30, 30, 30, 30];
       let xPosition = margin;
 
       pdf.setFillColor(59, 130, 246);
@@ -90,12 +90,6 @@ export function PDFGenerator({ avaliacao, operador, criterios }: PDFGeneratorPro
 
           xPosition = margin;
 
-          // Alternar cor de fundo das linhas
-          if (criterios.indexOf(criterio) % 2 === 0) {
-            pdf.setFillColor(245, 245, 245);
-            pdf.rect(margin, yPosition, pageWidth - 2 * margin, 8, 'F');
-          }
-
           const rowData = [
             criterio.nome,
             criterio.nome === 'Quantitativo' ? criterio.valorMeta.toString() : `${criterio.valorMeta}%`,
@@ -105,12 +99,27 @@ export function PDFGenerator({ avaliacao, operador, criterios }: PDFGeneratorPro
             formatarMoeda(valorBonusAlcancado)
           ];
 
+          const rowHeight = 8;
+          const firstColTextLines = pdf.splitTextToSize(rowData[0], colWidths[0] - 4);
+          const newRowHeight = rowHeight * firstColTextLines.length;
+
+          // Alternar cor de fundo das linhas
+          if (criterios.indexOf(criterio) % 2 === 0) {
+            pdf.setFillColor(245, 245, 245);
+            pdf.rect(margin, yPosition, pageWidth - 2 * margin, newRowHeight, 'F');
+          }
+
           rowData.forEach((data, index) => {
-            pdf.text(data, xPosition + 2, yPosition + 6);
+            const textY = yPosition + 6;
+            if (index === 0) {
+              pdf.text(firstColTextLines, xPosition + 2, textY);
+            } else {
+              pdf.text(data, xPosition + 2, textY);
+            }
             xPosition += colWidths[index];
           });
 
-          yPosition += 8;
+          yPosition += newRowHeight;
 
           // Nova página se necessário
           if (yPosition > pageHeight - 50) {

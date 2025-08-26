@@ -5,45 +5,45 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { Award, ChevronLeft } from 'lucide-react';
 import { useEvaluation } from '@/contexts/EvaluationContext';
-import { formatarMoeda } from '@/utils/calculations';
+import { formatarMoeda, calcularResultadoFinal, metaAtingida } from '@/utils/calculations';
 import { Operador } from '@/types/evaluation';
 
 interface RankingData {
   operador: Operador;
-  pontuacaoMedia: number;
+  pontuacaoFinal: number;
   totalAvaliacoes: number;
-  bonusTotal: number;
 }
 
 const RankingPage = () => {
   const { state } = useEvaluation();
 
-  const ranking = useMemo((): RankingData[] => {
-    const stats: { [key: string]: { totalBonus: number; count: number } } = {};
+    const ranking = useMemo((): RankingData[] => {
+    return state.operadores
+      .filter(op => op.ativo)
+      .map(operador => {
+        let pontuacaoFinal = 0;
+        state.criterios
+            .filter(c => c.ativo)
+            .forEach(criterio => {
+                const avaliacoesDoOperador = state.avaliacoes.filter(av => av.operadorId === operador.id);
+                const resultadoCriterio = calcularResultadoFinal(criterio, avaliacoesDoOperador, state.operadores);
 
-    state.avaliacoes.forEach(av => {
-      if (!stats[av.operadorId]) {
-        stats[av.operadorId] = { totalBonus: 0, count: 0 };
-      }
-      stats[av.operadorId].totalBonus += av.valorTotalAlcancado;
-      stats[av.operadorId].count++;
-    });
+                const atingiu = metaAtingida(criterio, resultadoCriterio);
+                if (atingiu) {
+                    pontuacaoFinal += criterio.valorBonus;
+                }
+            });
 
-    return Object.entries(stats)
-      .map(([operadorId, data]) => {
-        const operador = state.operadores.find(op => op.id === operadorId);
-        if (!operador) return null;
+        const totalAvaliacoes = state.avaliacoes.filter(av => av.operadorId === operador.id).length;
 
         return {
           operador,
-          pontuacaoMedia: data.totalBonus / data.count,
-          totalAvaliacoes: data.count,
-          bonusTotal: data.totalBonus,
+          pontuacaoFinal,
+          totalAvaliacoes,
         };
       })
-      .filter((item): item is RankingData => item !== null)
-      .sort((a, b) => b.pontuacaoMedia - a.pontuacaoMedia);
-  }, [state.avaliacoes, state.operadores]);
+      .sort((a, b) => b.pontuacaoFinal - a.pontuacaoFinal);
+  }, [state.avaliacoes, state.operadores, state.criterios]);
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-4xl">
@@ -70,9 +70,8 @@ const RankingPage = () => {
                 <tr className="border-b">
                   <th className="text-center p-4 font-semibold">Pos.</th>
                   <th className="text-left p-4 font-semibold">Operador</th>
-                  <th className="text-center p-4 font-semibold">Bônus Médio</th>
-                  <th className="text-center p-4 font-semibold">Bônus Total</th>
-                  <th className="text-center p-4 font-semibold">Avaliações</th>
+                  <th className="text-center p-4 font-semibold">Pontuação Final</th>
+                  <th className="text-center p-4 font-semibold">Avaliações Recebidas</th>
                 </tr>
               </thead>
               <tbody>
@@ -80,8 +79,7 @@ const RankingPage = () => {
                   <tr key={item.operador.id} className="border-b hover:bg-muted/50">
                     <td className="p-4 font-bold text-lg text-center">#{index + 1}</td>
                     <td className="p-4 font-medium">{item.operador.nome}</td>
-                    <td className="p-4 text-center font-semibold text-primary text-lg">{formatarMoeda(item.pontuacaoMedia)}</td>
-                    <td className="p-4 text-center">{formatarMoeda(item.bonusTotal)}</td>
+                    <td className="p-4 text-center font-semibold text-primary text-lg">{formatarMoeda(item.pontuacaoFinal)}</td>
                     <td className="p-4 text-center">{item.totalAvaliacoes}</td>
                   </tr>
                 ))}
