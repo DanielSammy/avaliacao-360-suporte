@@ -1,23 +1,24 @@
 import { Operador, Criterio } from '../types/evaluation';
 
 export const DEFAULT_OPERADORES: Operador[] = [
-  { id: '1', nome: 'Ana Carolina Ribeiro', login: 'anacarolina@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 3' },
-  { id: '2', nome: 'Erick Douglas', login: 'erick@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 2' },
-  { id: '3', nome: 'Evandro Pereira', login: 'evandro@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
-  { id: '4', nome: 'Gabriel Medeiros', login: 'gabrielmedeiros@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
-  { id: '5', nome: 'Jonathan Nascimento', login: 'jonathan.nascimento@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
-  { id: '6', nome: 'Luciano Augusto', login: 'luciano@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
-  { id: '7', nome: 'Luís Romero', login: 'luis.romero@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
-  { id: '8', nome: 'Mayara Duarte', login: 'mayaraduarte@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
-  { id: '9', nome: 'Paulo Silva', login: 'paulosilva@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
-  { id: '10', nome: 'Samuel Ivens', login: 'samuelxavier@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 2' },
-  { id: '11', nome: 'Wesley Fagundes', login: 'wesleylima@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 2' },
+  { id: 1, nome: 'Ana Carolina Ribeiro', login: 'anacarolina@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 3' },
+  { id: 2, nome: 'Erick Douglas', login: 'erick@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 2' },
+  { id: 3, nome: 'Evandro Pereira', login: 'evandro@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
+  { id: 4, nome: 'Gabriel Medeiros', login: 'gabrielmedeiros@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
+  { id: 5, nome: 'Jonathan Nascimento', login: 'jonathan.nascimento@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
+  { id: 6, nome: 'Luciano Augusto', login: 'luciano@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
+  { id: 7, nome: 'Luís Romero', login: 'luis.romero@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
+  { id: 8, nome: 'Mayara Duarte', login: 'mayaraduarte@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
+  { id: 9, nome: 'Paulo Silva', login: 'paulosilva@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
+  { id: 10, nome: 'Samuel Ivens', login: 'samuelxavier@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 2' },
+  { id: 11, nome: 'Wesley Fagundes', login: 'wesleylima@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 2' },
 ];
 
 export const DEFAULT_CRITERIOS: Criterio[] = [
   // --- Critérios da Gerência ---
   {
-    id: 'gerencia_pontualidade',
+    id: 1,
+    id_criterio: 'gerencia_pontualidade',
     nome: 'Pontualidade (Gerência)',
     tipoMeta: 'maior_melhor',
     peso: 3,
@@ -26,7 +27,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     tipo: 'qualitativo'
   },
   {
-    id: 'gerencia_preenchimento_tkt',
+    id: 2,
+    id_criterio: 'gerencia_preenchimento_tkt',
     nome: 'Preenchimento Tkt (Gerência)',
     tipoMeta: 'maior_melhor',
     peso: 5,
@@ -35,7 +37,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     tipo: 'qualitativo'
   },
   {
-    id: 'gerencia_satisfacao_clientes',
+    id: 3,
+    id_criterio: 'gerencia_satisfacao_clientes',
     nome: 'Satisfação Clientes (Gerência)',
     tipoMeta: 'maior_melhor',
     peso: 2,
@@ -44,7 +47,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     tipo: 'qualitativo'
   },
   {
-    id: 'gerencia_apoio_indevido',
+    id: 4,
+    id_criterio: 'gerencia_apoio_indevido',
     nome: 'Apoio Indevido (Gerência)',
     tipoMeta: 'menor_melhor',
     peso: 1,
@@ -53,7 +57,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     tipo: 'qualitativo'
   },
   {
-    id: 'gerencia_reabertura_tkt',
+    id: 5,
+    id_criterio: 'gerencia_reabertura_tkt',
     nome: 'Reabertura Tkt (Gerência)',
     tipoMeta: 'menor_melhor',
     peso: 1,
@@ -62,7 +67,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     tipo: 'qualitativo'
   },
   {
-    id: 'gerencia_quantitativo',
+    id: 6,
+    id_criterio: 'gerencia_quantitativo',
     nome: 'Quantitativo (Gerência)',
     tipoMeta: 'maior_melhor',
     peso: 4,
@@ -73,7 +79,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
 
   // --- Critérios 360 ---
   {
-    id: '360_solucoes_eficazes',
+    id: 7,
+    id_criterio: '360_solucoes_eficazes',
     nome: 'Fornece Soluções Precisas e Eficazes',
     tipoMeta: 'maior_melhor',
     peso: 3,
@@ -82,7 +89,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     tipo: 'qualitativo'
   },
   {
-    id: '360_comunicacao_clara',
+    id: 8,
+    id_criterio: '360_comunicacao_clara',
     nome: 'Comunicação Clara, Objetiva e Eficaz',
     tipoMeta: 'maior_melhor',
     peso: 3,
@@ -91,7 +99,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     tipo: 'qualitativo'
   },
   {
-    id: '360_lida_clientes_dificeis',
+    id: 9,
+    id_criterio: '360_lida_clientes_dificeis',
     nome: 'Lida bem com clientes difíceis ou situações estressantes',
     tipoMeta: 'maior_melhor',
     peso: 3,
@@ -100,7 +109,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     tipo: 'qualitativo'
   },
   {
-    id: '360_resposta_rapida',
+    id: 10,
+    id_criterio: '360_resposta_rapida',
     nome: 'Responde aos problemas dos clientes de forma rápida e eficiente',
     tipoMeta: 'maior_melhor',
     peso: 3,
@@ -109,7 +119,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     tipo: 'qualitativo'
   },
   {
-    id: '360_atitude_proativa',
+    id: 11,
+    id_criterio: '360_atitude_proativa',
     nome: 'Tem atitudes proativas',
     tipoMeta: 'maior_melhor',
     peso: 3,
@@ -118,7 +129,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     tipo: 'qualitativo'
   },
   {
-    id: '360_respeito_simpatia',
+    id: 12,
+    id_criterio: '360_respeito_simpatia',
     nome: 'Trata a todos com respeito, simpatia, presteza e educação',
     tipoMeta: 'maior_melhor',
     peso: 3,
@@ -127,7 +139,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     tipo: 'qualitativo'
   },
   {
-    id: '360_alinhamento_equipe',
+    id: 13,
+    id_criterio: '360_alinhamento_equipe',
     nome: 'Mantém unido(a) e alinhado(a) em relação aos objetivos e metas',
     tipoMeta: 'maior_melhor',
     peso: 3,
@@ -136,7 +149,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     tipo: 'qualitativo'
   },
   {
-    id: '360_responsabilidade',
+    id: 14,
+    id_criterio: '360_responsabilidade',
     nome: 'É responsável, priorizando os atendimentos a serem realizados',
     tipoMeta: 'maior_melhor',
     peso: 3,
@@ -145,7 +159,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     tipo: 'qualitativo'
   },
   {
-    id: '360_iniciativa_aprendizado',
+    id: 15,
+    id_criterio: '360_iniciativa_aprendizado',
     nome: 'Tem iniciativa para buscar novos aprendizados e evoluir',
     tipoMeta: 'maior_melhor',
     peso: 3,
@@ -154,7 +169,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     tipo: 'qualitativo'
   },
   {
-    id: '360_compreensao_processos',
+    id: 16,
+    id_criterio: '360_compreensao_processos',
     nome: 'Procura compreender os processos dos clientes em sua totalidade',
     tipoMeta: 'maior_melhor',
     peso: 3,
@@ -163,7 +179,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     tipo: 'qualitativo'
   },
   {
-    id: '360_evita_distracoes',
+    id: 17,
+    id_criterio: '360_evita_distracoes',
     nome: 'Evita distrações excessivas com uso pessoal de celular e redes sociais',
     tipoMeta: 'maior_melhor',
     peso: 3,
@@ -172,7 +189,8 @@ export const DEFAULT_CRITERIOS: Criterio[] = [
     tipo: 'qualitativo'
   },
   {
-    id: '360_trabalho_conjunto',
+    id: 18,
+    id_criterio: '360_trabalho_conjunto',
     nome: 'Trabalha em conjunto para encontrar soluções e compartilhar conhecimentos',
     tipoMeta: 'maior_melhor',
     peso: 3,

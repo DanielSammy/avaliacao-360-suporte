@@ -9,17 +9,17 @@ import { CheckCircle, XCircle, Target, TrendingUp, TrendingDown } from 'lucide-r
 interface EvaluationTableProps {
   criterios: Criterio[];
   criteriosAvaliacao: CriterioAvaliacao[];
-  onUpdateCriterio?: (criterioId: string, valor: number) => void;
+  onUpdateCriterio?: (criterioId: number, valor: number) => void;
   isEditable?: boolean;
 }
 
-export function EvaluationTable({ 
-  criterios, 
-  criteriosAvaliacao, 
+export function EvaluationTable({
+  criterios,
+  criteriosAvaliacao,
   onUpdateCriterio,
-  isEditable = true 
+  isEditable = true
 }: EvaluationTableProps) {
-  const getCriterioAvaliacao = (criterioId: string) => {
+  const getCriterioAvaliacao = (criterioId: number) => {
     return criteriosAvaliacao.find(ca => ca.criterioId === criterioId);
   };
 
@@ -105,11 +105,7 @@ export function EvaluationTable({
                     <tr key={criterio.id} className="border-b hover:bg-muted/30 transition-colors">
                       <td className="p-4">
                         <div className="font-medium">{criterio.nome}</div>
-                        {!criterio.permiteImportacao && (
-                          <Badge variant="outline" className="mt-1 text-xs">
-                            Manual
-                          </Badge>
-                        )}
+                        
                       </td>
                       
                       <td className="p-4 text-center">

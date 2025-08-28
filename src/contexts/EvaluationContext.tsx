@@ -20,14 +20,14 @@ type EvaluationAction =
   | { type: 'SET_OPERADORES'; payload: Operador[] }
   | { type: 'ADD_OPERADOR'; payload: Operador }
   | { type: 'UPDATE_OPERADOR'; payload: Operador }
-  | { type: 'DELETE_OPERADOR'; payload: string }
+  | { type: 'DELETE_OPERADOR'; payload: number }
   | { type: 'SET_CRITERIOS'; payload: Criterio[] }
   | { type: 'ADD_CRITERIO'; payload: Criterio } // Added this line
   | { type: 'UPDATE_CRITERIO'; payload: Criterio }
   | { type: 'SET_AVALIACOES'; payload: Avaliacao[] }
   | { type: 'ADD_AVALIACAO'; payload: Avaliacao }
   | { type: 'UPDATE_AVALIACAO'; payload: Avaliacao }
-  | { type: 'DELETE_AVALIACAO'; payload: string }
+  | { type: 'DELETE_AVALIACAO'; payload: number }
   | { type: 'SET_TOTAL_TEAM_TICKETS'; payload: number }; // Added
 
 // Estado inicial

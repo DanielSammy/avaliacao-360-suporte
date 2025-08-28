@@ -9,7 +9,7 @@ export const valoresNivel: { [key in NivelOperador]: number } = {
 };
 
 export interface Operador {
-  id: string;
+  id: number;
   nome: string;
   login: string; // Corresponde ao 'email' do frontend, mas 'login' da API
   ativo: boolean;
@@ -20,7 +20,8 @@ export interface Operador {
 }
 
 export interface Criterio {
-  id: string;
+  id: number;
+  id_criterio: string;
   nome: string;
   tipo: 'qualitativo' | 'quantitativo';
   tipoMeta: 'maior_melhor' | 'menor_melhor';
@@ -32,16 +33,16 @@ export interface Criterio {
 }
 
 export interface CriterioAvaliacao {
-  criterioId: string;
+  criterioId: number;
   valorAlcancado: number;
   valorBonusAlcancado: number;
   metaAtingida: boolean;
 }
 
 export interface Avaliacao {
-  id: string;
-  operadorId: string; // ID do operador avaliado
-  avaliadorId: string; // ID do operador que realizou a avaliação
+  id: number;
+  operadorId: number; // ID do operador avaliado
+  avaliadorId: number; // ID do operador que realizou a avaliação
   periodo: string; // formato: "YYYY-MM"
   criterios: CriterioAvaliacao[];
   valorTotalMeta: number;

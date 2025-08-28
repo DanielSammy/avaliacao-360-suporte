@@ -7,8 +7,8 @@ import { User, Calendar } from 'lucide-react';
 
 interface OperatorSelectorProps {
   operadores: Operador[];
-  operadorSelecionado?: string;
-  onOperadorChange: (operadorId: string) => void;
+  operadorSelecionado?: number | null;
+  onOperadorChange: (operadorId: number) => void;
   avaliacoes: Avaliacao[];
   periodoAtual: string;
 }
@@ -21,7 +21,7 @@ export function OperatorSelector({
   periodoAtual
 }: OperatorSelectorProps) {
   
-  const getStatusAvaliacao = (operadorId: string): StatusAvaliacao => {
+  const getStatusAvaliacao = (operadorId: number): StatusAvaliacao => {
     const avaliacao = avaliacoes.find(av => 
       av.operadorId === operadorId && av.periodo === periodoAtual
     );
@@ -59,7 +59,7 @@ export function OperatorSelector({
             <h3 className="text-lg font-semibold">Selecionar Operador</h3>
           </div>
           
-          <Select value={operadorSelecionado} onValueChange={onOperadorChange}>
+          <Select value={operadorSelecionado?.toString() || ''} onValueChange={(value) => onOperadorChange(parseInt(value))}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Escolha um operador para avaliar" />
             </SelectTrigger>
@@ -67,7 +67,7 @@ export function OperatorSelector({
               {operadoresAtivos.map((operador) => {
                 const status = getStatusAvaliacao(operador.id);
                 return (
-                  <SelectItem key={operador.id} value={operador.id}>
+                  <SelectItem key={operador.id} value={operador.id.toString()}>
                     <div className="flex items-center justify-between w-full">
                       <span className="font-medium">{operador.nome}</span>
                       <div className="ml-4">
@@ -80,7 +80,7 @@ export function OperatorSelector({
             </SelectContent>
           </Select>
 
-          {operadorSelecionado && (
+          {operadorSelecionado !== null && (
             <div className="mt-4 p-4 bg-muted/30 rounded-lg">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

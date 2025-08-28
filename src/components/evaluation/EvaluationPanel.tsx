@@ -9,6 +9,7 @@ import { OperatorSelector } from './OperatorSelector';
 import { PeriodSelector } from './PeriodSelector';
 import { PDFGenerator } from '../reports/PDFGenerator';
 import { Avaliacao, Criterio, CriterioAvaliacao, valoresNivel } from '@/types/evaluation';
+import { calcularTotaisAvaliacao } from '@/utils/calculations';
 import { FileText, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -25,7 +26,7 @@ const converterAvaliacaoParaPercentual = (avaliacao: string | number | undefined
 
 export function EvaluationPanel() {
   const { state } = useEvaluation();
-  const [operadorSelecionado, setOperadorSelecionado] = useState<string>('');
+  const [operadorSelecionado, setOperadorSelecionado] = useState<number | null>(null);
   const [periodoAtual, setPeriodoAtual] = useState<string>(() => {
     const hoje = new Date();
     return `${hoje.getFullYear()}-${(hoje.getMonth() + 1).toString().padStart(2, '0')}`;
@@ -69,27 +70,6 @@ export function EvaluationPanel() {
       const novosCriteriosAvaliacao = criteriosComBonus.map(criterio => {
         let valorAlcancado = 0;
 
-        if (criterio.id.startsWith('gerencia_')) {
-          const avaliacaoGerencia = avaliacoesDoOperadorNoPeriodo[0]; // Simplified assumption
-          if (avaliacaoGerencia) {
-            const criterioAvaliado = avaliacaoGerencia.criterios.find(c => c.criterioId === criterio.id);
-            if (criterioAvaliado) {
-              valorAlcancado = criterioAvaliado.valorAlcancado;
-            }
-          }
-        } else if (criterio.id.startsWith('360_')) {
-          let total = 0;
-          let count = 0;
-          for (const avaliacao of avaliacoesDoOperadorNoPeriodo) {
-            const criterioAvaliado = avaliacao.criterios.find(c => c.criterioId === criterio.id);
-            if (criterioAvaliado) {
-              total += converterAvaliacaoParaPercentual(criterioAvaliado.valorAlcancado);
-              count++;
-            }
-          }
-          valorAlcancado = count > 0 ? total / count : 0;
-        }
-
         // FIXME: Quantitative meta target logic is still unclear.
         const metaParaComparacao = criterio.tipo === 'qualitativo' 
             ? (criterio.tipoMeta === 'maior_melhor' ? 100 : 25)
@@ -111,15 +91,15 @@ export function EvaluationPanel() {
 
       setCriteriosAvaliacao(novosCriteriosAvaliacao);
 
-      const valorTotalAlcancado = novosCriteriosAvaliacao.reduce((sum, ca) => sum + ca.valorBonusAlcancado, 0);
+      const { valorTotalMeta, valorTotalAlcancado } = calcularTotaisAvaliacao(criteriosComBonus, novosCriteriosAvaliacao);
 
       const avaliacaoSintetica: Avaliacao = {
-        id: 'sintetica',
+        id: 0, // Placeholder: synthetic ID is now a number
         operadorId: operadorSelecionado,
-        avaliadorId: '', 
+        avaliadorId: 0, // Placeholder: avaliadorId is now a number
         periodo: periodoAtual,
         criterios: novosCriteriosAvaliacao,
-        valorTotalMeta: baseMetaValue,
+        valorTotalMeta,
         valorTotalAlcancado,
         dataCriacao: new Date(),
         dataUltimaEdicao: new Date(),

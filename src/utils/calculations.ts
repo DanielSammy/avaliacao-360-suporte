@@ -78,8 +78,8 @@ export function formatarPeriodo(periodo: string): string {
 }
 
 // Gera ID único
-export function gerarId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+export function gerarId(): number {
+  return Date.now();
 }
 
 export function calcularResultadoFinal(criterio: Criterio, avaliacoes: Avaliacao[], operadores: Operador[]): number {
