@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Criterio, CriterioAvaliacao } from '@/types/evaluation';
-import { formatarMoeda, metaAtingida } from '@/utils/calculations';
+import { formatarMoeda } from '@/utils/calculations';
 import { CheckCircle, XCircle, Target, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface EvaluationTableProps {
@@ -23,16 +23,37 @@ export function EvaluationTable({
     return criteriosAvaliacao.find(ca => ca.criterioId === criterioId);
   };
 
-  const getStatusIcon = (criterio: Criterio, valorAlcancado: number) => {
-    const atingiu = metaAtingida(criterio, valorAlcancado);
-    if (atingiu) {
-      return <CheckCircle className="h-5 w-5 text-success" />;
+  const getMeta = (criterio: Criterio) => {
+    if (criterio.tipo === 'quantitativo') {
+      // valorMeta was removed. It now depends on operator level,
+      // which is not available in this component.
+      // Returning null will cause formatarValor to display 'N/A'.
+      return null;
     }
-    return <XCircle className="h-5 w-5 text-destructive" />;
+    return criterio.tipoMeta === 'maior_melhor' ? 100 : 25;
+  };
+
+  const metaAtingidaLocal = (criterio: Criterio, valorAlcancado: number) => {
+    const meta = getMeta(criterio);
+    if (meta === undefined || meta === null) {
+      return false; // Cannot determine, assume not met
+    }
+    if (criterio.tipoMeta === 'menor_melhor') {
+      return valorAlcancado <= meta;
+    }
+    return valorAlcancado >= meta;
+  };
+
+  const getStatusIcon = (criterio: Criterio, valorAlcancado: number) => {
+    const atingiu = metaAtingidaLocal(criterio, valorAlcancado);
+    if (atingiu) {
+      return <CheckCircle className="h-5 w-5 text-green-500" />;
+    }
+    return <XCircle className="h-5 w-5 text-red-500" />;
   };
 
   const getStatusBadge = (criterio: Criterio, valorAlcancado: number) => {
-    const atingiu = metaAtingida(criterio, valorAlcancado);
+    const atingiu = metaAtingidaLocal(criterio, valorAlcancado);
     return (
       <Badge variant={atingiu ? "default" : "destructive"} className="font-medium">
         {atingiu ? "Meta Atingida" : "Meta Não Atingida"}
@@ -40,7 +61,10 @@ export function EvaluationTable({
     );
   };
 
-  const formatarValor = (criterio: Criterio, valor: number) => {
+  const formatarValor = (criterio: Criterio, valor?: number | null) => {
+    if (valor === null || valor === undefined) {
+      return 'N/A';
+    }
     if (criterio.tipo === 'quantitativo') {
       return valor.toString();
     }
@@ -91,9 +115,9 @@ export function EvaluationTable({
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-1">
                           {criterio.tipoMeta === 'maior_melhor' ? (
-                            <TrendingUp className="h-4 w-4 text-success" />
+                            <TrendingUp className="h-4 w-4 text-green-500" />
                           ) : (
-                            <TrendingDown className="h-4 w-4 text-warning" />
+                            <TrendingDown className="h-4 w-4 text-yellow-500" />
                           )}
                           <span className="text-sm text-muted-foreground">
                             {criterio.tipoMeta === 'maior_melhor' ? 'Maior' : 'Menor'}
@@ -102,7 +126,7 @@ export function EvaluationTable({
                       </td>
                       
                       <td className="p-4 text-center font-medium">
-                        {formatarValor(criterio, criterio.valorMeta)}
+                        {formatarValor(criterio, getMeta(criterio))}
                       </td>
                       
                       <td className="p-4 text-center">
@@ -112,7 +136,7 @@ export function EvaluationTable({
                             value={valorAlcancado}
                             onChange={(e) => onUpdateCriterio(criterio.id, parseFloat(e.target.value) || 0)}
                             className="w-24 text-center mx-auto"
-                            step={criterio.nome === 'Quantitativo' ? '1' : '0.1'}
+                            step={criterio.tipo === 'quantitativo' ? '1' : '0.1'}
                             min="0"
                           />
                         ) : (
@@ -130,11 +154,11 @@ export function EvaluationTable({
                       </td>
                       
                       <td className="p-4 text-center font-semibold text-primary">
-                        {formatarMoeda(criterio.valorBonus)}
+                        {formatarMoeda(criterio.valorBonus || 0)}
                       </td>
                       
                       <td className="p-4 text-center font-bold">
-                        <span className={metaAtingida(criterio, valorAlcancado) ? 'text-success' : 'text-destructive'}>
+                        <span className={metaAtingidaLocal(criterio, valorAlcancado) ? 'text-green-500' : 'text-red-500'}>
                           {formatarMoeda(criterioAvaliacao?.valorBonusAlcancado || 0)}
                         </span>
                       </td>

@@ -1,4 +1,13 @@
 // src/types/evaluation.ts
+export type NivelOperador = 'Nivel 1' | 'Nivel 2' | 'Nivel 3' | 'Sup Avançado';
+
+export const valoresNivel: { [key in NivelOperador]: number } = {
+  'Nivel 1': 799.50,
+  'Nivel 2': 855.47,
+  'Nivel 3': 941.01,
+  'Sup Avançado': 979.00,
+};
+
 export interface Operador {
   id: string;
   nome: string;
@@ -7,15 +16,17 @@ export interface Operador {
   grupo: number; // Adicionado para o campo 'grupo' da API
   dataInclusao: Date; // Manter para compatibilidade com dados locais
   participaAvaliacao: boolean;
+  nivel: NivelOperador;
 }
 
 export interface Criterio {
   id: string;
   nome: string;
-  tipo: 'qualitativo' | 'quantitativo'; // Added new property
+  tipo: 'qualitativo' | 'quantitativo';
   tipoMeta: 'maior_melhor' | 'menor_melhor';
-  valorMeta: number;
-  valorBonus: number;
+  valorMeta?: number;
+  valorBonus?: number;
+  peso: number; // Peso do critério (1 a 5)
   ordem: number;
   ativo: boolean;
 }

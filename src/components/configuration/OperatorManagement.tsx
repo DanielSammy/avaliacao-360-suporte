@@ -8,10 +8,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useEvaluation } from '@/contexts/EvaluationContext';
-import { Operador } from '@/types/evaluation';
+import { Operador, NivelOperador, valoresNivel } from '@/types/evaluation';
 import { gerarId } from '@/utils/calculations';
-import { UserPlus, Edit, Trash2, Users, Calendar, Mail } from 'lucide-react';
+import { UserPlus, Edit, Trash2, Users, Calendar, Mail, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export function OperatorManagement() {
   const { state, dispatch } = useEvaluation();
@@ -19,6 +20,7 @@ export function OperatorManagement() {
   const [editingOperator, setEditingOperator] = useState<Operador | null>(null);
   const [newOperatorName, setNewOperatorName] = useState('');
   const [newOperatorEmail, setNewOperatorEmail] = useState('');
+  const [newOperatorLevel, setNewOperatorLevel] = useState<NivelOperador>('Nivel 1');
   const [newOperatorParticipatesInEvaluation, setNewOperatorParticipatesInEvaluation] = useState(true);
   const { toast } = useToast();
 
@@ -62,12 +64,14 @@ export function OperatorManagement() {
       ativo: true,
       grupo: 0, // Definir um grupo padrão
       dataInclusao: new Date(),
-      participaAvaliacao: newOperatorParticipatesInEvaluation
+      participaAvaliacao: newOperatorParticipatesInEvaluation,
+      nivel: newOperatorLevel,
     };
 
     dispatch({ type: 'ADD_OPERADOR', payload: novoOperador });
     setNewOperatorName('');
     setNewOperatorEmail('');
+    setNewOperatorLevel('Nivel 1');
     setIsAddDialogOpen(false);
 
     toast({
@@ -109,12 +113,14 @@ export function OperatorManagement() {
       nome: newOperatorName.trim(),
       login: newOperatorEmail.trim(),
       participaAvaliacao: newOperatorParticipatesInEvaluation,
+      nivel: newOperatorLevel,
     };
 
     dispatch({ type: 'UPDATE_OPERADOR', payload: operadorAtualizado });
     setEditingOperator(null);
     setNewOperatorName('');
     setNewOperatorEmail('');
+    setNewOperatorLevel('Nivel 1');
 
     toast({
       title: "Operador atualizado",
@@ -161,6 +167,7 @@ export function OperatorManagement() {
     setEditingOperator(operador);
     setNewOperatorName(operador.nome);
     setNewOperatorEmail(operador.login);
+    setNewOperatorLevel(operador.nivel || 'Nivel 1');
     setNewOperatorParticipatesInEvaluation(operador.participaAvaliacao);
   };
 
@@ -168,6 +175,7 @@ export function OperatorManagement() {
     setEditingOperator(null);
     setNewOperatorName('');
     setNewOperatorEmail('');
+    setNewOperatorLevel('Nivel 1');
   };
 
   return (
@@ -215,6 +223,19 @@ export function OperatorManagement() {
                       onKeyDown={(e) => e.key === 'Enter' && handleAddOperator()}
                     />
                   </div>
+                  <div>
+                    <label className="text-sm font-medium">Nível do Operador</label>
+                    <Select value={newOperatorLevel} onValueChange={(value: NivelOperador) => setNewOperatorLevel(value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o nível" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.keys(valoresNivel).map(nivel => (
+                          <SelectItem key={nivel} value={nivel}>{nivel}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="participates-evaluation"
@@ -260,6 +281,10 @@ export function OperatorManagement() {
                         <div className="flex items-center gap-2">
                           <Calendar className="h-3 w-3" />
                           Cadastrado em {new Date(operador.dataInclusao).toLocaleDateString('pt-BR')}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Star className="h-3 w-3" />
+                          <span>{operador.nivel || 'Nível não definido'}</span>
                         </div>
                         <div>Avaliações: {stats.totalAvaliacoes}</div>
                         {stats.ultimaAvaliacao && (
@@ -312,6 +337,19 @@ export function OperatorManagement() {
                                   placeholder="exemplo@spaceinformatica.com.br"
                                   onKeyDown={(e) => e.key === 'Enter' && handleEditOperator()}
                                 />
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium">Nível do Operador</label>
+                                <Select value={newOperatorLevel} onValueChange={(value: NivelOperador) => setNewOperatorLevel(value)}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione o nível" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {Object.keys(valoresNivel).map(nivel => (
+                                      <SelectItem key={nivel} value={nivel}>{nivel}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                               </div>
                               <div className="flex items-center space-x-2">
                                 <Switch

@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { Award, ChevronLeft } from 'lucide-react';
 import { useEvaluation } from '@/contexts/EvaluationContext';
-import { formatarMoeda, calcularResultadoFinal, metaAtingida } from '@/utils/calculations';
-import { Operador } from '@/types/evaluation';
+import { formatarMoeda, calcularResultadoFinal } from '@/utils/calculations';
+import { Operador, valoresNivel } from '@/types/evaluation';
 
 interface RankingData {
   operador: Operador;
@@ -17,29 +17,48 @@ interface RankingData {
 const RankingPage = () => {
   const { state } = useEvaluation();
 
-    const ranking = useMemo((): RankingData[] => {
+  const ranking = useMemo((): RankingData[] => {
+    const criteriosAtivos = state.criterios.filter(c => c.ativo);
+    
     return state.operadores
-      .filter(op => op.ativo)
+      .filter(op => op.ativo && op.participaAvaliacao)
       .map(operador => {
-        let pontuacaoFinal = 0;
-        state.criterios
-            .filter(c => c.ativo)
-            .forEach(criterio => {
-                const avaliacoesDoOperador = state.avaliacoes.filter(av => av.operadorId === operador.id);
-                const resultadoCriterio = calcularResultadoFinal(criterio, avaliacoesDoOperador, state.operadores);
+        const avaliacoesDoOperador = state.avaliacoes.filter(av => av.operadorId === operador.id);
 
-                const atingiu = metaAtingida(criterio, resultadoCriterio);
-                if (atingiu) {
-                    pontuacaoFinal += criterio.valorBonus;
-                }
-            });
+        const baseMetaValue = valoresNivel[operador.nivel] || 0;
+        const totalPeso = criteriosAtivos.reduce((sum, c) => sum + c.peso, 0);
 
-        const totalAvaliacoes = state.avaliacoes.filter(av => av.operadorId === operador.id).length;
+        if (avaliacoesDoOperador.length === 0) {
+          return {
+            operador,
+            pontuacaoFinal: 0,
+            totalAvaliacoes: 0,
+          };
+        }
+
+        const pontuacaoCriterios = criteriosAtivos.map(criterio => {
+            const resultadoMedio = calcularResultadoFinal(criterio, avaliacoesDoOperador, state.operadores);
+
+            // FIXME: Quantitative meta target logic is still unclear.
+            const metaParaComparacao = criterio.tipo === 'qualitativo' 
+                ? (criterio.tipoMeta === 'maior_melhor' ? 100 : 25)
+                : baseMetaValue; // Placeholder, this is incorrect
+
+            const metaAtingidaStatus = criterio.tipoMeta === 'maior_melhor'
+                ? resultadoMedio >= metaParaComparacao
+                : resultadoMedio <= metaParaComparacao;
+
+            const criterioValorBonus = totalPeso > 0 ? (criterio.peso / totalPeso) * baseMetaValue : 0;
+
+            return metaAtingidaStatus ? criterioValorBonus : 0;
+        });
+
+        const pontuacaoFinal = pontuacaoCriterios.reduce((sum, bonus) => sum + bonus, 0);
 
         return {
           operador,
           pontuacaoFinal,
-          totalAvaliacoes,
+          totalAvaliacoes: avaliacoesDoOperador.length,
         };
       })
       .sort((a, b) => b.pontuacaoFinal - a.pontuacaoFinal);

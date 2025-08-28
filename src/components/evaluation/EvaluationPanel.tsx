@@ -1,5 +1,5 @@
 // src/components/evaluation/EvaluationPanel.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useEvaluation } from '@/contexts/EvaluationContext';
@@ -8,8 +8,7 @@ import { EvaluationSummary } from './EvaluationSummary';
 import { OperatorSelector } from './OperatorSelector';
 import { PeriodSelector } from './PeriodSelector';
 import { PDFGenerator } from '../reports/PDFGenerator';
-import { Avaliacao, CriterioAvaliacao } from '@/types/evaluation';
-import { calcularBonusAlcancado, calcularTotaisAvaliacao, metaAtingida } from '@/utils/calculations';
+import { Avaliacao, Criterio, CriterioAvaliacao, valoresNivel } from '@/types/evaluation';
 import { FileText, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -32,28 +31,46 @@ export function EvaluationPanel() {
     return `${hoje.getFullYear()}-${(hoje.getMonth() + 1).toString().padStart(2, '0')}`;
   });
   const [criteriosAvaliacao, setCriteriosAvaliacao] = useState<CriterioAvaliacao[]>([]);
+  const [criteriosParaTabela, setCriteriosParaTabela] = useState<Criterio[]>([]);
   const [avaliacaoAtual, setAvaliacaoAtual] = useState<Avaliacao | null>(null);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
 
+  const activeOperators = useMemo(() => state.operadores.filter(op => op.ativo && op.participaAvaliacao), [state.operadores]);
+
+  useEffect(() => {
+    if (!operadorSelecionado && activeOperators.length > 0) {
+      setOperadorSelecionado(activeOperators[0].id);
+    }
+  }, [activeOperators, operadorSelecionado]);
+
   useEffect(() => {
     if (operadorSelecionado && periodoAtual) {
+      const operadorAtual = state.operadores.find(op => op.id === operadorSelecionado);
+      if (!operadorAtual) return;
+
+      const baseMetaValue = valoresNivel[operadorAtual.nivel] || 0;
       const criteriosAtivos = state.criterios.filter(c => c.ativo);
-      
+      const totalPeso = criteriosAtivos.reduce((sum, c) => sum + c.peso, 0);
+
+      const criteriosComBonus = criteriosAtivos.map(criterio => ({
+        ...criterio,
+        valorBonus: totalPeso > 0 ? (criterio.peso / totalPeso) * baseMetaValue : 0
+      }));
+      setCriteriosParaTabela(criteriosComBonus);
+
       const avaliacoesDoOperadorNoPeriodo = state.avaliacoes.filter(
         av => av.operadorId === operadorSelecionado && av.periodo === periodoAtual
       );
 
-      const activeOperators = state.operadores.filter(op => op.ativo);
       const totalOperatorsCount = activeOperators.length;
       const evaluationsExpectedToReceive = totalOperatorsCount > 1 ? totalOperatorsCount - 1 : 0;
-      const isCompleted = avaliacoesDoOperadorNoPeriodo.length === evaluationsExpectedToReceive;
-      setIsCompleted(isCompleted);
+      setIsCompleted(avaliacoesDoOperadorNoPeriodo.length >= evaluationsExpectedToReceive);
 
-      const novosCriteriosAvaliacao = criteriosAtivos.map(criterio => {
+      const novosCriteriosAvaliacao = criteriosComBonus.map(criterio => {
         let valorAlcancado = 0;
 
         if (criterio.id.startsWith('gerencia_')) {
-          const avaliacaoGerencia = avaliacoesDoOperadorNoPeriodo[0];
+          const avaliacaoGerencia = avaliacoesDoOperadorNoPeriodo[0]; // Simplified assumption
           if (avaliacaoGerencia) {
             const criterioAvaliado = avaliacaoGerencia.criterios.find(c => c.criterioId === criterio.id);
             if (criterioAvaliado) {
@@ -73,8 +90,16 @@ export function EvaluationPanel() {
           valorAlcancado = count > 0 ? total / count : 0;
         }
 
-        const valorBonusAlcancado = calcularBonusAlcancado(criterio, valorAlcancado);
-        const metaAtingidaStatus = metaAtingida(criterio, valorAlcancado);
+        // FIXME: Quantitative meta target logic is still unclear.
+        const metaParaComparacao = criterio.tipo === 'qualitativo' 
+            ? (criterio.tipoMeta === 'maior_melhor' ? 100 : 25)
+            : baseMetaValue; // Placeholder, this is incorrect
+
+        const metaAtingidaStatus = criterio.tipoMeta === 'maior_melhor'
+            ? valorAlcancado >= metaParaComparacao
+            : valorAlcancado <= metaParaComparacao;
+
+        const valorBonusAlcancado = metaAtingidaStatus ? (criterio.valorBonus || 0) : 0;
 
         return {
           criterioId: criterio.id,
@@ -86,14 +111,15 @@ export function EvaluationPanel() {
 
       setCriteriosAvaliacao(novosCriteriosAvaliacao);
 
-      const { valorTotalMeta, valorTotalAlcancado } = calcularTotaisAvaliacao(criteriosAtivos, novosCriteriosAvaliacao);
+      const valorTotalAlcancado = novosCriteriosAvaliacao.reduce((sum, ca) => sum + ca.valorBonusAlcancado, 0);
+
       const avaliacaoSintetica: Avaliacao = {
         id: 'sintetica',
         operadorId: operadorSelecionado,
-        avaliadorId: '', // Synthetic evaluation does not have a single evaluator
+        avaliadorId: '', 
         periodo: periodoAtual,
         criterios: novosCriteriosAvaliacao,
-        valorTotalMeta,
+        valorTotalMeta: baseMetaValue,
         valorTotalAlcancado,
         dataCriacao: new Date(),
         dataUltimaEdicao: new Date(),
@@ -102,12 +128,14 @@ export function EvaluationPanel() {
 
     } else {
       setCriteriosAvaliacao([]);
+      setCriteriosParaTabela(state.criterios.filter(c => c.ativo));
       setAvaliacaoAtual(null);
       setIsCompleted(false);
     }
-  }, [operadorSelecionado, periodoAtual, state.avaliacoes, state.criterios, state.operadores]);
+  }, [operadorSelecionado, periodoAtual, state.avaliacoes, state.criterios, state.operadores, activeOperators]);
 
-  const { valorTotalMeta, valorTotalAlcancado } = calcularTotaisAvaliacao(state.criterios.filter(c => c.ativo), criteriosAvaliacao);
+  const valorTotalMeta = avaliacaoAtual?.valorTotalMeta || 0;
+  const valorTotalAlcancado = avaliacaoAtual?.valorTotalAlcancado || 0;
   const metasAtingidas = criteriosAvaliacao.filter(ca => ca.metaAtingida).length;
   const totalMetas = state.criterios.filter(c => c.ativo).length;
   const operadorAtual = state.operadores.find(op => op.id === operadorSelecionado);
@@ -125,7 +153,7 @@ export function EvaluationPanel() {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <OperatorSelector operadores={state.operadores} operadorSelecionado={operadorSelecionado} onOperadorChange={setOperadorSelecionado} avaliacoes={state.avaliacoes} periodoAtual={periodoAtual} />
+        <OperatorSelector operadores={activeOperators} operadorSelecionado={operadorSelecionado} onOperadorChange={setOperadorSelecionado} avaliacoes={state.avaliacoes} periodoAtual={periodoAtual} />
         <PeriodSelector periodoAtual={periodoAtual} onPeriodoChange={setPeriodoAtual} />
       </div>
 
@@ -134,7 +162,7 @@ export function EvaluationPanel() {
       {operadorSelecionado ? (
         <>
           <EvaluationTable
-              criterios={state.criterios.filter(c => c.ativo)}
+              criterios={criteriosParaTabela}
               criteriosAvaliacao={criteriosAvaliacao}
               isEditable={false}
           />

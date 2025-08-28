@@ -35,6 +35,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               ativo: profileData.ativo,
               grupo: profileData.grupo,
               dataInclusao: new Date(), // Placeholder
+              participaAvaliacao: false,
+              nivel: 'Nivel 1',
             };
             setUser(loggedInUser);
           } else {
@@ -58,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username: email, password: password }),
+        body: JSON.stringify({ usuario: email, senha: password }),
       });
 
       if (!loginResponse.ok) {
@@ -92,6 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ativo: profileData.ativo,
         grupo: profileData.grupo,
         dataInclusao: new Date(), // Placeholder
+        participaAvaliacao: false,
+        nivel: 'Nivel 1',
       };
 
       setUser(loggedInUser);
