@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
 import { Operador, Criterio, Avaliacao, ConfiguracaoSistema } from '../types/evaluation';
-import { DEFAULT_CRITERIOS } from '../data/defaultData';
-import { getOperadores } from '../services/operatorService';
+import { getOperadores, createOperador, updateOperador, deleteOperador } from '../services/operatorService';
+import { getCriterios } from '../services/criteriaService';
+import { useAuth } from './AuthContext';
 
 // Estado global do sistema
 interface EvaluationState {
@@ -18,13 +19,16 @@ interface EvaluationState {
 type EvaluationAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
-  | { type: 'SET_OPERADORES'; payload: Operador[] }
+  | { type: 'FETCH_OPERADORES_REQUEST' }
+  | { type: 'FETCH_OPERADORES_SUCCESS'; payload: Operador[] }
+  | { type: 'FETCH_OPERADORES_FAILURE'; payload: string }
   | { type: 'ADD_OPERADOR'; payload: Operador }
   | { type: 'UPDATE_OPERADOR'; payload: Operador }
   | { type: 'DELETE_OPERADOR'; payload: number }
   | { type: 'SET_CRITERIOS'; payload: Criterio[] }
   | { type: 'ADD_CRITERIO'; payload: Criterio } // Added this line
   | { type: 'UPDATE_CRITERIO'; payload: Criterio }
+  | { type: 'DELETE_CRITERIO'; payload: number }
   | { type: 'SET_AVALIACOES'; payload: Avaliacao[] }
   | { type: 'ADD_AVALIACAO'; payload: Avaliacao }
   | { type: 'UPDATE_AVALIACAO'; payload: Avaliacao }
@@ -34,10 +38,9 @@ type EvaluationAction =
 // Estado inicial
 const initialState: EvaluationState = (() => {
   const storedTotalTeamTickets = localStorage.getItem('totalTeamTickets');
-  const storedCriterios = localStorage.getItem('criterios');
   return {
     operadores: [],
-    criterios: storedCriterios ? JSON.parse(storedCriterios) : DEFAULT_CRITERIOS,
+    criterios: [],
     avaliacoes: [],
     configuracao: {
       versao: '1.0.0',
@@ -58,8 +61,12 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
       return { ...state, loading: action.payload };
     case 'SET_ERROR':
       return { ...state, error: action.payload };
-    case 'SET_OPERADORES':
-      return { ...state, operadores: action.payload };
+    case 'FETCH_OPERADORES_REQUEST':
+      return { ...state, loading: true, error: null };
+    case 'FETCH_OPERADORES_SUCCESS':
+      return { ...state, loading: false, error: null, operadores: action.payload };
+    case 'FETCH_OPERADORES_FAILURE':
+      return { ...state, loading: false, error: action.payload, operadores: [] };
     case 'ADD_OPERADOR':
       return { 
         ...state, 
@@ -94,6 +101,11 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
           cr.id === action.payload.id ? action.payload : cr
         )
       };
+    case 'DELETE_CRITERIO':
+      return {
+        ...state,
+        criterios: state.criterios.filter(cr => cr.id !== action.payload)
+      };
     case 'SET_AVALIACOES':
       return { ...state, avaliacoes: action.payload };
     case 'ADD_AVALIACAO':
@@ -125,39 +137,97 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
 const EvaluationContext = createContext<{
   state: EvaluationState;
   dispatch: React.Dispatch<EvaluationAction>;
+  fetchOperadores: () => Promise<void>;
+  addOperator: (operator: Operador) => Promise<void>;
+  updateOperator: (operator: Operador) => Promise<void>;
+  deleteOperator: (id: number) => Promise<void>;
 } | null>(null);
 
 // Provider
 export function EvaluationProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(evaluationReducer, initialState);
+  const { user } = useAuth();
+
+  const fetchOperadores = useCallback(async () => {
+    dispatch({ type: 'FETCH_OPERADORES_REQUEST' });
+    try {
+      const response = await getOperadores();
+      dispatch({ type: 'FETCH_OPERADORES_SUCCESS', payload: response.data });
+    } catch (err) {
+      console.error("Failed to fetch operators:", err);
+      dispatch({ type: 'FETCH_OPERADORES_FAILURE', payload: 'Failed to load operators.' });
+    }
+  }, [dispatch]);
+
+  const addOperator = useCallback(async (operator: Operador) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      await createOperador(operator);
+      await fetchOperadores();
+    } catch (err) {
+      console.error("Failed to create operator:", err);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to create operator.' });
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, [dispatch, fetchOperadores]);
+
+  const updateOperator = useCallback(async (operator: Operador) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      await updateOperador(operator);
+      await fetchOperadores();
+    } catch (err) {
+      console.error("Failed to update operator:", err);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to update operator.' });
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, [dispatch, fetchOperadores]);
+
+  const deleteOperator = useCallback(async (id: number) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      await deleteOperador(id);
+      await fetchOperadores();
+    } catch (err) {
+      console.error("Failed to delete operator:", err);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to delete operator.' });
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, [dispatch, fetchOperadores]);
 
   useEffect(() => {
-    const fetchOperadores = async () => {
+    const fetchCriterios = async () => {
       dispatch({ type: 'SET_LOADING', payload: true });
       try {
-        const response = await getOperadores();
-        dispatch({ type: 'SET_OPERADORES', payload: response.data });
+        const response = await getCriterios();
+        dispatch({ type: 'SET_CRITERIOS', payload: response.data });
       } catch (err) {
-        console.error("Failed to fetch operators:", err);
-        dispatch({ type: 'SET_ERROR', payload: 'Failed to load operators.' });
+        console.error("Failed to fetch criterios:", err);
+        dispatch({ type: 'SET_ERROR', payload: 'Failed to load criterios.' });
       } finally {
         dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
 
-    fetchOperadores();
-  }, []);
+    if (user) {
+      fetchOperadores();
+      fetchCriterios();
+    } else {
+      // Limpa os operadores e criterios se o usuário não estiver logado
+      dispatch({ type: 'FETCH_OPERADORES_SUCCESS', payload: [] }); // Use FETCH_OPERADORES_SUCCESS
+      dispatch({ type: 'SET_CRITERIOS', payload: [] });
+    }
+  }, [user, fetchOperadores]); // Add fetchOperadores to dependency array
 
   useEffect(() => {
     localStorage.setItem('totalTeamTickets', state.totalTeamTickets.toString());
   }, [state.totalTeamTickets]);
 
-  useEffect(() => {
-    localStorage.setItem('criterios', JSON.stringify(state.criterios));
-  }, [state.criterios]);
-
   return (
-    <EvaluationContext.Provider value={{ state, dispatch }}>
+    <EvaluationContext.Provider value={{ state, dispatch, fetchOperadores, addOperator, updateOperator, deleteOperator }}>
       {children}
     </EvaluationContext.Provider>
   );

@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => ({
   base: '/avaliacao360/',
   server: {
     host: "::",
-    port: 8082,
+    port: 3000,
   },
   plugins: [
     react(),

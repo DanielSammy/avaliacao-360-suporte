@@ -120,7 +120,7 @@ export function SystemSettings() {
         }
 
         // Import validated data
-        dispatch({ type: 'SET_OPERADORES', payload: dados.operadores });
+        dispatch({ type: 'FETCH_OPERADORES_SUCCESS', payload: dados.operadores });
         dispatch({ type: 'SET_CRITERIOS', payload: dados.criterios });
         dispatch({ type: 'SET_AVALIACOES', payload: dados.avaliacoes });
 
@@ -153,7 +153,8 @@ export function SystemSettings() {
   };
 
   const resetarSistema = () => {
-    dispatch({ type: 'INITIALIZE_SYSTEM' });
+    dispatch({ type: 'FETCH_OPERADORES_SUCCESS', payload: DEFAULT_OPERADORES });
+    dispatch({ type: 'SET_CRITERIOS', payload: DEFAULT_CRITERIOS });
     dispatch({ type: 'SET_AVALIACOES', payload: [] });
     
     toast({

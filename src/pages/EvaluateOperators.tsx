@@ -24,7 +24,7 @@ export function EvaluateOperators() {
   
   const quantitativeMetaValue = useMemo(() => {
     if (selectedOperatorId) {
-      const selectedOperator = state.operadores.find(op => op.id === selectedOperatorId);
+      const selectedOperator = state.operadores.find(op => op.id === parseInt(selectedOperatorId, 10));
       if (selectedOperator) {
         return valoresNivel[selectedOperator.nivel];
       }
@@ -35,10 +35,10 @@ export function EvaluateOperators() {
   const currentPeriod = new Date().getFullYear().toString() + '-' + (new Date().getMonth() + 1).toString().padStart(2, '0');
 
   const evaluationsByCurrentUser = state.avaliacoes.filter(
-    (avaliacao) => avaliacao.avaliadorId === avaliadorId && avaliacao.periodo === currentPeriod
+    (avaliacao) => avaliadorId !== null && avaliacao.avaliadorId === avaliadorId && avaliacao.periodo === currentPeriod
   );
 
-  const hasEvaluated = (operatorId: string) => {
+  const hasEvaluated = (operatorId: number) => {
     return evaluationsByCurrentUser.some(evalu => evalu.operadorId === operatorId);
   };
 
@@ -54,7 +54,7 @@ export function EvaluateOperators() {
     const initialValues: { [key: string]: number } = {};
     filteredCriterios.forEach(criterio => {
       if (criterio.tipo === 'quantitativo') {
-        initialValues[criterio.id] = 0;
+        initialValues[criterio.id.toString()] = 0;
       }
     });
     setEvaluationValues(initialValues);
@@ -84,7 +84,6 @@ export function EvaluateOperators() {
       return;
     }
 
-    // New validation: Check if logged-in user's email exists among registered operators
     const loggedInUserEmail = user?.login;
     const isUserRegisteredOperator = state.operadores.some(
       (op) => op.login === loggedInUserEmail
@@ -108,7 +107,7 @@ export function EvaluateOperators() {
       return;
     }
     
-    const selectedOperator = state.operadores.find(op => op.id === selectedOperatorId);
+    const selectedOperator = state.operadores.find(op => op.id === parseInt(selectedOperatorId, 10));
     if (!selectedOperator) {
       toast({
         title: "Erro",
@@ -118,7 +117,7 @@ export function EvaluateOperators() {
       return;
     }
 
-    if (avaliadorId === selectedOperatorId) {
+    if (avaliadorId === parseInt(selectedOperatorId, 10)) {
       toast({
         title: "Erro",
         description: "Um operador não pode avaliar a si mesmo.",
@@ -128,7 +127,7 @@ export function EvaluateOperators() {
     }
 
     const criteriosAvaliacao: CriterioAvaliacao[] = filteredCriterios.map(criterio => {
-      const valorAlcancado = evaluationValues[criterio.id] || 0;
+      const valorAlcancado = evaluationValues[criterio.id.toString()] || 0;
       
       let metaParaComparacao: number;
       if (criterio.tipo === 'quantitativo') {
@@ -141,7 +140,7 @@ export function EvaluateOperators() {
         ? valorAlcancado >= metaParaComparacao
         : valorAlcancado <= metaParaComparacao;
 
-      const valorBonusAlcancado = metaAtingida ? (criterio.valorBonus || 0) : 0;
+      const valorBonusAlcancado = 0; // Removido criterio.valorBonus
 
       return {
         criterioId: criterio.id,
@@ -155,14 +154,13 @@ export function EvaluateOperators() {
       if (c.tipo === 'quantitativo') {
         return sum + (quantitativeMetaValue || 0);
       }
-      // For qualitative criteria, we are not summing them into the total meta for now.
       return sum;
     }, 0);
     const totalAlcancado = criteriosAvaliacao.reduce((sum, ca) => sum + ca.valorAlcancado, 0);
 
     const newEvaluation: Avaliacao = {
-      id: `avaliacao-${Date.now()}`,
-      operadorId: selectedOperatorId,
+      id: Date.now(),
+      operadorId: parseInt(selectedOperatorId, 10),
       avaliadorId: avaliadorId,
       periodo: currentPeriod,
       criterios: criteriosAvaliacao,
@@ -176,7 +174,7 @@ export function EvaluateOperators() {
 
     toast({
       title: "Avaliação Registrada",
-      description: `Avaliação de ${user?.nome} para ${state.operadores.find(op => op.id === selectedOperatorId)?.nome} registrada com sucesso.`,
+      description: `Avaliação de ${user?.nome} para ${state.operadores.find(op => op.id === parseInt(selectedOperatorId, 10))?.nome} registrada com sucesso.`,
       variant: "default",
     });
 
@@ -204,7 +202,7 @@ export function EvaluateOperators() {
               </SelectTrigger>
               <SelectContent>
                 {activeOperators.filter(op => op.id !== avaliadorId).map(operator => (
-                  <SelectItem key={operator.id} value={operator.id} disabled={hasEvaluated(operator.id)} className={`${operator.participaAvaliacao ? '' : ''}`}>
+                  <SelectItem key={operator.id} value={operator.id.toString()} disabled={hasEvaluated(operator.id)} className={`${operator.participaAvaliacao ? '' : ''}`}>
                     <div className="flex items-center justify-between w-full">
                       <span className="font-medium">{operator.nome}</span>
                       {hasEvaluated(operator.id) && (
@@ -217,12 +215,12 @@ export function EvaluateOperators() {
             </Select>
           </div>
 
-          {user && selectedOperatorId && (user.id !== selectedOperatorId) && (
+          {user && selectedOperatorId && (avaliadorId !== parseInt(selectedOperatorId, 10)) && (
             <div className="space-y-4">
               <h3 className="text-xl font-semibold mb-4 flex items-center">
                 Critérios de Avaliação para
                 <span className={`ml-2 ${isNameBlurred ? 'blur-sm' : ''}`}>
-                  {state.operadores.find(op => op.id === selectedOperatorId)?.nome}
+                  {state.operadores.find(op => op.id === parseInt(selectedOperatorId, 10))?.nome}
                 </span>
                 <Button
                   variant="ghost"
@@ -234,19 +232,21 @@ export function EvaluateOperators() {
                 </Button>
               </h3>
               {filteredCriterios.map(criterio => (
-                <div key={criterio.id} className="flex items-center justify-between p-3 border rounded-md">
-                  <span className="font-medium">
-                    {criterio.nome}
-                    {criterio.tipo === 'quantitativo' && criterio.nome === 'Quantitativo (Gerência)' && (
-                      <span className="ml-2 text-sm text-muted-foreground">
-                        (Meta: {quantitativeMetaValue} tickets)
-                      </span>
-                    )}
-                  </span>
+                <div key={criterio.id} className="flex items-center justify-between p-3 border rounded-md gap-4">
+                  <div className="flex-1">
+                    <span className="font-medium break-words">
+                      {criterio.nome}
+                      {criterio.tipo === 'quantitativo' && criterio.nome === 'Quantitativo (Gerência)' && (
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          (Meta: {quantitativeMetaValue} tickets)
+                        </span>
+                      )}
+                    </span>
+                  </div>
                   {criterio.tipo === 'qualitativo' ? (
                     <RadioGroup
-                      onValueChange={(value) => handleEvaluationChange(criterio.id, value)}
-                      value={evaluationValues[criterio.id]?.toString() || ''}
+                      onValueChange={(value) => handleEvaluationChange(criterio.id.toString(), value)}
+                      value={evaluationValues[criterio.id.toString()]?.toString() || ''}
                       className="flex gap-4"
                     >
                       <div className="flex items-center space-x-2">
@@ -269,9 +269,9 @@ export function EvaluateOperators() {
                   ) : (
                     <Input
                       type="number"
-                      value={evaluationValues[criterio.id]?.toString() || ''}
-                      onChange={(e) => handleEvaluationChange(criterio.id, e.target.value)}
-                      placeholder={criterio.id === 'gerencia_quantitativo' ? 'Tickets atendidos' : 'Valor alcançado'}
+                      value={evaluationValues[criterio.id.toString()]?.toString() || ''}
+                      onChange={(e) => handleEvaluationChange(criterio.id.toString(), e.target.value)}
+                      placeholder={criterio.id.toString() === 'gerencia_quantitativo' ? 'Tickets atendidos' : 'Valor alcançado'}
                       className="w-32 text-center"
                       min="0"
                     />

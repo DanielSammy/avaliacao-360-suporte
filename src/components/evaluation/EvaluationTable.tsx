@@ -24,13 +24,10 @@ export function EvaluationTable({
   };
 
   const getMeta = (criterio: Criterio) => {
-    if (criterio.tipo === 'quantitativo') {
-      // valorMeta was removed. It now depends on operator level,
-      // which is not available in this component.
-      // Returning null will cause formatarValor to display 'N/A'.
-      return null;
-    }
-    return criterio.tipoMeta === 'maior_melhor' ? 100 : 25;
+    // Always use criterio.valorMeta if available, otherwise provide a sensible default
+    // The fallback logic for undefined/null valorMeta is handled in EvaluationPanel's metaParaComparacao
+    // so here we can directly use criterio.valorMeta
+    return criterio.valorMeta;
   };
 
   const metaAtingidaLocal = (criterio: Criterio, valorAlcancado: number) => {

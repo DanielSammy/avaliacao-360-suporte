@@ -1,6 +1,7 @@
-export const BASE_URL = 'http://192.168.0.26:8080';
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 export const API_ENDPOINTS = {
   OPERADORES: '/operadores',
+  CRITERIOS: '/criterios',
   // Add other endpoints here as needed
 };
 

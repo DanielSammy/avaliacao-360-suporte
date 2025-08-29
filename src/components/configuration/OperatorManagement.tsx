@@ -22,7 +22,7 @@ import {
 } from '@/services/operatorService'; // Import API functions
 
 export function OperatorManagement() {
-  const { state, dispatch } = useEvaluation();
+  const { state, dispatch, fetchOperadores } = useEvaluation();
   const { toast } = useToast();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);

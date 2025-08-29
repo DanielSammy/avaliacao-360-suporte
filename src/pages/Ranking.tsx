@@ -12,6 +12,7 @@ interface RankingData {
   operador: Operador;
   pontuacaoFinal: number;
   totalAvaliacoes: number;
+  averageValorAlcancado: number; // New field
 }
 
 const RankingPage = () => {
@@ -33,16 +34,20 @@ const RankingPage = () => {
             operador,
             pontuacaoFinal: 0,
             totalAvaliacoes: 0,
+            averageValorAlcancado: 0, // Initialize new field
           };
         }
 
+        let sumOfAchievedValues = 0;
         const pontuacaoCriterios = criteriosAtivos.map(criterio => {
             const resultadoMedio = calcularResultadoFinal(criterio, avaliacoesDoOperador, state.operadores);
+            sumOfAchievedValues += resultadoMedio;
 
-            // FIXME: Quantitative meta target logic is still unclear.
-            const metaParaComparacao = criterio.tipo === 'qualitativo' 
-                ? (criterio.tipoMeta === 'maior_melhor' ? 100 : 25)
-                : baseMetaValue; // Placeholder, this is incorrect
+            const metaParaComparacao = criterio.valorMeta !== undefined && criterio.valorMeta !== null
+                ? criterio.valorMeta
+                : (criterio.tipo === 'qualitativo' 
+                    ? (criterio.tipoMeta === 'maior_melhor' ? 100 : 25) // Fallback para qualitativo
+                    : baseMetaValue); // Fallback para quantitativo (ainda pode ser ajustado)
 
             const metaAtingidaStatus = criterio.tipoMeta === 'maior_melhor'
                 ? resultadoMedio >= metaParaComparacao
@@ -54,11 +59,13 @@ const RankingPage = () => {
         });
 
         const pontuacaoFinal = pontuacaoCriterios.reduce((sum, bonus) => sum + bonus, 0);
+        const averageValorAlcancado = criteriosAtivos.length > 0 ? sumOfAchievedValues / criteriosAtivos.length : 0;
 
         return {
           operador,
           pontuacaoFinal,
           totalAvaliacoes: avaliacoesDoOperador.length,
+          averageValorAlcancado, // Assign calculated value
         };
       })
       .sort((a, b) => b.pontuacaoFinal - a.pontuacaoFinal);
@@ -91,6 +98,7 @@ const RankingPage = () => {
                   <th className="text-left p-4 font-semibold">Operador</th>
                   <th className="text-center p-4 font-semibold">Pontuação Final</th>
                   <th className="text-center p-4 font-semibold">Avaliações Recebidas</th>
+                  <th className="text-center p-4 font-semibold">Média Alcançada</th> {/* New Header */}
                 </tr>
               </thead>
               <tbody>
@@ -100,6 +108,7 @@ const RankingPage = () => {
                     <td className="p-4 font-medium">{item.operador.nome}</td>
                     <td className="p-4 text-center font-semibold text-primary text-lg">{formatarMoeda(item.pontuacaoFinal)}</td>
                     <td className="p-4 text-center">{item.totalAvaliacoes}</td>
+                    <td className="p-4 text-center">{item.averageValorAlcancado.toFixed(1)}%</td> {/* New Cell */}
                   </tr>
                 ))}
               </tbody>

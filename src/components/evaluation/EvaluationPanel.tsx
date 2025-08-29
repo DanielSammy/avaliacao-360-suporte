@@ -64,17 +64,36 @@ export function EvaluationPanel() {
       );
 
       const totalOperatorsCount = activeOperators.length;
-      const evaluationsExpectedToReceive = totalOperatorsCount > 1 ? totalOperatorsCount - 1 : 0;
+      // An operator's evaluation is considered complete when they have received evaluations
+      // from all active operators (including themselves if applicable, or all peers).
+      // This ensures it stays 'em andamento' until the full set of expected evaluations is received.
+      const evaluationsExpectedToReceive = totalOperatorsCount; 
       setIsCompleted(avaliacoesDoOperadorNoPeriodo.length >= evaluationsExpectedToReceive);
 
       const novosCriteriosAvaliacao = criteriosComBonus.map(criterio => {
-        // valorAlcancado is always 0. This logic needs to be implemented based on actual evaluation data.
-        const valorAlcancado = 0;
+        // Collect all valorAlcancado for the current criterion across all evaluations for the operator in the period
+        const allValorAlcancadoForCriterion = avaliacoesDoOperadorNoPeriodo.map(
+          (avaliacao) => {
+            const crit = avaliacao.criterios.find((ca) => ca.criterioId === criterio.id);
+            return crit ? crit.valorAlcancado : 0; // Default to 0 if criterion not found in this evaluation
+          }
+        );
 
-        // FIXME: Quantitative meta target logic is still unclear.
-        const metaParaComparacao = criterio.tipo === 'qualitativo' 
-            ? (criterio.tipoMeta === 'maior_melhor' ? 100 : 25)
-            : baseMetaValue; // Placeholder, this is incorrect
+        // Calculate the average valorAlcancado
+        let valorAlcancado: number;
+        if (allValorAlcancadoForCriterion.length > 0) {
+          const sum = allValorAlcancadoForCriterion.reduce((acc, val) => acc + val, 0);
+          valorAlcancado = sum / allValorAlcancadoForCriterion.length;
+        } else {
+          // Default value if no evaluations or criterion not found
+          valorAlcancado = criterio.tipo === 'qualitativo' ? 0 : 0;
+        }
+
+        const metaParaComparacao = criterio.valorMeta !== undefined && criterio.valorMeta !== null
+            ? criterio.valorMeta
+            : (criterio.tipo === 'qualitativo'
+                ? (criterio.tipoMeta === 'maior_melhor' ? 100 : 25)
+                : baseMetaValue);
 
         const metaAtingidaStatus = criterio.tipoMeta === 'maior_melhor'
             ? valorAlcancado >= metaParaComparacao

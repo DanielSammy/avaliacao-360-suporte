@@ -7,152 +7,132 @@ import { Switch } from '@/components/ui/switch';
 import { useEvaluation } from '@/contexts/EvaluationContext';
 import { Criterio, NivelOperador, valoresNivel } from '@/types/evaluation';
 import { formatarMoeda } from '@/utils/calculations';
-import { Target, Save, RotateCcw, Info, TrendingUp, TrendingDown } from 'lucide-react';
+import { Target, Save, Trash2, Info, TrendingUp, TrendingDown, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { createCriterio, updateCriterio, deleteCriterio } from '@/services/criteriaService';
 
 export function CriteriaManagement() {
   const { state, dispatch } = useEvaluation();
-  const [editedCriteria, setEditedCriteria] = useState<{ [key: number]: Criterio }>({});
+  const [editedCriteria, setEditedCriteria] = useState<{ [key: number]: Partial<Criterio> }>({});
   const [newCriterionName, setNewCriterionName] = useState<string>('');
   const [totalTeamTickets, setTotalTeamTickets] = useState<number>(state.totalTeamTickets);
   const { toast } = useToast();
 
   useEffect(() => {
-    setTotalTeamTickets(state.totalTeamTickets);
-  }, [state.totalTeamTickets]);
-
-  useEffect(() => {
-    const quantitativoGerenciaCriterio = state.criterios.find(
-      (c) => c.id_criterio === 'gerencia_quantitativo' && c.tipo === 'quantitativo'
+    // Update valorMeta for 'gerencia_quantitativo' criterion when totalTeamTickets changes
+    const gerenciaQuantitativoCriterio = state.criterios.find(
+      (c) => c.idCriterio === 'gerencia_quantitativo'
     );
 
-    if (quantitativoGerenciaCriterio) {
-      const activeOperatorsCount = state.operadores.filter(
-        (op) => op.participaAvaliacao
-      ).length;
-
+    if (gerenciaQuantitativoCriterio) {
+      const activeOperatorsCount = state.operadores.filter(op => op.participaAvaliacao).length;
       let newValorMeta = 0;
+
       if (activeOperatorsCount > 0) {
-        newValorMeta = Math.round((state.totalTeamTickets / activeOperatorsCount) * 0.80);
+        newValorMeta = Math.round((totalTeamTickets / activeOperatorsCount) * 0.80);
       }
 
-      if (newValorMeta !== (quantitativoGerenciaCriterio.valorMeta || 0)) {
-        dispatch({
-          type: 'UPDATE_CRITERIO',
-          payload: {
-            ...quantitativoGerenciaCriterio,
+      // Only update if the value has actually changed to avoid unnecessary re-renders
+      if (gerenciaQuantitativoCriterio.valorMeta !== newValorMeta) {
+        setEditedCriteria((prev) => ({
+          ...prev,
+          [gerenciaQuantitativoCriterio.id]: {
+            ...prev[gerenciaQuantitativoCriterio.id],
             valorMeta: newValorMeta,
           },
-        });
+        }));
       }
     }
-  }, [state.totalTeamTickets, state.operadores, state.criterios, dispatch]);
+  }, [totalTeamTickets, state.criterios, state.operadores]);
 
   const activeCriteria = useMemo(() => {
-    const allCriteria = state.criterios.map(c => editedCriteria[c.id] || c);
-    return allCriteria.filter(c => c.ativo);
-  }, [state.criterios, editedCriteria]);
+    return state.criterios.filter(c => c.ativo);
+  }, [state.criterios]);
 
   const totalPeso = useMemo(() => {
     return activeCriteria.reduce((sum, criterio) => sum + (criterio.peso || 0), 0);
   }, [activeCriteria]);
 
-  const addNewCriterion = () => {
+  const addNewCriterion = async () => {
     if (!newCriterionName.trim()) {
       toast({ title: "Erro", description: "O nome do critério não pode ser vazio.", variant: "destructive" });
       return;
     }
 
-    const newId = Date.now();
-    const newCriterion: Criterio = {
-      id: newId,
-      id_criterio: `criterio-${newId}`,
+    const newCriterionData = {
+      idCriterio: `criterio-${Date.now()}`,
       nome: newCriterionName.trim(),
-      tipoMeta: 'maior_melhor',
+      tipo: 'qualitativo' as 'qualitativo' | 'quantitativo',
+      tipoMeta: 'maior_melhor' as 'maior_melhor' | 'menor_melhor',
       valorMeta: 100,
       peso: 1,
       ordem: state.criterios.length + 1,
       ativo: true,
-      tipo: 'qualitativo',
     };
 
-    dispatch({ type: 'ADD_CRITERIO', payload: newCriterion });
-    setNewCriterionName('');
-    toast({ title: "Critério adicionado", description: `"${newCriterion.nome}" foi adicionado.` });
-  };
-
-  const updateCriterio = (criterioId: number, updates: Partial<Criterio>) => {
-    const criterioOriginal = state.criterios.find(c => c.id === criterioId);
-    if (!criterioOriginal) return;
-
-    const criterioAtualizado = { ...getCriterio(criterioId), ...updates };
-    setEditedCriteria(prev => ({ ...prev, [criterioId]: criterioAtualizado }));
-  };
-
-  const hasChanges = (criterioId: number) => criterioId in editedCriteria;
-
-  const getCriterio = (criterioId: number): Criterio => {
-    return editedCriteria[criterioId] || state.criterios.find(c => c.id === criterioId)!;
-  };
-
-  const salvarCriterio = (criterioId: number) => {
-    const criterioAtualizado = editedCriteria[criterioId];
-    if (!criterioAtualizado) return;
-
-    if (criterioAtualizado.tipo === 'qualitativo' && (criterioAtualizado.valorMeta < 0 || criterioAtualizado.valorMeta > 100 || !Number.isInteger(criterioAtualizado.valorMeta))) {
-      toast({ title: "Erro", description: "O valor da meta deve ser um número inteiro entre 0 e 100.", variant: "destructive" });
-      return;
+    try {
+      const created = await createCriterio(newCriterionData);
+      dispatch({ type: 'ADD_CRITERIO', payload: created.data });
+      setNewCriterionName('');
+      toast({ title: "Critério adicionado", description: `"${created.data.nome}" foi adicionado.` });
+    } catch (error) {
+      console.error("Failed to create criterion:", error);
+      toast({ title: "Erro", description: "Não foi possível adicionar o critério.", variant: "destructive" });
     }
+  };
 
-    if (criterioAtualizado.peso < 1 || criterioAtualizado.peso > 5 || !Number.isInteger(criterioAtualizado.peso)) {
-      toast({ title: "Erro", description: "O peso deve ser um número inteiro entre 1 e 5.", variant: "destructive" });
-      return;
+  const handleInputChange = (id: number, field: keyof Criterio, value: any) => {
+    setEditedCriteria(prev => ({
+      ...prev,
+      [id]: { ...prev[id], [field]: value },
+    }));
+  };
+
+  const saveCriterio = async (id: number) => {
+    const originalCriterio = state.criterios.find(c => c.id === id);
+    if (!originalCriterio) return;
+
+    const changes = editedCriteria[id];
+    if (!changes) return;
+
+    const updatedCriterio = { ...originalCriterio, ...changes };
+    const { id: originalId, totalAvaliacoes: originalTotalAvaliacoes, ...originalCriterioWithoutIdAndTotalAvaliacoes } = originalCriterio;
+    const dataToSend = { ...originalCriterioWithoutIdAndTotalAvaliacoes, ...changes };
+
+    try {
+      const updated = await updateCriterio(id, dataToSend);
+      if (updated && updated.success) { // Check for success property
+        dispatch({ type: 'UPDATE_CRITERIO', payload: updatedCriterio }); // Use locally constructed updatedCriterio
+        // Remove from edited state after successful save
+        setEditedCriteria(prev => {
+          const newEdited = { ...prev };
+          delete newEdited[id];
+          return newEdited;
+        });
+        toast({ title: "Critério atualizado", description: `${originalCriterio.nome} foi atualizado.` }); // Use originalCriterio.nome
+      } else {
+        // Handle cases where updated.success is false or updated is null
+        console.error("Failed to update criterion: Server response indicates failure or missing success property.", updated);
+        toast({ title: "Erro", description: "Não foi possível atualizar o critério: Resposta do servidor inválida ou falha na atualização.", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Failed to update criterion:", error);
+      toast({ title: "Erro", description: "Não foi possível atualizar o critério.", variant: "destructive" });
     }
-
-    dispatch({ type: 'UPDATE_CRITERIO', payload: criterioAtualizado });
-
-    const newEditedCriteria = { ...editedCriteria };
-    delete newEditedCriteria[criterioId];
-    setEditedCriteria(newEditedCriteria);
-
-    toast({ title: "Critério atualizado", description: `${criterioAtualizado.nome} foi atualizado.` });
   };
 
-  const resetarCriterio = (criterioId: number) => {
-    const newEditedCriteria = { ...editedCriteria };
-    delete newEditedCriteria[criterioId];
-    setEditedCriteria(newEditedCriteria);
-  };
-
-  const salvarTodos = () => {
-    let hasErrors = false;
-    Object.values(editedCriteria).forEach(criterio => {
-        if (criterio.tipo === 'qualitativo' && (criterio.valorMeta < 0 || criterio.valorMeta > 100 || !Number.isInteger(criterio.valorMeta))) {
-            toast({ title: "Erro em um critério", description: `O valor da meta para "${criterio.nome}" é inválido.`, variant: "destructive" });
-            hasErrors = true;
-            return;
-        }
-        if (criterio.peso < 1 || criterio.peso > 5 || !Number.isInteger(criterio.peso)) {
-            toast({ title: "Erro em um critério", description: `O peso para "${criterio.nome}" é inválido.`, variant: "destructive" });
-            hasErrors = true;
-            return;
-        }
-        dispatch({ type: 'UPDATE_CRITERIO', payload: criterio });
-    });
-
-    if (hasErrors) {
-        toast({ title: "Erro", description: "Verifique os erros nos critérios antes de salvar tudo.", variant: "destructive" });
-        return;
+  const handleDeleteCriterio = async (id: number) => {
+    try {
+      await deleteCriterio(id);
+      dispatch({ type: 'DELETE_CRITERIO', payload: id });
+      toast({ title: "Critério removido", description: "O critério foi removido com sucesso." });
+    } catch (error) {
+      console.error("Failed to delete criterion:", error);
+      toast({ title: "Erro", description: "Não foi possível remover o critério.", variant: "destructive" });
     }
-
-    setEditedCriteria({});
-    toast({ title: "Critérios atualizados", description: "Todas as alterações foram salvas." });
   };
 
-  const resetarTodos = () => setEditedCriteria({});
-
-  const totalChanges = Object.keys(editedCriteria).length;
   const niveis = Object.keys(valoresNivel) as NivelOperador[];
 
   return (
@@ -190,12 +170,6 @@ export function CriteriaManagement() {
                 <Target className="h-5 w-5 text-primary" />
                 Gerenciar Critérios de Avaliação
               </div>
-              {totalChanges > 0 && (
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={resetarTodos}><RotateCcw className="h-4 w-4 mr-2" />Descartar ({totalChanges})</Button>
-                  <Button onClick={salvarTodos}><Save className="h-4 w-4 mr-2" />Salvar Tudo ({totalChanges})</Button>
-                </div>
-              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -204,7 +178,8 @@ export function CriteriaManagement() {
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="text-left p-4 font-semibold w-1/4">Critério</th>
-                    <th className="text-center p-4 font-semibold">Status</th> {/* Moved Status to here */}
+                    <th className="text-center p-4 font-semibold">Ações</th>
+                    <th className="text-center p-4 font-semibold">Status</th>
                     <th className="text-center p-4 font-semibold">Tipo</th>
                     <th className="text-center p-4 font-semibold">Tipo de Meta</th>
                     <th className="text-center p-4 font-semibold">Valor da Meta</th>
@@ -214,30 +189,36 @@ export function CriteriaManagement() {
                         Valor ({nivel})
                       </th>
                     ))}
-                    <th className="text-center p-4 font-semibold">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {state.criterios
                     .sort((a, b) => a.ordem - b.ordem)
-                    .map((criterioOriginal) => {
-                      const criterio = getCriterio(criterioOriginal.id);
-                      const hasChangesForCriterio = hasChanges(criterioOriginal.id);
-                      
+                    .map((criterio) => {
+                      const edited = editedCriteria[criterio.id] || {};
+                      const currentCriterio = { ...criterio, ...edited };
                       return (
-                        <tr key={criterio.id} className={`border-b hover:bg-muted/30 transition-colors ${hasChangesForCriterio ? 'bg-blue-100' : ''}`}>
+                        <tr key={criterio.id} className={`border-b hover:bg-muted/30 transition-colors`}>
                           <td className="p-4">
                             <Input
-                              value={criterio.nome}
-                              onChange={(e) => updateCriterio(criterio.id, { nome: e.target.value })}
+                              value={currentCriterio.nome}
+                              onChange={(e) => handleInputChange(criterio.id, 'nome', e.target.value)}
                               className="font-medium"
                             />
                           </td>
-                          <td className="p-4 text-center"> {/* Moved Status to here */}
-                            <Switch checked={criterio.ativo} onCheckedChange={(c) => updateCriterio(criterio.id, { ativo: c })} />
+                          <td className="p-4 text-center">
+                            <div className="flex gap-2 justify-center">
+                              <Button variant="destructive" size="sm" onClick={() => handleDeleteCriterio(criterio.id)}><Trash2 className="h-3 w-3" /></Button>
+                              {editedCriteria[criterio.id] && (
+                                <Button size="sm" onClick={() => saveCriterio(criterio.id)}><Save className="h-3 w-3" /></Button>
+                              )}
+                            </div>
                           </td>
                           <td className="p-4 text-center">
-                            <Select value={criterio.tipo} onValueChange={(v: 'qualitativo' | 'quantitativo') => updateCriterio(criterio.id, { tipo: v })}>
+                            <Switch checked={currentCriterio.ativo} onCheckedChange={(c) => handleInputChange(criterio.id, 'ativo', c)} />
+                          </td>
+                          <td className="p-4 text-center">
+                            <Select value={currentCriterio.tipo} onValueChange={(v: 'qualitativo' | 'quantitativo') => handleInputChange(criterio.id, 'tipo', v)}>
                               <SelectTrigger className="w-32 mx-auto"><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="qualitativo">Qualitativo</SelectItem>
@@ -247,9 +228,9 @@ export function CriteriaManagement() {
                           </td>
                           <td className="p-4 text-center">
                             <Select
-                              value={criterio.tipoMeta}
+                              value={currentCriterio.tipoMeta}
                               onValueChange={(value: 'maior_melhor' | 'menor_melhor') =>
-                                updateCriterio(criterio.id, { tipoMeta: value })
+                                handleInputChange(criterio.id, 'tipoMeta', value)
                               }
                             >
                               <SelectTrigger className="w-40 mx-auto">
@@ -274,45 +255,36 @@ export function CriteriaManagement() {
                           <td className="p-4 text-center">
                             <Input
                               type="number"
-                              value={criterio.valorMeta}
-                              onChange={(e) => updateCriterio(criterio.id, { 
-                                valorMeta: parseInt(e.target.value) || 0 
-                              })}
+                              value={currentCriterio.valorMeta}
+                              onChange={(e) => handleInputChange(criterio.id, 'valorMeta', parseInt(e.target.value) || 0)}
                               className="w-24 text-center mx-auto"
                               step="1"
                               min="0"
                               max="100"
-                              disabled={criterio.tipo === 'quantitativo' && criterio.id_criterio === 'gerencia_quantitativo'}
+                              disabled={criterio.idCriterio === 'gerencia_quantitativo'}
                             />
                           </td>
                           <td className="p-4 text-center">
                             <Input
                               type="number"
-                              value={criterio.peso}
-                              onChange={(e) => updateCriterio(criterio.id, { peso: parseInt(e.target.value) || 0 })}
+                              value={currentCriterio.peso}
+                              onChange={(e) => handleInputChange(criterio.id, 'peso', parseInt(e.target.value) || 0)}
                               className="w-20 text-center mx-auto"
                               step="1" min="1" max="5"
                             />
                           </td>
                           {niveis.map(nivel => {
-                            const valorCalculado = totalPeso > 0 ? (criterio.peso / totalPeso) * valoresNivel[nivel] : 0;
+                            const valorCalculado = totalPeso > 0 ? (currentCriterio.peso / totalPeso) * valoresNivel[nivel] : 0;
                             return (
                               <td key={nivel} className="p-4 text-center font-mono text-sm">
                                 {formatarMoeda(valorCalculado)}
                               </td>
                             );
                           })}
-                          <td className="p-4 text-center">
-                            {hasChangesForCriterio && (
-                              <div className="flex gap-2 justify-center">
-                                <Button variant="outline" size="sm" onClick={() => resetarCriterio(criterio.id)}><RotateCcw className="h-3 w-3" /></Button>
-                                <Button size="sm" onClick={() => salvarCriterio(criterio.id)}><Save className="h-3 w-3" /></Button>
-                              </div>
-                            )}
-                          </td>
                         </tr>
                       );
-                    })}
+                    })
+                  }
                 </tbody>
               </table>
             </div>

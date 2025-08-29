@@ -21,15 +21,16 @@ export interface Operador {
 
 export interface Criterio {
   id: number;
-  id_criterio: string;
+  idCriterio: string;
   nome: string;
   tipo: 'qualitativo' | 'quantitativo';
   tipoMeta: 'maior_melhor' | 'menor_melhor';
-  valorMeta?: number;
-  valorBonus?: number;
-  peso: number; // Peso do critério (1 a 5)
+  valorMeta: number;
+  peso: number;
   ordem: number;
   ativo: boolean;
+  totalAvaliacoes: number;
+  valorBonus: number;
 }
 
 export interface CriterioAvaliacao {
