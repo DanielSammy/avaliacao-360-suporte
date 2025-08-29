@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 export function CriteriaManagement() {
   const { state, dispatch } = useEvaluation();
-  const [editedCriteria, setEditedCriteria] = useState<{ [key: string]: Criterio }>({});
+  const [editedCriteria, setEditedCriteria] = useState<{ [key: number]: Criterio }>({});
   const [newCriterionName, setNewCriterionName] = useState<string>('');
   const [totalTeamTickets, setTotalTeamTickets] = useState<number>(state.totalTeamTickets);
   const { toast } = useToast();
@@ -24,7 +24,7 @@ export function CriteriaManagement() {
 
   useEffect(() => {
     const quantitativoGerenciaCriterio = state.criterios.find(
-      (c) => c.id === 'gerencia_quantitativo' && c.tipo === 'quantitativo'
+      (c) => c.id_criterio === 'gerencia_quantitativo' && c.tipo === 'quantitativo'
     );
 
     if (quantitativoGerenciaCriterio) {
@@ -37,7 +37,7 @@ export function CriteriaManagement() {
         newValorMeta = Math.round((state.totalTeamTickets / activeOperatorsCount) * 0.80);
       }
 
-      if (newValorMeta !== quantitativoGerenciaCriterio.valorMeta) {
+      if (newValorMeta !== (quantitativoGerenciaCriterio.valorMeta || 0)) {
         dispatch({
           type: 'UPDATE_CRITERIO',
           payload: {
@@ -64,9 +64,10 @@ export function CriteriaManagement() {
       return;
     }
 
-    const newId = `criterio-${Date.now()}`;
+    const newId = Date.now();
     const newCriterion: Criterio = {
       id: newId,
+      id_criterio: `criterio-${newId}`,
       nome: newCriterionName.trim(),
       tipoMeta: 'maior_melhor',
       valorMeta: 100,
@@ -81,7 +82,7 @@ export function CriteriaManagement() {
     toast({ title: "Critério adicionado", description: `"${newCriterion.nome}" foi adicionado.` });
   };
 
-  const updateCriterio = (criterioId: string, updates: Partial<Criterio>) => {
+  const updateCriterio = (criterioId: number, updates: Partial<Criterio>) => {
     const criterioOriginal = state.criterios.find(c => c.id === criterioId);
     if (!criterioOriginal) return;
 
@@ -89,13 +90,13 @@ export function CriteriaManagement() {
     setEditedCriteria(prev => ({ ...prev, [criterioId]: criterioAtualizado }));
   };
 
-  const hasChanges = (criterioId: string) => criterioId in editedCriteria;
+  const hasChanges = (criterioId: number) => criterioId in editedCriteria;
 
-  const getCriterio = (criterioId: string): Criterio => {
+  const getCriterio = (criterioId: number): Criterio => {
     return editedCriteria[criterioId] || state.criterios.find(c => c.id === criterioId)!;
   };
 
-  const salvarCriterio = (criterioId: string) => {
+  const salvarCriterio = (criterioId: number) => {
     const criterioAtualizado = editedCriteria[criterioId];
     if (!criterioAtualizado) return;
 
@@ -118,7 +119,7 @@ export function CriteriaManagement() {
     toast({ title: "Critério atualizado", description: `${criterioAtualizado.nome} foi atualizado.` });
   };
 
-  const resetarCriterio = (criterioId: string) => {
+  const resetarCriterio = (criterioId: number) => {
     const newEditedCriteria = { ...editedCriteria };
     delete newEditedCriteria[criterioId];
     setEditedCriteria(newEditedCriteria);
@@ -281,7 +282,7 @@ export function CriteriaManagement() {
                               step="1"
                               min="0"
                               max="100"
-                              disabled={criterio.tipo === 'quantitativo' && criterio.id === 'gerencia_quantitativo'}
+                              disabled={criterio.tipo === 'quantitativo' && criterio.id_criterio === 'gerencia_quantitativo'}
                             />
                           </td>
                           <td className="p-4 text-center">
