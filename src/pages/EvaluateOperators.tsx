@@ -208,7 +208,7 @@ export function EvaluateOperators() {
                 <SelectValue placeholder="Selecione um operador" />
               </SelectTrigger>
               <SelectContent>
-                {activeOperators.filter(op => op.id !== avaliadorId).map(operator => (
+                {activeOperators.map(operator => (
                   <SelectItem key={operator.id} value={operator.id.toString()} disabled={hasEvaluated(operator.id)} className={`${operator.participaAvaliacao ? '' : ''}`}>
                     <div className="flex items-center justify-between w-full">
                       <span className="font-medium">{operator.nome}</span>
