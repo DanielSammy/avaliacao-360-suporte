@@ -22,16 +22,6 @@ export function EvaluateOperators() {
 
   const activeOperators = state.operadores.filter(op => op.ativo && op.participaAvaliacao);
   
-  const quantitativeMetaValue = useMemo(() => {
-    if (selectedOperatorId) {
-      const selectedOperator = state.operadores.find(op => op.id === parseInt(selectedOperatorId, 10));
-      if (selectedOperator) {
-        return valoresNivel[selectedOperator.nivel];
-      }
-    }
-    return null;
-  }, [selectedOperatorId, state.operadores]);
-
   const currentPeriod = new Date().getFullYear().toString() + '-' + (new Date().getMonth() + 1).toString().padStart(2, '0');
 
   const evaluationsByCurrentUser = state.avaliacoes.filter(
@@ -131,7 +121,7 @@ export function EvaluateOperators() {
       
       let metaParaComparacao: number;
       if (criterio.tipo === 'quantitativo') {
-        metaParaComparacao = quantitativeMetaValue || 0;
+        metaParaComparacao = criterio.valorMeta;
       } else { // qualitativo
         metaParaComparacao = criterio.tipoMeta === 'maior_melhor' ? 100 : 25;
       }
@@ -152,7 +142,7 @@ export function EvaluateOperators() {
 
     const totalMeta = filteredCriterios.reduce((sum, c) => {
       if (c.tipo === 'quantitativo') {
-        return sum + (quantitativeMetaValue || 0);
+        return sum + c.valorMeta;
       }
       return sum;
     }, 0);
@@ -178,7 +168,19 @@ export function EvaluateOperators() {
       variant: "default",
     });
 
+    window.scrollTo(0, 0); // Scroll to top of the page
+
     setSelectedOperatorId(null);
+    setEvaluationValues({});
+
+    const currentOperatorIndex = activeOperators.findIndex(op => op.id === parseInt(selectedOperatorId, 10));
+    const nextOperatorIndex = currentOperatorIndex + 1;
+
+    if (nextOperatorIndex < activeOperators.length) {
+      setSelectedOperatorId(activeOperators[nextOperatorIndex].id.toString());
+    } else {
+      setSelectedOperatorId(null);
+    }
     setEvaluationValues({});
   };
 
@@ -238,7 +240,7 @@ export function EvaluateOperators() {
                       {criterio.nome}
                       {criterio.tipo === 'quantitativo' && criterio.nome === 'Quantitativo (Gerência)' && (
                         <span className="ml-2 text-sm text-muted-foreground">
-                          (Meta: {quantitativeMetaValue} tickets)
+                          (Meta: {criterio.valorMeta} tickets)
                         </span>
                       )}
                     </span>
