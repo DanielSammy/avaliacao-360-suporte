@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { Operador, Criterio, Avaliacao, ConfiguracaoSistema } from '../types/evaluation';
-import { DEFAULT_OPERADORES, DEFAULT_CRITERIOS } from '../data/defaultData';
+import { DEFAULT_CRITERIOS } from '../data/defaultData';
+import { getOperadores } from '../services/operatorService';
 
 // Estado global do sistema
 interface EvaluationState {
@@ -131,13 +132,20 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(evaluationReducer, initialState);
 
   useEffect(() => {
-    const hydratedOperadores = DEFAULT_OPERADORES.map(op => ({
-      ...op,
-      login: op.login || '',
-      dataInclusao: new Date(op.dataInclusao),
-    }));
+    const fetchOperadores = async () => {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      try {
+        const response = await getOperadores();
+        dispatch({ type: 'SET_OPERADORES', payload: response.data });
+      } catch (err) {
+        console.error("Failed to fetch operators:", err);
+        dispatch({ type: 'SET_ERROR', payload: 'Failed to load operators.' });
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+    };
 
-    dispatch({ type: 'SET_OPERADORES', payload: hydratedOperadores });
+    fetchOperadores();
   }, []);
 
   useEffect(() => {

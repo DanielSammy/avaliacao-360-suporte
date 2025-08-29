@@ -1,18 +1,6 @@
 import { Operador, Criterio } from '../types/evaluation';
 
-export const DEFAULT_OPERADORES: Operador[] = [
-  { id: 1, nome: 'Ana Carolina Ribeiro', login: 'anacarolina@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 3' },
-  { id: 2, nome: 'Erick Douglas', login: 'erick@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 2' },
-  { id: 3, nome: 'Evandro Pereira', login: 'evandro@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
-  { id: 4, nome: 'Gabriel Medeiros', login: 'gabrielmedeiros@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
-  { id: 5, nome: 'Jonathan Nascimento', login: 'jonathan.nascimento@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
-  { id: 6, nome: 'Luciano Augusto', login: 'luciano@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
-  { id: 7, nome: 'Luís Romero', login: 'luis.romero@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
-  { id: 8, nome: 'Mayara Duarte', login: 'mayaraduarte@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
-  { id: 9, nome: 'Paulo Silva', login: 'paulosilva@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 1' },
-  { id: 10, nome: 'Samuel Ivens', login: 'samuelxavier@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 2' },
-  { id: 11, nome: 'Wesley Fagundes', login: 'wesleylima@spaceinformatica.com.br', ativo: true, grupo: 4, dataInclusao: new Date(), participaAvaliacao: true, nivel: 'Nivel 2' },
-];
+
 
 export const DEFAULT_CRITERIOS: Criterio[] = [
   // --- Critérios da Gerência ---

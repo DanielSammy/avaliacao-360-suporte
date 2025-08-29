@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,22 +9,31 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useEvaluation } from '@/contexts/EvaluationContext';
 import { Operador, NivelOperador, valoresNivel } from '@/types/evaluation';
-import { gerarId } from '@/utils/calculations';
-import { UserPlus, Edit, Trash2, Users, Calendar, Mail, Star } from 'lucide-react';
+import { gerarId } from '@/utils/calculations'; // This might not be needed if API handles IDs
+import { UserPlus, Edit, Trash2, Users, Calendar, Mail, Star, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  getOperadores,
+  createOperador,
+  updateOperador,
+  deleteOperador,
+  updateOperadorStatus
+} from '@/services/operatorService'; // Import API functions
 
 export function OperatorManagement() {
   const { state, dispatch } = useEvaluation();
+  const { toast } = useToast();
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false); // New state for edit dialog
   const [editingOperator, setEditingOperator] = useState<Operador | null>(null);
   const [newOperatorName, setNewOperatorName] = useState('');
   const [newOperatorEmail, setNewOperatorEmail] = useState('');
   const [newOperatorLevel, setNewOperatorLevel] = useState<NivelOperador>('Nivel 1');
   const [newOperatorParticipatesInEvaluation, setNewOperatorParticipatesInEvaluation] = useState(true);
-  const { toast } = useToast();
 
-  const handleAddOperator = () => {
+  const handleAddOperator = async () => {
     if (!newOperatorName.trim() || !newOperatorEmail.trim()) {
       toast({
         title: "Erro",
@@ -43,7 +52,7 @@ export function OperatorManagement() {
       return;
     }
 
-    const exists = state.operadores.some(op => 
+    const exists = state.operadores.some(op =>
       (op.nome && op.nome.toLowerCase() === newOperatorName.trim().toLowerCase()) ||
       (op.login && op.login.toLowerCase() === newOperatorEmail.trim().toLowerCase())
     );
@@ -57,31 +66,40 @@ export function OperatorManagement() {
       return;
     }
 
-    const novoOperador: Operador = {
-      id: gerarId(),
-      nome: newOperatorName.trim(),
-      login: newOperatorEmail.trim(),
-      ativo: true,
-      grupo: 0, // Definir um grupo padrão
-      dataInclusao: new Date(),
-      participaAvaliacao: newOperatorParticipatesInEvaluation,
-      nivel: newOperatorLevel,
-    };
+    try {
+      const novoOperador: Omit<Operador, 'id' | 'dataInclusao'> = { // Omit id and dataInclusao as API generates them
+        nome: newOperatorName.trim(),
+        login: newOperatorEmail.trim(),
+        ativo: true,
+        grupo: 0, // Definir um grupo padrão
+        participaAvaliacao: newOperatorParticipatesInEvaluation,
+        nivel: newOperatorLevel,
+      };
 
-    dispatch({ type: 'ADD_OPERADOR', payload: novoOperador });
-    setNewOperatorName('');
-    setNewOperatorEmail('');
-    setNewOperatorLevel('Nivel 1');
-    setIsAddDialogOpen(false);
+      const createdOperator = await createOperador(novoOperador);
+      dispatch({ type: 'ADD_OPERADOR', payload: { ...createdOperator, dataInclusao: new Date(createdOperator.dataInclusao) } });
 
-    toast({
-      title: "Operador adicionado",
-      description: `${novoOperador.nome} foi adicionado com sucesso.`,
-      variant: "default"
-    });
+      setNewOperatorName('');
+      setNewOperatorEmail('');
+      setNewOperatorLevel('Nivel 1');
+      setEditingOperator(null); // Ensure no operator is being edited
+      setIsAddDialogOpen(false);
+
+      toast({
+        title: "Operador adicionado",
+        description: `${newOperatorName} foi adicionado com sucesso.`,
+        variant: "default"
+      });
+    } catch (err: unknown) {
+      toast({
+        title: "Erro ao adicionar operador",
+        description: `Não foi possível adicionar o operador: ${(err as Error).message}`,
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleEditOperator = () => {
+  const handleEditOperator = async () => {
     if (!editingOperator || !newOperatorName.trim() || !newOperatorEmail.trim()) return;
 
     if (!newOperatorEmail.trim().toLowerCase().endsWith('@spaceinformatica.com.br')) {
@@ -93,8 +111,8 @@ export function OperatorManagement() {
       return;
     }
 
-    const exists = state.operadores.some(op => 
-      op.id !== editingOperator.id && 
+    const exists = state.operadores.some(op =>
+      op.id !== editingOperator.id &&
       ((op.nome && op.nome.toLowerCase() === newOperatorName.trim().toLowerCase()) ||
        (op.login && op.login.toLowerCase() === newOperatorEmail.trim().toLowerCase()))
     );
@@ -108,56 +126,81 @@ export function OperatorManagement() {
       return;
     }
 
-    const operadorAtualizado: Operador = {
-      ...editingOperator,
-      nome: newOperatorName.trim(),
-      login: newOperatorEmail.trim(),
-      participaAvaliacao: newOperatorParticipatesInEvaluation,
-      nivel: newOperatorLevel,
-    };
+    try {
+      const operadorAtualizado: Operador = {
+        ...editingOperator,
+        nome: newOperatorName.trim(),
+        login: newOperatorEmail.trim(),
+        participaAvaliacao: newOperatorParticipatesInEvaluation,
+        nivel: newOperatorLevel,
+      };
 
-    dispatch({ type: 'UPDATE_OPERADOR', payload: operadorAtualizado });
-    setEditingOperator(null);
-    setNewOperatorName('');
-    setNewOperatorEmail('');
-    setNewOperatorLevel('Nivel 1');
+      const updatedOp = await updateOperador(operadorAtualizado);
+      dispatch({ type: 'UPDATE_OPERADOR', payload: { ...updatedOp, dataInclusao: new Date(updatedOp.dataInclusao) } });
 
-    toast({
-      title: "Operador atualizado",
-      description: `${operadorAtualizado.nome} foi atualizado com sucesso.`,
-      variant: "default"
-    });
+      setEditingOperator(null);
+      setNewOperatorName('');
+      setNewOperatorEmail('');
+      setNewOperatorLevel('Nivel 1');
+
+      toast({
+        title: "Operador atualizado",
+        description: `${newOperatorName} foi atualizado com sucesso.`,
+        variant: "default"
+      });
+    } catch (err: unknown) {
+      toast({
+        title: "Erro ao atualizar operador",
+        description: `Não foi possível atualizar o operador: ${(err as Error).message}`,
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleDeleteOperator = (operadorId: string) => {
-    dispatch({ type: 'DELETE_OPERADOR', payload: operadorId });
-    toast({
-      title: "Operador excluído",
-      description: "O operador e suas avaliações foram excluídos com sucesso.",
-      variant: "default"
-    });
+  const handleDeleteOperator = async (operadorId: number) => { // Change type to number
+    try {
+      await deleteOperador(operadorId);
+      dispatch({ type: 'DELETE_OPERADOR', payload: operadorId });
+
+      toast({
+        title: "Operador excluído",
+        description: "O operador e suas avaliações foram excluídos com sucesso.",
+        variant: "default"
+      });
+    } catch (err: unknown) {
+      toast({
+        title: "Erro ao excluir operador",
+        description: `Não foi possível excluir o operador: ${(err as Error).message}`,
+        variant: "destructive"
+      });
+    }
   };
 
-  const toggleOperatorStatus = (operador: Operador) => {
-    const operadorAtualizado: Operador = {
-      ...operador,
-      ativo: !operador.ativo
-    };
+  const toggleOperatorStatus = async (operador: Operador) => {
+    try {
+      const newStatus = !operador.ativo;
+      await updateOperadorStatus(operador.id, newStatus);
+      dispatch({ type: 'UPDATE_OPERADOR', payload: { ...operador, ativo: newStatus } });
 
-    dispatch({ type: 'UPDATE_OPERADOR', payload: operadorAtualizado });
-
-    toast({
-      title: operador.ativo ? "Operador desativado" : "Operador ativado",
-      description: `${operador.nome} foi ${operador.ativo ? 'desativado' : 'ativado'} com sucesso.`,
-      variant: "default"
-    });
+      toast({
+        title: newStatus ? "Operador ativado" : "Operador desativado",
+        description: `${operador.nome} foi ${newStatus ? 'ativado' : 'desativado'} com sucesso.`,
+        variant: "default"
+      });
+    } catch (err: unknown) {
+      toast({
+        title: "Erro ao alterar status",
+        description: `Não foi possível alterar o status do operador: ${(err as Error).message}`,
+        variant: "destructive"
+      });
+    }
   };
 
-  const getOperatorStats = (operadorId: string) => {
+  const getOperatorStats = (operadorId: number) => { // Change type to number
     const avaliacoes = state.avaliacoes.filter(av => av.operadorId === operadorId);
     return {
       totalAvaliacoes: avaliacoes.length,
-      ultimaAvaliacao: avaliacoes.length > 0 
+      ultimaAvaliacao: avaliacoes.length > 0
         ? new Date(Math.max(...avaliacoes.map(av => av.dataUltimaEdicao.getTime())))
         : null
     };
@@ -178,6 +221,24 @@ export function OperatorManagement() {
     setNewOperatorLevel('Nivel 1');
   };
 
+  if (state.loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Carregando operadores...</span>
+      </div>
+    );
+  }
+
+  if (state.error) {
+    return (
+      <div className="text-center text-destructive p-8">
+        <p>Ocorreu um erro: {state.error}</p>
+        <p>Por favor, tente novamente mais tarde.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Card className="shadow-medium">
@@ -191,6 +252,8 @@ export function OperatorManagement() {
               if (!open) {
                 setNewOperatorName('');
                 setNewOperatorEmail('');
+                setNewOperatorLevel('Nivel 1'); // Reset level on close
+                setNewOperatorParticipatesInEvaluation(true); // Reset participates on close
               }
               setIsAddDialogOpen(open);
             }}>
@@ -259,9 +322,9 @@ export function OperatorManagement() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
-            {state.operadores.map((operador) => {
+            {state.operadores.map((operador) => { // Use 'operators' state
               const stats = getOperatorStats(operador.id);
-              
+
               return (
                 <Card key={operador.id} className="hover:shadow-medium transition-shadow">
                   <CardContent className="p-4">
@@ -272,7 +335,7 @@ export function OperatorManagement() {
                           {operador.ativo ? "Ativo" : "Inativo"}
                         </Badge>
                       </div>
-                      
+
                       <div className="text-sm text-muted-foreground space-y-1">
                         <div className="flex items-center gap-2 truncate">
                           <Mail className="h-3 w-3" />
@@ -298,16 +361,22 @@ export function OperatorManagement() {
                           </Badge>
                         </div>
                       </div>
-                      
+
                       <div className="flex gap-2">
-                        <Dialog 
-                          open={editingOperator?.id === operador.id} 
-                          onOpenChange={(open) => !open && cancelEdit()}
+                        <Dialog
+                          open={editingOperator?.id === operador.id && isEditDialogOpen}
+                          onOpenChange={(open) => {
+                            if (!open) {
+                              !open && cancelEdit()
+                            }
+                            setIsEditDialogOpen(open)
+                          }
+                          }
                         >
                           <DialogTrigger asChild>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
+                            <Button
+                              variant="outline"
+                              size="sm"
                               className="flex-1"
                               onClick={() => openEditDialog(operador)}
                             >
@@ -409,7 +478,7 @@ export function OperatorManagement() {
             })}
           </div>
 
-          {state.operadores.length === 0 && (
+          {state.operadores.length === 0 && !state.loading && !state.error && ( // Use 'operators' state
             <div className="text-center py-12">
               <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-muted-foreground">
@@ -431,25 +500,25 @@ export function OperatorManagement() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-primary">
-                {state.operadores.length}
+                {state.operadores.length} {/* Use 'operators' state */}
               </div>
               <div className="text-sm text-muted-foreground">Total</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-success">
-                {state.operadores.filter(op => op.ativo).length}
+                {state.operadores.filter(op => op.ativo).length} {/* Use 'operators' state */}
               </div>
               <div className="text-sm text-muted-foreground">Ativos</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-destructive">
-                {state.operadores.filter(op => !op.ativo).length}
+                {state.operadores.filter(op => !op.ativo).length} {/* Use 'operators' state */}
               </div>
               <div className="text-sm text-muted-foreground">Inativos</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-accent">
-                {state.avaliacoes.length}
+                {state.avaliacoes.length} {/* This still uses context, assuming evaluations are not managed by this component */}
               </div>
               <div className="text-sm text-muted-foreground">Avaliações</div>
             </div>

@@ -68,7 +68,8 @@ export function EvaluationPanel() {
       setIsCompleted(avaliacoesDoOperadorNoPeriodo.length >= evaluationsExpectedToReceive);
 
       const novosCriteriosAvaliacao = criteriosComBonus.map(criterio => {
-        let valorAlcancado = 0;
+        // valorAlcancado is always 0. This logic needs to be implemented based on actual evaluation data.
+        const valorAlcancado = 0;
 
         // FIXME: Quantitative meta target logic is still unclear.
         const metaParaComparacao = criterio.tipo === 'qualitativo' 

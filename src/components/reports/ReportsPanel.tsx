@@ -12,7 +12,7 @@ import { BarChart3, TrendingUp, Users, Award, Calendar, FileText } from 'lucide-
 export function ReportsPanel() {
   const { state } = useEvaluation();
   const [periodoSelecionado, setPeriodoSelecionado] = useState<string>('todos');
-  const [operadorSelecionado, setOperadorSelecionado] = useState<string>('todos');
+  const [operadorSelecionado, setOperadorSelecionado] = useState<number | 'todos'>('todos');
 
   // Gerar lista de períodos disponíveis
   const periodosDisponiveis = useMemo(() => {
@@ -206,14 +206,14 @@ export function ReportsPanel() {
 
             <div>
               <label className="text-sm font-medium mb-2 block">Operador</label>
-              <Select value={operadorSelecionado} onValueChange={setOperadorSelecionado}>
+              <Select value={operadorSelecionado.toString()} onValueChange={(value) => setOperadorSelecionado(value === 'todos' ? 'todos' : parseInt(value))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos os Operadores</SelectItem>
                   {state.operadores.filter(op => op.ativo).map(operador => (
-                    <SelectItem key={operador.id} value={operador.id}>
+                    <SelectItem key={operador.id} value={operador.id.toString()}>
                       {operador.nome}
                     </SelectItem>
                   ))}

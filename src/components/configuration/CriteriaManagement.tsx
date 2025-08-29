@@ -236,7 +236,7 @@ export function CriteriaManagement() {
                             <Switch checked={criterio.ativo} onCheckedChange={(c) => updateCriterio(criterio.id, { ativo: c })} />
                           </td>
                           <td className="p-4 text-center">
-                            <Select value={criterio.tipo} onValueChange={(v: any) => updateCriterio(criterio.id, { tipo: v })}>
+                            <Select value={criterio.tipo} onValueChange={(v: 'qualitativo' | 'quantitativo') => updateCriterio(criterio.id, { tipo: v })}>
                               <SelectTrigger className="w-32 mx-auto"><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="qualitativo">Qualitativo</SelectItem>

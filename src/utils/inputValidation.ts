@@ -6,7 +6,7 @@ import { sanitizeString, sanitizeNumber, SECURITY_CONSTRAINTS } from './security
 export interface ValidationResult {
   isValid: boolean;
   errors: string[];
-  sanitizedValue?: any;
+  sanitizedValue?: unknown;
 }
 
 // Validate text input fields
@@ -66,7 +66,7 @@ export function validateTextInput(
 
 // Validate numeric input fields
 export function validateNumericInput(
-  value: any,
+  value: unknown,
   fieldName: string,
   options: {
     required?: boolean;
@@ -121,7 +121,7 @@ export function validateNumericInput(
 
 // Validate percentage fields (0-100)
 export function validatePercentage(
-  value: any,
+  value: unknown,
   fieldName: string,
   required: boolean = false
 ): ValidationResult {
@@ -135,7 +135,7 @@ export function validatePercentage(
 
 // Validate currency/bonus fields
 export function validateCurrency(
-  value: any,
+  value: unknown,
   fieldName: string,
   required: boolean = false
 ): ValidationResult {
@@ -164,7 +164,7 @@ export function validatePeriod(
   }
   
   // Additional date validation
-  const [year, month] = result.sanitizedValue.split('-').map(Number);
+  const [year, month] = (result.sanitizedValue as string).split('-').map(Number);
   const currentYear = new Date().getFullYear();
   
   if (year < 2020 || year > currentYear + 1) {
@@ -191,7 +191,7 @@ export function validateOperatorName(
     required,
     minLength: 2,
     maxLength: 100,
-    allowedChars: /^[a-zA-ZÀ-ÿ\s\-'\.]+$/
+    allowedChars: /^[a-zA-ZÀ-ÿ\s-'.]+$/
   });
   
   if (!result.isValid || !result.sanitizedValue) {
@@ -199,7 +199,7 @@ export function validateOperatorName(
   }
   
   // Check for duplicates
-  const normalizedValue = result.sanitizedValue.toLowerCase().trim();
+  const normalizedValue = (result.sanitizedValue as string).toLowerCase().trim();
   const isDuplicate = existingNames.some((name, index) => {
     if (excludeId && index.toString() === excludeId) return false;
     return name.toLowerCase().trim() === normalizedValue;
@@ -224,7 +224,7 @@ export function validateCriteriaName(
     required,
     minLength: 3,
     maxLength: 200,
-    allowedChars: /^[a-zA-ZÀ-ÿ\s\-'\.0-9%()]+$/
+    allowedChars: /^[a-zA-ZÀ-ÿ\s-'.0-9%()]+$/
   });
   
   if (!result.isValid || !result.sanitizedValue) {
@@ -232,7 +232,7 @@ export function validateCriteriaName(
   }
   
   // Check for duplicates
-  const normalizedValue = result.sanitizedValue.toLowerCase().trim();
+  const normalizedValue = (result.sanitizedValue as string).toLowerCase().trim();
   const isDuplicate = existingNames.some((name, index) => {
     if (excludeId && index.toString() === excludeId) return false;
     return name.toLowerCase().trim() === normalizedValue;
@@ -276,7 +276,7 @@ export function createSanitizedInputProps(
       // Apply additional validation if provided
       if (validation) {
         const result = validation(sanitized);
-        sanitized = result.sanitizedValue || sanitized;
+        sanitized = result.sanitizedValue as string || sanitized;
       }
       
       onChange(sanitized);
@@ -288,7 +288,7 @@ export function createSanitizedInputProps(
       
       if (validation) {
         const result = validation(sanitized);
-        sanitized = result.sanitizedValue || sanitized;
+        sanitized = result.sanitizedValue as string || sanitized;
       }
       
       onChange(sanitized);
