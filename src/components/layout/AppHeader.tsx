@@ -35,7 +35,7 @@ export function AppHeader() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 rounded-full flex items-center gap-2">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src="/avatars/01.png" alt="@shadcn" />
+                    <AvatarImage alt="@shadcn" />
                     <AvatarFallback>{user.nome.charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <span className="font-medium hidden md:inline">{user.nome}</span>

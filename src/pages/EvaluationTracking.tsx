@@ -49,11 +49,6 @@ export function EvaluationTracking() {
       variantReceived = 'destructive';
     }
 
-    console.log(`Operator: ${operator.nome}`);
-    console.log(`  participaAvaliacao: ${operator.participaAvaliacao}`);
-    console.log(`  evaluationsGivenCount: ${evaluationsGiven.length}, evaluationsExpectedToGive: ${evaluationsExpectedToGive}`);
-    console.log(`  evaluationsReceivedCount: ${evaluationsReceived.length}, evaluationsExpectedToReceive: ${evaluationsExpectedToReceive}`);
-
     return {
       operator,
       evaluationsReceivedCount: evaluationsReceived.length,
@@ -70,14 +65,8 @@ export function EvaluationTracking() {
   const totalPendingEvaluations = operatorEvaluationSummary.reduce((total, summary) => {
     const pendingGiven = summary.evaluationsExpectedToGive - summary.evaluationsGivenCount;
     const pendingReceived = summary.evaluationsExpectedToReceive - summary.evaluationsReceivedCount;
-    console.log(`  Pending for ${summary.operator.nome}: Given=${pendingGiven}, Received=${pendingReceived}`);
     return total + pendingGiven + pendingReceived;
   }, 0);
-
-  console.log(`Total Active Operators: ${allActiveOperators.length}`);
-  console.log(`Total Participating Operators: ${totalParticipatingOperatorsCount}`);
-  console.log(`Total Evaluations in State: ${state.avaliacoes.length}`);
-  console.log(`Final Total Pending Evaluations: ${totalPendingEvaluations}`);
 
   return (
     <div className="container mx-auto p-6">

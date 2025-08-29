@@ -1,5 +1,7 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { Operador } from '@/types/evaluation';
+import { getOperadores } from '../services/operatorService';
+import { BASE_URL, API_ENDPOINTS, getAuthToken } from '../config/apiConfig';
 
 interface AuthContextType {
   user: Operador | null;
@@ -16,10 +18,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const loadUser = async () => {
-      const token = localStorage.getItem('authToken');
+      const token = getAuthToken();
       if (token) {
         try {
-          const profileResponse = await fetch('http://192.168.0.26:8080/profile', {
+          const profileResponse = await fetch(`${BASE_URL}/profile`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -28,16 +30,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           if (profileResponse.ok) {
             const profileData = await profileResponse.json();
-            const loggedInUser: Operador = {
-              id: profileData.id.toString(),
-              nome: profileData.nome,
-              login: profileData.login,
-              ativo: profileData.ativo,
-              grupo: profileData.grupo,
-              dataInclusao: new Date(), // Placeholder
-              participaAvaliacao: false,
-              nivel: 'Nivel 1',
-            };
+
+            // Fetch all operators to find the matching one by login
+            const operatorsResponse = await getOperadores();
+            const allOperators: Operador[] = operatorsResponse.data;
+
+            const matchingOperator = allOperators.find(op => op.login === profileData.login);
+
+            let loggedInUser: Operador;
+
+            if (matchingOperator) {
+              loggedInUser = {
+                id: matchingOperator.id,
+                nome: profileData.nome,
+                login: profileData.login,
+                ativo: profileData.ativo,
+                grupo: profileData.grupo,
+                dataInclusao: matchingOperator.dataInclusao,
+                participaAvaliacao: matchingOperator.participaAvaliacao,
+                nivel: matchingOperator.nivel,
+              };
+            } else {
+              // Fallback if no matching operator is found
+              loggedInUser = {
+                id: profileData.id.toString(),
+                nome: profileData.nome,
+                login: profileData.login,
+                ativo: profileData.ativo,
+                grupo: profileData.grupo,
+                dataInclusao: new Date(),
+                participaAvaliacao: false,
+                nivel: 'Nivel 1',
+              };
+            }
             setUser(loggedInUser);
           } else {
             localStorage.removeItem('authToken'); // Invalid token
@@ -55,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string): Promise<boolean> => {
     setLoading(true);
     try {
-      const loginResponse = await fetch('http://192.168.0.26:8080/login', {
+      const loginResponse = await fetch(`${BASE_URL}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -72,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { token } = await loginResponse.json();
       localStorage.setItem('authToken', token);
 
-      const profileResponse = await fetch('http://192.168.0.26:8080/profile', {
+      const profileResponse = await fetch(`${BASE_URL}/profile`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -87,16 +112,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const profileData = await profileResponse.json();
-      const loggedInUser: Operador = {
-        id: profileData.id.toString(),
-        nome: profileData.nome,
-        login: profileData.login,
-        ativo: profileData.ativo,
-        grupo: profileData.grupo,
-        dataInclusao: new Date(), // Placeholder
-        participaAvaliacao: false,
-        nivel: 'Nivel 1',
-      };
+
+      // Fetch all operators to find the matching one by login
+      const operatorsResponse = await getOperadores();
+      const allOperators: Operador[] = operatorsResponse.data;
+
+      const matchingOperator = allOperators.find(op => op.login === profileData.login);
+
+      let loggedInUser: Operador;
+
+      if (matchingOperator) {
+        loggedInUser = {
+          id: matchingOperator.id,
+          nome: profileData.nome,
+          login: profileData.login,
+          ativo: profileData.ativo,
+          grupo: profileData.grupo,
+          dataInclusao: matchingOperator.dataInclusao, // Use operator's dataInclusao
+          participaAvaliacao: matchingOperator.participaAvaliacao, // Use operator's participaAvaliacao
+          nivel: matchingOperator.nivel, // Use operator's nivel
+        };
+      } else {
+        // Fallback if no matching operator is found (e.g., user is not an 'operator' in the system)
+        loggedInUser = {
+          id: profileData.id.toString(),
+          nome: profileData.nome,
+          login: profileData.login,
+          ativo: profileData.ativo,
+          grupo: profileData.grupo,
+          dataInclusao: new Date(),
+          participaAvaliacao: false,
+          nivel: 'Nivel 1',
+        };
+      }
 
       setUser(loggedInUser);
       setLoading(false);

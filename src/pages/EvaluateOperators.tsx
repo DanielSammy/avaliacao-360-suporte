@@ -108,12 +108,15 @@ export function EvaluateOperators() {
     }
 
     if (avaliadorId === parseInt(selectedOperatorId, 10)) {
-      toast({
-        title: "Erro",
-        description: "Um operador não pode avaliar a si mesmo.",
-        variant: "destructive",
-      });
-      return;
+      // Check if the operator participates in evaluation to allow self-evaluation
+      if (!selectedOperator.participaAvaliacao) {
+        toast({
+          title: "Erro",
+          description: "Um operador não pode avaliar a si mesmo, a menos que participe da avaliação.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     const criteriosAvaliacao: CriterioAvaliacao[] = filteredCriterios.map(criterio => {
@@ -159,6 +162,8 @@ export function EvaluateOperators() {
       dataCriacao: new Date(),
       dataUltimaEdicao: new Date(),
     };
+
+    console.log("Submitting evaluation with:", { avaliadorId, userLogin: user?.login });
 
     dispatch({ type: 'ADD_AVALIACAO', payload: newEvaluation });
 
