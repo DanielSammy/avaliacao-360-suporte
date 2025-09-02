@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
-import { Operador, Criterio, Avaliacao, ConfiguracaoSistema } from '../types/evaluation';
+import { Operador, Criterio, Avaliacao, ConfiguracaoSistema, CriterioAvaliacao } from '../types/evaluation';
 import { getOperadores, createOperador, updateOperador, deleteOperador } from '../services/operatorService';
 import { getCriterios } from '../services/criteriaService';
 import { useAuth } from './AuthContext';
@@ -33,7 +33,16 @@ type EvaluationAction =
   | { type: 'ADD_AVALIACAO'; payload: Avaliacao }
   | { type: 'UPDATE_AVALIACAO'; payload: Avaliacao }
   | { type: 'DELETE_AVALIACAO'; payload: number }
-  | { type: 'SET_TOTAL_TEAM_TICKETS'; payload: number }; // Added
+  | { type: 'SET_TOTAL_TEAM_TICKETS'; payload: number } // Added
+  | { type: 'ADD_AVALIACAO_BULK'; payload: {
+      criterioId: number;
+      avaliacoes: Array<{
+        operadorId: number;
+        avaliadorId: number;
+        periodo: string;
+        valorAlcancado: string;
+      }>;
+    }};
 
 // Estado inicial
 const initialState: EvaluationState = (() => {
@@ -113,6 +122,53 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
         ...state,
         avaliacoes: [...state.avaliacoes, action.payload]
       };
+    case 'ADD_AVALIACAO_BULK': {
+      const { criterioId, avaliacoes: bulkAvals } = action.payload;
+      let newAvaliacoesState = [...state.avaliacoes];
+
+      bulkAvals.forEach(bulkAval => {
+        const { operadorId, periodo, valorAlcancado } = bulkAval;
+        const existingEvalIndex = newAvaliacoesState.findIndex(
+          ev => ev.operadorId === operadorId && ev.periodo === periodo
+        );
+
+        const newCriterioAvaliacao: CriterioAvaliacao = {
+          criterioId: criterioId,
+          valorAlcancado: parseFloat(valorAlcancado),
+          valorBonusAlcancado: 0, 
+          metaAtingida: false, 
+        };
+
+        if (existingEvalIndex > -1) {
+          const existingEval = { ...newAvaliacoesState[existingEvalIndex] };
+          const existingCriterioIndex = existingEval.criterios.findIndex(
+            c => c.criterioId === criterioId
+          );
+
+          if (existingCriterioIndex > -1) {
+            existingEval.criterios[existingCriterioIndex] = newCriterioAvaliacao;
+          } else {
+            existingEval.criterios.push(newCriterioAvaliacao);
+          }
+          newAvaliacoesState[existingEvalIndex] = existingEval;
+        } else {
+          const newAvaliacao: Avaliacao = {
+            id: Date.now() + Math.random(),
+            operadorId: operadorId,
+            avaliadorId: bulkAval.avaliadorId,
+            periodo: periodo,
+            criterios: [newCriterioAvaliacao],
+            valorTotalMeta: 0,
+            valorTotalAlcancado: parseFloat(valorAlcancado),
+            dataCriacao: new Date(),
+            dataUltimaEdicao: new Date(),
+          };
+          newAvaliacoesState.push(newAvaliacao);
+        }
+      });
+
+      return { ...state, avaliacoes: newAvaliacoesState };
+    }
     case 'UPDATE_AVALIACAO':
       return {
         ...state,

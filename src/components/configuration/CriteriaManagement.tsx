@@ -11,6 +11,16 @@ import { Target, Save, Trash2, Info, TrendingUp, TrendingDown, RotateCcw } from 
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { createCriterio, updateCriterio, deleteCriterio } from '@/services/criteriaService';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export function CriteriaManagement() {
   const { state, dispatch } = useEvaluation();
@@ -18,6 +28,7 @@ export function CriteriaManagement() {
   const [newCriterionName, setNewCriterionName] = useState<string>('');
   const [totalTeamTickets, setTotalTeamTickets] = useState<number>(state.totalTeamTickets);
   const [isTicketsConfigLocked, setIsTicketsConfigLocked] = useState<boolean>(true);
+  const [criterionToDelete, setCriterionToDelete] = useState<number | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -123,14 +134,17 @@ export function CriteriaManagement() {
     }
   };
 
-  const handleDeleteCriterio = async (id: number) => {
+  const handleDeleteCriterio = async () => {
+    if (!criterionToDelete) return;
     try {
-      await deleteCriterio(id);
-      dispatch({ type: 'DELETE_CRITERIO', payload: id });
+      await deleteCriterio(criterionToDelete);
+      dispatch({ type: 'DELETE_CRITERIO', payload: criterionToDelete });
       toast({ title: "Critério removido", description: "O critério foi removido com sucesso." });
     } catch (error) {
       console.error("Failed to delete criterion:", error);
       toast({ title: "Erro", description: "Não foi possível remover o critério.", variant: "destructive" });
+    } finally {
+      setCriterionToDelete(null);
     }
   };
 
@@ -221,7 +235,7 @@ export function CriteriaManagement() {
                           </td>
                           <td className="p-4 text-center">
                             <div className="flex gap-2 justify-center">
-                              <Button variant="destructive" size="sm" onClick={() => handleDeleteCriterio(criterio.id)}><Trash2 className="h-3 w-3" /></Button>
+                              <Button variant="destructive" size="sm" onClick={() => setCriterionToDelete(criterio.id)}><Trash2 className="h-3 w-3" /></Button>
                               {editedCriteria[criterio.id] && (
                                 <Button size="sm" onClick={() => saveCriterio(criterio.id)}><Save className="h-3 w-3" /></Button>
                               )}
@@ -339,6 +353,21 @@ export function CriteriaManagement() {
             <Button onClick={addNewCriterion}>Adicionar</Button>
           </CardContent>
         </Card>
+
+        <AlertDialog open={criterionToDelete !== null} onOpenChange={(open) => !open && setCriterionToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação não pode ser desfeita. Isso excluirá permanentemente o critério e todas as avaliações associadas a ele.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setCriterionToDelete(null)}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteCriterio}>Continuar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </TooltipProvider>
   );
