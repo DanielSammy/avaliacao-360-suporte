@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Criterio, Avaliacao, CriterioAvaliacao, valoresNivel } from '@/types/evaluation';
+import { createAvaliacao } from '../services/evaluationService';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Check, Eye, EyeOff } from 'lucide-react';
 
@@ -64,7 +65,7 @@ export function EvaluateOperators() {
     return filteredCriterios.length === evaluatedCriterias.length;
   }, [filteredCriterios, evaluationValues]);
 
-  const handleSubmitEvaluation = () => {
+  const handleSubmitEvaluation = async () => {
     if (!avaliadorId) {
       toast({
         title: "Erro",
@@ -165,13 +166,46 @@ export function EvaluateOperators() {
 
     console.log("Submitting evaluation with:", { avaliadorId, userLogin: user?.login });
 
-    dispatch({ type: 'ADD_AVALIACAO', payload: newEvaluation });
+    try {
+      const response = await createAvaliacao({
+        operadorId: parseInt(selectedOperatorId, 10),
+        avaliadorId: avaliadorId,
+        periodo: currentPeriod,
+        criterios: criteriosAvaliacao.map(c => ({
+          criterioId: c.criterioId,
+          valorAlcancado: (c.valorAlcancado || 0).toFixed(2),
+          valorBonusAlcancado: (c.valorBonusAlcancado || 0).toFixed(2),
+        })),
+      });
 
-    toast({
-      title: "Avaliação Registrada",
-      description: `Avaliação de ${user?.nome} para ${state.operadores.find(op => op.id === parseInt(selectedOperatorId, 10))?.nome} registrada com sucesso.`,
-      variant: "default",
-    });
+      if (response.success) {
+        // Assuming the backend returns the full evaluation object, or we reconstruct it
+        const createdEvaluation: Avaliacao = {
+          ...newEvaluation, // Use the locally constructed evaluation for now
+          id: response.data.id, // Use the ID from the backend
+        };
+        dispatch({ type: 'ADD_AVALIACAO', payload: createdEvaluation });
+
+        toast({
+          title: "Avaliação Registrada",
+          description: `Avaliação de ${user?.nome} para ${state.operadores.find(op => op.id === parseInt(selectedOperatorId, 10))?.nome} registrada com sucesso.`,
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Erro ao Registrar Avaliação",
+          description: response.message || "Ocorreu um erro desconhecido.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao registrar avaliação:", error);
+      toast({
+        title: "Erro ao Registrar Avaliação",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao tentar registrar a avaliação.",
+        variant: "destructive",
+      });
+    }
 
     window.scrollTo(0, 0); // Scroll to top of the page
 

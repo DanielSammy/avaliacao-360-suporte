@@ -77,7 +77,7 @@ export function OperatorManagement() {
       };
 
       const createdOperator = await createOperador(novoOperador);
-      dispatch({ type: 'ADD_OPERADOR', payload: { ...createdOperator, dataInclusao: new Date(createdOperator.dataInclusao) } });
+      fetchOperadores(); // Re-fetch all operators to ensure the list is up-to-date
 
       setNewOperatorName('');
       setNewOperatorEmail('');
@@ -136,7 +136,7 @@ export function OperatorManagement() {
       };
 
       const updatedOp = await updateOperador(operadorAtualizado);
-      dispatch({ type: 'UPDATE_OPERADOR', payload: { ...updatedOp, dataInclusao: new Date(updatedOp.dataInclusao) } });
+      fetchOperadores(); // Re-fetch all operators to ensure the list is up-to-date
 
       setEditingOperator(null);
       setNewOperatorName('');

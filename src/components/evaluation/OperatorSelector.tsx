@@ -22,19 +22,20 @@ export function OperatorSelector({
 }: OperatorSelectorProps) {
   
   const getStatusAvaliacao = (operadorId: number): StatusAvaliacao => {
-    const avaliacao = avaliacoes.find(av => 
+    // The 'operadores' prop is already filtered for active and participating operators
+    const totalAvaliadores = operadores.length;
+
+    const avaliacoesRecebidas = avaliacoes.filter(av =>
       av.operadorId === operadorId && av.periodo === periodoAtual
-    );
-    
-    if (!avaliacao) return 'pendente';
-    
-    // Verifica se todos os critérios foram preenchidos
-    const temTodosCriterios = avaliacao.criterios.length > 0;
-    const temValores = avaliacao.criterios.every(c => c.valorAlcancado >= 0);
-    
-    if (temTodosCriterios && temValores) return 'concluida';
-    if (avaliacao.criterios.length > 0) return 'em_andamento';
-    return 'pendente';
+    ).length;
+
+    if (avaliacoesRecebidas === 0) {
+      return 'pendente';
+    } else if (avaliacoesRecebidas < totalAvaliadores) {
+      return 'em_andamento';
+    } else {
+      return 'concluida';
+    }
   };
 
   const getStatusBadge = (status: StatusAvaliacao) => {

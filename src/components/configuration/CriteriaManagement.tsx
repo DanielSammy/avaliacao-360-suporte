@@ -17,6 +17,7 @@ export function CriteriaManagement() {
   const [editedCriteria, setEditedCriteria] = useState<{ [key: number]: Partial<Criterio> }>({});
   const [newCriterionName, setNewCriterionName] = useState<string>('');
   const [totalTeamTickets, setTotalTeamTickets] = useState<number>(state.totalTeamTickets);
+  const [isTicketsConfigLocked, setIsTicketsConfigLocked] = useState<boolean>(true);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -155,10 +156,22 @@ export function CriteriaManagement() {
                 onChange={(e) => setTotalTeamTickets(parseInt(e.target.value) || 0)}
                 placeholder="Digite a quantidade total de tickets"
                 min="0"
+                disabled={isTicketsConfigLocked}
               />
             </div>
-            <Button onClick={() => dispatch({ type: 'SET_TOTAL_TEAM_TICKETS', payload: totalTeamTickets })}>
-              Salvar Configuração de Tickets
+            <Button
+              variant={isTicketsConfigLocked ? "secondary" : "default"}
+              onClick={() => {
+                if (isTicketsConfigLocked) {
+                  setIsTicketsConfigLocked(false);
+                } else {
+                  dispatch({ type: 'SET_TOTAL_TEAM_TICKETS', payload: totalTeamTickets });
+                  setIsTicketsConfigLocked(true);
+                  toast({ title: "Configuração Salva", description: "O total de tickets da equipe foi salvo." });
+                }
+              }}
+            >
+              {isTicketsConfigLocked ? 'Alterar Configuração de Tickets' : 'Salvar Configuração de Tickets'}
             </Button>
           </CardContent>
         </Card>
