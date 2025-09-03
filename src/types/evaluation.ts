@@ -21,7 +21,7 @@ export interface Operador {
 
 export interface Criterio {
   id: number;
-  idCriterio: string;
+  idCriterio: number;
   nome: string;
   tipo: 'qualitativo' | 'quantitativo';
   tipoMeta: 'maior_melhor' | 'menor_melhor';
@@ -31,6 +31,7 @@ export interface Criterio {
   ativo: boolean;
   totalAvaliacoes: number;
   valorBonus: number;
+  mediaGeral: boolean;
 }
 
 export interface CriterioAvaliacao {

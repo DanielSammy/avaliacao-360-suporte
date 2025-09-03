@@ -32,31 +32,30 @@ export function CriteriaManagement() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Update valorMeta for 'gerencia_quantitativo' criterion when totalTeamTickets changes
-    const gerenciaQuantitativoCriterio = state.criterios.find(
-      (c) => c.idCriterio === 'gerencia_quantitativo'
-    );
+    const activeOperatorsCount = state.operadores.filter(op => op.participaAvaliacao).length;
+    let calculatedValorMeta = 0;
 
-    if (gerenciaQuantitativoCriterio) {
-      const activeOperatorsCount = state.operadores.filter(op => op.participaAvaliacao).length;
-      let newValorMeta = 0;
-
-      if (activeOperatorsCount > 0) {
-        newValorMeta = Math.round((totalTeamTickets / activeOperatorsCount) * 0.80);
-      }
-
-      // Only update if the value has actually changed to avoid unnecessary re-renders
-      if (gerenciaQuantitativoCriterio.valorMeta !== newValorMeta) {
-        setEditedCriteria((prev) => ({
-          ...prev,
-          [gerenciaQuantitativoCriterio.id]: {
-            ...prev[gerenciaQuantitativoCriterio.id],
-            valorMeta: newValorMeta,
-          },
-        }));
-      }
+    if (activeOperatorsCount > 0) {
+      calculatedValorMeta = Math.round((totalTeamTickets / activeOperatorsCount) * 0.80);
     }
-  }, [totalTeamTickets, state.criterios, state.operadores]);
+
+    state.criterios.forEach(criterio => {
+      if (criterio.mediaGeral) { // Check the new mediaGeral flag
+        // Only update if the value has actually changed to avoid unnecessary re-renders
+        // Use the value from editedCriteria if it exists, otherwise use the original criterio.valorMeta
+        const currentValorMeta = editedCriteria[criterio.id]?.valorMeta ?? criterio.valorMeta;
+        if (currentValorMeta !== calculatedValorMeta) {
+          setEditedCriteria((prev) => ({
+            ...prev,
+            [criterio.id]: {
+              ...prev[criterio.id],
+              valorMeta: calculatedValorMeta,
+            },
+          }));
+        }
+      }
+    });
+  }, [totalTeamTickets, state.criterios, state.operadores, editedCriteria]); // Add editedCriteria to dependencies
 
   const activeCriteria = useMemo(() => {
     return state.criterios.filter(c => c.ativo);
@@ -94,7 +93,7 @@ export function CriteriaManagement() {
     }
   };
 
-  const handleInputChange = (id: number, field: keyof Criterio, value: any) => {
+  const handleInputChange = (id: number, field: keyof Criterio, value: string | number | boolean) => {
     setEditedCriteria(prev => ({
       ...prev,
       [id]: { ...prev[id], [field]: value },
@@ -111,6 +110,10 @@ export function CriteriaManagement() {
     const updatedCriterio = { ...originalCriterio, ...changes };
     const { id: originalId, totalAvaliacoes: originalTotalAvaliacoes, ...originalCriterioWithoutIdAndTotalAvaliacoes } = originalCriterio;
     const dataToSend = { ...originalCriterioWithoutIdAndTotalAvaliacoes, ...changes };
+    // Explicitly remove mediaGeral if it's present, as the backend does not expect it
+    if ('mediaGeral' in dataToSend) {
+      delete dataToSend.mediaGeral;
+    }
 
     try {
       const updated = await updateCriterio(id, dataToSend);
@@ -288,7 +291,7 @@ export function CriteriaManagement() {
                               step="1"
                               min="0"
                               max="100"
-                              disabled={criterio.idCriterio === 'gerencia_quantitativo'}
+                              disabled={currentCriterio.mediaGeral}
                             />
                           </td>
                           <td className="p-4 text-center">

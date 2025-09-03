@@ -31,6 +31,34 @@ export function calcularBonusAlcancado(criterio: Criterio, valorAlcancado: numbe
   }
 }
 
+export function calcularValorAlcancadoFinal(
+  criterio: Criterio,
+  inputValue: number,
+  potentialBonus: number
+): number {
+  // Se a meta foi atingida, retorna o bônus potencial total.
+  if (metaAtingida(criterio, inputValue)) {
+    return potentialBonus;
+  }
+
+  const target = criterio.valorMeta;
+
+  // Se a meta não foi atingida, calcula o valor proporcional.
+  if (criterio.tipoMeta === 'maior_melhor') {
+    if (target <= 0) return 0; // Evita divisão por zero e proporção sem sentido
+    const proportion = inputValue / target;
+    // Garante que o bônus não seja negativo
+    return Math.max(0, potentialBonus * proportion);
+
+  } else { // menor_melhor
+    // Se não atingiu, significa que inputValue > target.
+    if (inputValue <= 0) return 0; // Evita divisão por zero
+    const proportion = target / inputValue;
+    // Garante que o bônus não seja negativo
+    return Math.max(0, potentialBonus * proportion);
+  }
+}
+
 // Calcula totais da avaliação
 export function calcularTotaisAvaliacao(
   criterios: Criterio[], 
@@ -83,7 +111,7 @@ export function gerarId(): number {
 }
 
 export function calcularResultadoFinal(criterio: Criterio, avaliacoes: Avaliacao[], operadores: Operador[]): number {
-  const isManagementCriterion = criterio.nome.endsWith('(Gerência)');
+  const isManagementCriterion = criterio.idCriterio === 1;
 
   const relevantEvaluations = avaliacoes.filter(av => av.criterios.some(c => c.criterioId === criterio.id));
 
@@ -105,16 +133,17 @@ export function calcularResultadoFinal(criterio: Criterio, avaliacoes: Avaliacao
         return avaliador?.grupo !== 6;
     });
 
-    const allValues = nonManagerEvaluations.map(av => {
+    const allScores = nonManagerEvaluations.flatMap(av => {
       const criterioAvaliado = av.criterios.find(c => c.criterioId === criterio.id);
-      return criterioAvaliado?.valorAlcancado || 0;
+      // Only include scores from evaluations that actually contain this criterion
+      return criterioAvaliado ? [criterioAvaliado.valorAlcancado] : [];
     });
 
-    if (allValues.length === 0) {
+    if (allScores.length === 0) {
         return 0;
     }
 
-    const sum = allValues.reduce((a, b) => a + b, 0);
-    return sum / allValues.length;
+    const sum = allScores.reduce((a, b) => a + b, 0);
+    return sum / allScores.length;
   }
 }

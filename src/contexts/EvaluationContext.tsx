@@ -3,6 +3,7 @@ import { Operador, Criterio, Avaliacao, ConfiguracaoSistema, CriterioAvaliacao }
 import { getOperadores, createOperador, updateOperador, deleteOperador } from '../services/operatorService';
 import { getCriterios } from '../services/criteriaService';
 import { useAuth } from './AuthContext';
+import { metaAtingida } from '../utils/calculations';
 
 // Estado global do sistema
 interface EvaluationState {
@@ -40,7 +41,8 @@ type EvaluationAction =
         operadorId: number;
         avaliadorId: number;
         periodo: string;
-        valorAlcancado: string;
+        valorAlcancado: string; // Input value
+        valorBonusAlcancado: string; // Calculated bonus value
       }>;
     }};
 
@@ -124,19 +126,25 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
       };
     case 'ADD_AVALIACAO_BULK': {
       const { criterioId, avaliacoes: bulkAvals } = action.payload;
-      let newAvaliacoesState = [...state.avaliacoes];
+      const newAvaliacoesState = [...state.avaliacoes];
+      const criterio = state.criterios.find(c => c.id === criterioId);
+
+      if (!criterio) return state; // Criterio not found, do nothing
 
       bulkAvals.forEach(bulkAval => {
-        const { operadorId, periodo, valorAlcancado } = bulkAval;
+        const { operadorId, periodo, valorAlcancado, valorBonusAlcancado } = bulkAval;
         const existingEvalIndex = newAvaliacoesState.findIndex(
-          ev => ev.operadorId === operadorId && ev.periodo === periodo
+          ev => ev.operadorId === operadorId && ev.periodo === periodo && ev.avaliadorId === bulkAval.avaliadorId
         );
+
+        const inputValue = parseFloat(valorAlcancado);
+        const bonusValue = parseFloat(valorBonusAlcancado);
 
         const newCriterioAvaliacao: CriterioAvaliacao = {
           criterioId: criterioId,
-          valorAlcancado: parseFloat(valorAlcancado),
-          valorBonusAlcancado: 0, 
-          metaAtingida: false, 
+          valorAlcancado: inputValue,
+          valorBonusAlcancado: bonusValue,
+          metaAtingida: metaAtingida(criterio, inputValue),
         };
 
         if (existingEvalIndex > -1) {
@@ -146,20 +154,25 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
           );
 
           if (existingCriterioIndex > -1) {
+            // Update existing criterion evaluation
             existingEval.criterios[existingCriterioIndex] = newCriterioAvaliacao;
           } else {
+            // Add new criterion evaluation to existing evaluation
             existingEval.criterios.push(newCriterioAvaliacao);
           }
+          // Recalculate total bonus for the evaluation
+          existingEval.valorTotalAlcancado = existingEval.criterios.reduce((sum, c) => sum + c.valorBonusAlcancado, 0);
           newAvaliacoesState[existingEvalIndex] = existingEval;
         } else {
+          // Create a new evaluation document
           const newAvaliacao: Avaliacao = {
             id: Date.now() + Math.random(),
             operadorId: operadorId,
             avaliadorId: bulkAval.avaliadorId,
             periodo: periodo,
             criterios: [newCriterioAvaliacao],
-            valorTotalMeta: 0,
-            valorTotalAlcancado: parseFloat(valorAlcancado),
+            valorTotalMeta: 0, // This should be calculated based on all criteria for the operator level
+            valorTotalAlcancado: bonusValue,
             dataCriacao: new Date(),
             dataUltimaEdicao: new Date(),
           };
@@ -259,7 +272,13 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SET_LOADING', payload: true });
       try {
         const response = await getCriterios();
-        dispatch({ type: 'SET_CRITERIOS', payload: response.data });
+        // Garante que idCriterio seja sempre um número para consistência da aplicação
+        const transformedCriterios = response.data.map((criterio: Criterio) => ({
+          ...criterio,
+          idCriterio: parseInt(String(criterio.idCriterio), 10),
+          valorMeta: parseFloat(String(criterio.valorMeta)), // Ensure valorMeta is a number
+        }));
+        dispatch({ type: 'SET_CRITERIOS', payload: transformedCriterios });
       } catch (err) {
         console.error("Failed to fetch criterios:", err);
         dispatch({ type: 'SET_ERROR', payload: 'Failed to load criterios.' });

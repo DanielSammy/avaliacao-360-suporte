@@ -9,7 +9,7 @@ import { OperatorSelector } from './OperatorSelector';
 import { PeriodSelector } from './PeriodSelector';
 import { PDFGenerator } from '../reports/PDFGenerator';
 import { Avaliacao, Criterio, CriterioAvaliacao, valoresNivel } from '@/types/evaluation';
-import { calcularTotaisAvaliacao } from '@/utils/calculations';
+import { calcularTotaisAvaliacao, calcularValorAlcancadoFinal, metaAtingida as verificarMetaAtingida } from '@/utils/calculations';
 import { FileText, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -64,46 +64,38 @@ export function EvaluationPanel() {
       );
 
       const totalOperatorsCount = activeOperators.length;
-      // An operator's evaluation is considered complete when they have received evaluations
-      // from all active operators (including themselves if applicable, or all peers).
-      // This ensures it stays 'em andamento' until the full set of expected evaluations is received.
-      const evaluationsExpectedToReceive = totalOperatorsCount; 
+      const evaluationsExpectedToReceive = totalOperatorsCount;
       setIsCompleted(avaliacoesDoOperadorNoPeriodo.length >= evaluationsExpectedToReceive);
 
       const novosCriteriosAvaliacao = criteriosComBonus.map(criterio => {
-        // Collect all valorAlcancado for the current criterion across all evaluations for the operator in the period
         const allValorAlcancadoForCriterion = avaliacoesDoOperadorNoPeriodo.map(
           (avaliacao) => {
             const crit = avaliacao.criterios.find((ca) => ca.criterioId === criterio.id);
-            return crit ? crit.valorAlcancado : 0; // Default to 0 if criterion not found in this evaluation
+            return crit ? Number(crit.valorAlcancado) : 0;
           }
         );
 
-        // Calculate the average valorAlcancado
-        let valorAlcancado: number;
+        let averageInputValue: number;
         if (allValorAlcancadoForCriterion.length > 0) {
           const sum = allValorAlcancadoForCriterion.reduce((acc, val) => acc + val, 0);
-          valorAlcancado = sum / allValorAlcancadoForCriterion.length;
+          averageInputValue = sum / allValorAlcancadoForCriterion.length;
         } else {
-          // Default value if no evaluations or criterion not found
-          valorAlcancado = criterio.tipo === 'qualitativo' ? 0 : 0;
+          averageInputValue = 0;
         }
 
-        const metaParaComparacao = criterio.valorMeta !== undefined && criterio.valorMeta !== null
-            ? criterio.valorMeta
-            : (criterio.tipo === 'qualitativo'
-                ? (criterio.tipoMeta === 'maior_melhor' ? 100 : 25)
-                : baseMetaValue);
+        const potentialBonus = criterio.valorBonus || 0;
+        
+        const valorBonusAlcancado = calcularValorAlcancadoFinal(
+          criterio,
+          averageInputValue,
+          potentialBonus
+        );
 
-        const metaAtingidaStatus = criterio.tipoMeta === 'maior_melhor'
-            ? valorAlcancado >= metaParaComparacao
-            : valorAlcancado <= metaParaComparacao;
-
-        const valorBonusAlcancado = metaAtingidaStatus ? (criterio.valorBonus || 0) : 0;
+        const metaAtingidaStatus = verificarMetaAtingida(criterio, averageInputValue);
 
         return {
           criterioId: criterio.id,
-          valorAlcancado,
+          valorAlcancado: averageInputValue,
           valorBonusAlcancado,
           metaAtingida: metaAtingidaStatus,
         };
@@ -114,9 +106,9 @@ export function EvaluationPanel() {
       const { valorTotalMeta, valorTotalAlcancado } = calcularTotaisAvaliacao(criteriosComBonus, novosCriteriosAvaliacao);
 
       const avaliacaoSintetica: Avaliacao = {
-        id: 0, // Placeholder: synthetic ID is now a number
+        id: 0, 
         operadorId: operadorSelecionado,
-        avaliadorId: 0, // Placeholder: avaliadorId is now a number
+        avaliadorId: 0, 
         periodo: periodoAtual,
         criterios: novosCriteriosAvaliacao,
         valorTotalMeta,

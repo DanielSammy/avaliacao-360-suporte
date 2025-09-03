@@ -3,9 +3,9 @@ import { BASE_URL, API_ENDPOINTS, getAuthToken } from '../config/apiConfig';
 // Request for the new bulk endpoint
 export interface CreateBulkEvaluationsRequest {
   criterioId: number;
+  avaliadorId: number;
   avaliacoes: Array<{
     operadorId: number;
-    avaliadorId: number;
     periodo: string;
     valorMeta: string;
     valorAlcancado: string;

@@ -1,4 +1,4 @@
--- MySQL dump 10.13  Distrib 5.6.22, for Win64 (x86_64)
+﻿-- MySQL dump 10.13  Distrib 5.6.22, for Win64 (x86_64)
 --
 -- Host: localhost    Database: avaliacaospace
 -- ------------------------------------------------------
@@ -18,6 +18,10 @@
 --
 -- Table structure for table `avaliacao_criterios`
 --
+DROP DATABASE IF EXISTS avaliacaospace;
+CREATE DATABASE avaliacaospace;
+
+use avaliacaospace;
 
 DROP TABLE IF EXISTS `avaliacao_criterios`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -26,9 +30,13 @@ CREATE TABLE `avaliacao_criterios` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `avaliacao_id` int(11) NOT NULL,
   `criterio_id` int(11) NOT NULL,
+  `valor_objetivo` decimal(10,2) NOT NULL,
   `valor_alcancado` decimal(10,2) NOT NULL,
+  `meta_objetivo` int(11) NOT NULL,
+  `meta_alcancada` int(11) NOT NULL,
   `meta_atingida` tinyint(1) NOT NULL,
   `avaliado_id` int(11) NOT NULL,
+  `avaliador_id` int(11) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `fk_avaliacao` (`avaliacao_id`),
   KEY `fk_criterio` (`criterio_id`),
@@ -36,7 +44,7 @@ CREATE TABLE `avaliacao_criterios` (
   CONSTRAINT `fk_avaliacao` FOREIGN KEY (`avaliacao_id`) REFERENCES `avaliacoes` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_criterio` FOREIGN KEY (`criterio_id`) REFERENCES `criterios` (`id`),
   CONSTRAINT `fk_operador` FOREIGN KEY (`avaliado_id`) REFERENCES `operadores` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
@@ -186,17 +194,14 @@ DROP TABLE IF EXISTS `avaliacoes`;
 CREATE TABLE `avaliacoes` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `operador_id` int(11) NOT NULL,
-  `avaliador_id` int(11) NOT NULL,
   `periodo` varchar(7) NOT NULL,
   `valor_total_meta` decimal(10,2) NOT NULL,
   `data_criacao` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `data_ultima_edicao` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `fk_avaliacoes_operador` (`operador_id`),
-  KEY `fk_avaliacoes_avaliador` (`avaliador_id`),
-  CONSTRAINT `fk_avaliacoes_avaliador` FOREIGN KEY (`avaliador_id`) REFERENCES `operadores` (`id`),
   CONSTRAINT `fk_avaliacoes_operador` FOREIGN KEY (`operador_id`) REFERENCES `operadores` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=36 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
@@ -295,17 +300,44 @@ DROP TABLE IF EXISTS `criterios`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `criterios` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id_criterio` int(11) NOT NULL,
   `nome` varchar(255) NOT NULL,
   `tipo` enum('qualitativo','quantitativo') NOT NULL,
   `tipo_meta` enum('maior_melhor','menor_melhor') NOT NULL,
   `peso` int(11) NOT NULL,
   `ordem` int(11) DEFAULT NULL,
   `ativo` tinyint(1) NOT NULL DEFAULT '1',
-  `id_criterio` varchar(200) NOT NULL,
-  `valor_meta` int(11) NOT NULL,
+  `valor_meta` int(11) NOT NULL DEFAULT 0,
+  `media_geral`BOOLEAN NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+-- =========================================
+-- Criar tabela tipo_criterio
+-- =========================================
+CREATE TABLE tipo_criterio (
+    id INT(11) NOT NULL AUTO_INCREMENT,
+    descricao VARCHAR(255) NOT NULL,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- =========================================
+-- Inserção dos tipos de critério
+-- =========================================
+INSERT INTO tipo_criterio (id, descricao) VALUES
+(1, 'gerencia suporte'),
+(2, '360 suporte'),
+(3, 'gerencia implantacao'),
+(4, '360 implantacao');
+
+-- =========================================
+-- Ajustar foreign key na tabela criterios
+-- (se já existir constraint antiga, precisa dropar antes)
+-- =========================================
+ALTER TABLE criterios
+  ADD CONSTRAINT fk_criterios_tipo
+  FOREIGN KEY (id_criterio) REFERENCES tipo_criterio(id);
 
 --
 -- Table structure for table `operadores`
@@ -325,7 +357,7 @@ CREATE TABLE `operadores` (
   `nivel` enum('Nivel 1','Nivel 2','Nivel 3','Sup Avançado') NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `login` (`login`)
-) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -344,7 +376,7 @@ CREATE TABLE `resultado_operador` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_operador_periodo` (`id_operador`,`periodo`),
   CONSTRAINT `fk_rop_operador` FOREIGN KEY (`id_operador`) REFERENCES `operadores` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=59 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 
@@ -360,7 +392,6 @@ CREATE TABLE `premio_nivel` (
   UNIQUE KEY `uk_premio_nivel_nivel` (`nivel`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
-
 --
 -- Dumping routines for database 'avaliacaospace'
 --
@@ -374,26 +405,6 @@ CREATE TABLE `premio_nivel` (
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'STRICT_TRANS_TABLES,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-
-DROP TABLE IF EXISTS `premio_nivel`;
-
--- Tabela de premiação por nível
-CREATE TABLE premio_nivel (
-  id INT(11) NOT NULL AUTO_INCREMENT,
-  nivel ENUM('Nivel 1','Nivel 2','Nivel 3','Sup Avançado') NOT NULL,
-  valor_premio DECIMAL(10,2) UNSIGNED NOT NULL,
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_premio_nivel_nivel (nivel)       -- impede níveis duplicados
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
--- Dados iniciais de premiação (valores)
-INSERT INTO premio_nivel (nivel, valor_premio) VALUES
-('Nivel 1', 799.50),
-('Nivel 2', 855.47),
-('Nivel 3', 941.01),
-('Sup Avançado', 979.00)
-
-
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `atualiza_resultado_operador_periodo`(
 
@@ -480,5 +491,49 @@ DELIMITER ;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-09-01 18:24:20
+-- Dados iniciais de premiação (valores)
+INSERT INTO premio_nivel (nivel, valor_premio) VALUES
+('Nivel 1', '799.50'),
+('Nivel 2', '855.47'),
+('Nivel 3', '941.01'),
+('Sup Avançado', '979.00');
 
+--
+-- Adiciona Critérios Padrões
+--
+
+INSERT INTO criterios (id_criterio, nome, tipo_meta, peso, ordem, ativo, tipo, valor_meta, media_geral) VALUES
+(1, 'Pontualidade (Gerência)', 'menor_melhor', 3, 1, 1, 'quantitativo', 5, false),
+(1, 'Preenchimento Tkt (Gerência)', 'menor_melhor', 5, 2, 1, 'quantitativo', 5, false),
+(1, 'Satisfação Clientes (Gerência)', 'menor_melhor', 2, 3, 1, 'qualitativo', 15, false),
+(1, 'Apoio Indevido (Gerência)', 'menor_melhor', 1, 4, 1, 'quantitativo', 5, false),
+(1, 'Reabertura Tkt (Gerência)', 'menor_melhor', 1, 5, 1, 'qualitativo', 15, false),
+(1, 'Quantitativo (Gerência)', 'maior_melhor', 4, 6, 1, 'quantitativo', 0, true),
+(2, 'Fornece Soluções Precisas e Eficazes', 'maior_melhor', 3, 8, 1, 'qualitativo', 85, false),
+(2, 'Comunicação Clara, Objetiva e Eficaz', 'maior_melhor', 3, 9, 1, 'qualitativo', 85, false),
+(2, 'Lida bem com clientes difíceis ou situações estressantes', 'maior_melhor', 3, 10, 1, 'qualitativo', 85, false),
+(2, 'Responde aos problemas dos clientes de forma rápida e eficiente', 'maior_melhor', 3, 11, 1, 'qualitativo', 85, false),
+(2, 'Tem atitudes proativas', 'maior_melhor', 3, 12, 1, 'qualitativo', 85, false),
+(2, 'Trata a todos com respeito, simpatia, presteza e educação', 'maior_melhor', 3, 13, 1, 'qualitativo', 85, false),
+(2, 'Mantém unido(a) e alinhado(a) em relação aos objetivos e metas', 'maior_melhor', 3, 14, 1, 'qualitativo', 85, false),
+(2, 'É responsável, priorizando os atendimentos a serem realizados', 'maior_melhor', 3, 15, 1, 'qualitativo', 85, false),
+(2, 'Tem iniciativa para buscar novos aprendizados e evoluir', 'maior_melhor', 3, 16, 1, 'qualitativo', 85, false),
+(2, 'Procura compreender os processos dos clientes em sua totalidade', 'maior_melhor', 3, 17, 1, 'qualitativo', 85, false),
+(2, 'Evita distrações excessivas com uso pessoal de celular e redes sociais', 'maior_melhor', 3, 18, 1, 'qualitativo', 85, false),
+(2, 'Trabalha em conjunto para encontrar soluções e compartilhar conhecimentos', 'maior_melhor', 3, 19, 1, 'qualitativo', 85, false);
+
+INSERT INTO operadores (id, nome, login, ativo, grupo, data_inclusao, nivel) VALUES
+('1', 'Ana Carolina Ribeiro', 'anacarolina@spaceinformatica.com.br', true, 4, NOW(), 'Nivel 3'),
+('2', 'Erick Douglas', 'erick@spaceinformatica.com.br', true, 4, NOW(), 'Nivel 1'),
+('3', 'Evandro Pereira', 'evandro@spaceinformatica.com.br', true, 4, NOW(), 'Nivel 2'),
+('4', 'Gabriel Medeiros', 'gabrielmedeiros@spaceinformatica.com.br', true, 4, NOW(), 'Nivel 1'),
+('5', 'Jonathan Nascimento', 'jonathan.nascimento@spaceinformatica.com.br', true, 4, NOW(), 'Nivel 1'),
+('6', 'Luciano Augusto', 'luciano@spaceinformatica.com.br', true, 4, NOW(), 'Nivel 2'),
+('7', 'Luís Romero', 'luis.romero@spaceinformatica.com.br', true, 4, NOW(), 'Nivel 2'),
+('8', 'Mayara Duarte', 'mayaraduarte@spaceinformatica.com.br', true, 4, NOW(), 'Nivel 1'),
+('9', 'Paulo Silva', 'paulosilva@spaceinformatica.com.br', true, 4, NOW(), 'Nivel 1'),
+('10', 'Samuel Ivens', 'samuelxavier@spaceinformatica.com.br', true, 4, NOW(), 'Nivel 2'),
+('11', 'Wesley Fagundes', 'wesleylima@spaceinformatica.com.br', true, 4, NOW(), 'Nivel 2')
+
+
+-- Dump completed on 2025-09-01 18:24:20

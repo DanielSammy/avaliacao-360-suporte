@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Criterio } from '@/types/evaluation';
+import { Criterio, valoresNivel, NivelOperador } from '@/types/evaluation';
 import { createBulkEvaluations } from '../services/evaluationService';
+import { calcularValorAlcancadoFinal } from '../utils/calculations';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CheckCircle2 } from 'lucide-react'; // Import check icon
 
@@ -19,7 +20,12 @@ export function EvaluateOperators() {
   const [evaluationValues, setEvaluationValues] = useState<{ [operatorId: string]: number | string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const avaliadorId = user?.id || null;
+  const loggedInOperatorAsEvaluator = useMemo(() => {
+    if (!user?.login) return null;
+    return state.operadores.find(op => op.login === user.login) || null;
+  }, [state.operadores, user?.login]);
+
+  const avaliadorId = loggedInOperatorAsEvaluator?.id || null;
 
   const activeOperators = state.operadores.filter(op => op.ativo && op.participaAvaliacao);
   const currentPeriod = new Date().getFullYear().toString() + '-' + (new Date().getMonth() + 1).toString().padStart(2, '0');
@@ -29,16 +35,21 @@ export function EvaluateOperators() {
       if (user?.grupo === 6) {
         return true; // Manager sees all criteria
       }
-      return !criterio.nome.endsWith('(Gerência)');
+      return criterio.idCriterio !== 1;
     });
   }, [state.criterios, user?.grupo]);
+
+  const totalPeso = useMemo(() => {
+    return state.criterios
+      .filter(c => c.ativo)
+      .reduce((sum, criterio) => sum + (criterio.peso || 0), 0);
+  }, [state.criterios]);
 
   // New: Memoize the set of evaluated criteria IDs for the current user
   const evaluatedCriteriaIds = useMemo(() => {
     if (!avaliadorId) return new Set<number>();
     const ids = new Set<number>();
     state.avaliacoes.forEach(avaliacao => {
-      // Assuming one evaluation document per operator, per period, by one evaluator
       if (avaliacao.avaliadorId === avaliadorId) {
         avaliacao.criterios.forEach(c => ids.add(c.criterioId));
       }
@@ -52,7 +63,6 @@ export function EvaluateOperators() {
     if (firstUnevaluated) {
       setSelectedCriterionId(firstUnevaluated.id.toString());
     } else if (filteredCriterios.length > 0) {
-      // If all are evaluated, select the first one but it will be disabled
       setSelectedCriterionId(filteredCriterios[0].id.toString());
     }
   }, [filteredCriterios, evaluatedCriteriaIds]);
@@ -78,39 +88,79 @@ export function EvaluateOperators() {
 
   const handleSaveAndNext = async () => {
     if (!avaliadorId || !selectedCriterionId || !selectedCriterion) {
-      toast({ title: "Erro", description: "Dados insuficientes para avaliação.", variant: "destructive" });
+      toast({ title: "Erro", description: "Avaliador não encontrado ou dados de avaliação insuficientes.", variant: "destructive" });
+      return;
+    }
+
+    // As a safeguard, ensure the user object and login exist, though avaliadorId check is primary
+    if (!user?.login) {
+      toast({ title: "Erro", description: "Email do usuário logado não disponível.", variant: "destructive" });
       return;
     }
 
     setIsSubmitting(true);
 
-    const avaliacoes = Object.entries(evaluationValues)
-      .filter(([, valorAlcancado]) => valorAlcancado !== '' && valorAlcancado !== null)
-      .map(([operadorId, valorAlcancado]) => ({
-        operadorId: parseInt(operadorId, 10),
-        avaliadorId: avaliadorId,
-        periodo: currentPeriod,
-        valorMeta: String(selectedCriterion.valorMeta),
-        valorAlcancado: String(valorAlcancado),
-      }));
+    const evaluationData = Object.entries(evaluationValues)
+      .filter(([, valorAlcancadoInput]) => valorAlcancadoInput !== '' && valorAlcancadoInput !== null)
+      .map(([operadorId, valorAlcancadoInput]) => {
+        const operator = state.operadores.find(op => op.id.toString() === operadorId);
+        if (!operator) return null;
 
-    if (avaliacoes.length === 0) {
+        const potentialBonus = totalPeso > 0
+          ? (selectedCriterion.peso / totalPeso) * valoresNivel[operator.nivel]
+          : 0;
+        
+        const calculatedValorBonus = calcularValorAlcancadoFinal(
+          selectedCriterion,
+          Number(valorAlcancadoInput),
+          potentialBonus
+        );
+
+        return {
+          operadorId: parseInt(operadorId, 10),
+          avaliadorId: avaliadorId,
+          periodo: currentPeriod,
+          valorMeta: String(selectedCriterion.valorMeta),
+          inputValue: String(valorAlcancadoInput),
+          bonusValue: String(calculatedValorBonus.toFixed(2)),
+        };
+      })
+      .filter(Boolean);
+
+    if (evaluationData.length === 0) {
         toast({ title: "Atenção", description: "Nenhuma avaliação foi preenchida para este critério.", variant: "default" });
         setIsSubmitting(false);
-        // Move to next anyway
         goToNextCriterion();
         return;
     }
 
+    // Payload for API: sends the calculated bonus as valorAlcancado
+    const avaliacoesParaApi = evaluationData.map(data => ({
+      operadorId: data.operadorId,
+      periodo: data.periodo,
+      valorMeta: data.valorMeta,
+      valorAlcancado: data.bonusValue, 
+    }));
+
+    // Payload for local state: sends both the original input and the calculated bonus
+    const avaliacoesParaDispatch = evaluationData.map(data => ({
+      operadorId: data.operadorId,
+      avaliadorId: data.avaliadorId,
+      periodo: data.periodo,
+      valorAlcancado: data.inputValue,
+      valorBonusAlcancado: data.bonusValue,
+    }));
+
     try {
       const response = await createBulkEvaluations({
         criterioId: parseInt(selectedCriterionId, 10),
-        avaliacoes,
+        avaliadorId: avaliadorId,
+        avaliacoes: avaliacoesParaApi,
       });
 
       if (response.success) {
         toast({ title: "Sucesso!", description: `Avaliações para o critério "${selectedCriterion.nome}" foram salvas.` });
-        dispatch({ type: 'ADD_AVALIACAO_BULK', payload: { criterioId: selectedCriterion.id, avaliacoes } });
+        dispatch({ type: 'ADD_AVALIACAO_BULK', payload: { criterioId: selectedCriterion.id, avaliacoes: avaliacoesParaDispatch } });
         goToNextCriterion();
       } else {
         toast({ title: "Erro", description: response.message || "Falha ao salvar avaliações.", variant: "destructive" });
