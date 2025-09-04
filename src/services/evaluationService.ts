@@ -7,8 +7,10 @@ export interface CreateBulkEvaluationsRequest {
   avaliacoes: Array<{
     operadorId: number;
     periodo: string;
-    valorMeta: string;
+    valorObjetivo: string;
     valorAlcancado: string;
+    metaObjetivo : number;
+    metaAlcancada : number;
   }>;
 }
 

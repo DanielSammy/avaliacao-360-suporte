@@ -92,7 +92,6 @@ export function EvaluateOperators() {
       return;
     }
 
-    // As a safeguard, ensure the user object and login exist, though avaliadorId check is primary
     if (!user?.login) {
       toast({ title: "Erro", description: "Email do usuário logado não disponível.", variant: "destructive" });
       return;
@@ -122,7 +121,8 @@ export function EvaluateOperators() {
           periodo: currentPeriod,
           valorMeta: String(selectedCriterion.valorMeta),
           inputValue: String(valorAlcancadoInput),
-          bonusValue: String(calculatedValorBonus.toFixed(2)),
+          potentialBonus: potentialBonus,
+          bonusValue: calculatedValorBonus,
         };
       })
       .filter(Boolean);
@@ -134,29 +134,32 @@ export function EvaluateOperators() {
         return;
     }
 
-    // Payload for API: sends the calculated bonus as valorAlcancado
     const avaliacoesParaApi = evaluationData.map(data => ({
       operadorId: data.operadorId,
       periodo: data.periodo,
-      valorMeta: data.valorMeta,
-      valorAlcancado: data.bonusValue, 
+      valorObjetivo: String(data.potentialBonus.toFixed(2)), 
+      valorAlcancado: String(data.bonusValue.toFixed(2)),
+      metaObjetivo: Number(data.valorMeta), 
+      metaAlcancada: Number(data.inputValue),
     }));
 
-    // Payload for local state: sends both the original input and the calculated bonus
     const avaliacoesParaDispatch = evaluationData.map(data => ({
       operadorId: data.operadorId,
       avaliadorId: data.avaliadorId,
       periodo: data.periodo,
       valorAlcancado: data.inputValue,
-      valorBonusAlcancado: data.bonusValue,
+      valorBonusAlcancado: String(data.bonusValue.toFixed(2)),
     }));
 
     try {
-      const response = await createBulkEvaluations({
+      const payload = {
         criterioId: parseInt(selectedCriterionId, 10),
         avaliadorId: avaliadorId,
         avaliacoes: avaliacoesParaApi,
-      });
+      };
+      console.log("Enviando payload para API (corrigido):", JSON.stringify(payload, null, 2));
+
+      const response = await createBulkEvaluations(payload);
 
       if (response.success) {
         toast({ title: "Sucesso!", description: `Avaliações para o critério "${selectedCriterion.nome}" foram salvas.` });
