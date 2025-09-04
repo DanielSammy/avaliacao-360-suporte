@@ -39,6 +39,7 @@ export interface CriterioAvaliacao {
   valorAlcancado: number;
   valorBonusAlcancado: number;
   metaAtingida: boolean;
+  metaAlcancada: string;
 }
 
 export interface Avaliacao {

@@ -8,21 +8,11 @@ import { EvaluationSummary } from './EvaluationSummary';
 import { OperatorSelector } from './OperatorSelector';
 import { PeriodSelector } from './PeriodSelector';
 import { PDFGenerator } from '../reports/PDFGenerator';
-import { Avaliacao, Criterio, CriterioAvaliacao, valoresNivel } from '@/types/evaluation';
-import { calcularTotaisAvaliacao, calcularValorAlcancadoFinal, metaAtingida as verificarMetaAtingida } from '@/utils/calculations';
+import { Avaliacao, Criterio, CriterioAvaliacao } from '@/types/evaluation';
 import { FileText, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-const converterAvaliacaoParaPercentual = (avaliacao: string | number | undefined): number => {
-  if (typeof avaliacao === 'number') return avaliacao;
-  if (typeof avaliacao !== 'string') return 0;
-  const avaliacaoLimpa = avaliacao.trim().toLowerCase();
-  if (avaliacaoLimpa.includes('timo') || avaliacaoLimpa.includes('excelente')) return 100.0;
-  if (avaliacaoLimpa.includes('bom')) return 75.0;
-  if (avaliacaoLimpa.includes('regular')) return 50.0;
-  if (avaliacaoLimpa.includes('insatisfatorio')) return 25.0;
-  return 0;
-};
+import { getEvaluationDashboard, EvaluationDashboardResponse } from '@/services/evaluationService';
+import { getCriterios } from '@/services/criteriaService';
 
 export function EvaluationPanel() {
   const { state } = useEvaluation();
@@ -31,10 +21,9 @@ export function EvaluationPanel() {
     const hoje = new Date();
     return `${hoje.getFullYear()}-${(hoje.getMonth() + 1).toString().padStart(2, '0')}`;
   });
-  const [criteriosAvaliacao, setCriteriosAvaliacao] = useState<CriterioAvaliacao[]>([]);
-  const [criteriosParaTabela, setCriteriosParaTabela] = useState<Criterio[]>([]);
-  const [avaliacaoAtual, setAvaliacaoAtual] = useState<Avaliacao | null>(null);
-  const [isCompleted, setIsCompleted] = useState<boolean>(false);
+  const [dashboardData, setDashboardData] = useState<EvaluationDashboardResponse | null>(null);
+  const [activeCriteriaCount, setActiveCriteriaCount] = useState<number>(0);
+  const [loading, setLoading] = useState<boolean>(false);
 
   const activeOperators = useMemo(() => state.operadores.filter(op => op.ativo && op.participaAvaliacao), [state.operadores]);
 
@@ -45,92 +34,83 @@ export function EvaluationPanel() {
   }, [activeOperators, operadorSelecionado]);
 
   useEffect(() => {
+    getCriterios().then(response => {
+      if (response.success) {
+        const active = response.data.filter(c => c.ativo);
+        setActiveCriteriaCount(active.length);
+      }
+    });
+
     if (operadorSelecionado && periodoAtual) {
-      const operadorAtual = state.operadores.find(op => op.id === operadorSelecionado);
-      if (!operadorAtual) return;
-
-      const baseMetaValue = valoresNivel[operadorAtual.nivel] || 0;
-      const criteriosAtivos = state.criterios.filter(c => c.ativo);
-      const totalPeso = criteriosAtivos.reduce((sum, c) => sum + c.peso, 0);
-
-      const criteriosComBonus = criteriosAtivos.map(criterio => ({
-        ...criterio,
-        valorBonus: totalPeso > 0 ? (criterio.peso / totalPeso) * baseMetaValue : 0
-      }));
-      setCriteriosParaTabela(criteriosComBonus);
-
-      const avaliacoesDoOperadorNoPeriodo = state.avaliacoes.filter(
-        av => av.operadorId === operadorSelecionado && av.periodo === periodoAtual
-      );
-
-      const totalOperatorsCount = activeOperators.length;
-      const evaluationsExpectedToReceive = totalOperatorsCount;
-      setIsCompleted(avaliacoesDoOperadorNoPeriodo.length >= evaluationsExpectedToReceive);
-
-      const novosCriteriosAvaliacao = criteriosComBonus.map(criterio => {
-        const allValorAlcancadoForCriterion = avaliacoesDoOperadorNoPeriodo.map(
-          (avaliacao) => {
-            const crit = avaliacao.criterios.find((ca) => ca.criterioId === criterio.id);
-            return crit ? Number(crit.valorAlcancado) : 0;
-          }
-        );
-
-        let averageInputValue: number;
-        if (allValorAlcancadoForCriterion.length > 0) {
-          const sum = allValorAlcancadoForCriterion.reduce((acc, val) => acc + val, 0);
-          averageInputValue = sum / allValorAlcancadoForCriterion.length;
-        } else {
-          averageInputValue = 0;
-        }
-
-        const potentialBonus = criterio.valorBonus || 0;
-        
-        const valorBonusAlcancado = calcularValorAlcancadoFinal(
-          criterio,
-          averageInputValue,
-          potentialBonus
-        );
-
-        const metaAtingidaStatus = verificarMetaAtingida(criterio, averageInputValue);
-
-        return {
-          criterioId: criterio.id,
-          valorAlcancado: averageInputValue,
-          valorBonusAlcancado,
-          metaAtingida: metaAtingidaStatus,
-        };
-      });
-
-      setCriteriosAvaliacao(novosCriteriosAvaliacao);
-
-      const { valorTotalMeta, valorTotalAlcancado } = calcularTotaisAvaliacao(criteriosComBonus, novosCriteriosAvaliacao);
-
-      const avaliacaoSintetica: Avaliacao = {
-        id: 0, 
-        operadorId: operadorSelecionado,
-        avaliadorId: 0, 
-        periodo: periodoAtual,
-        criterios: novosCriteriosAvaliacao,
-        valorTotalMeta,
-        valorTotalAlcancado,
-        dataCriacao: new Date(),
-        dataUltimaEdicao: new Date(),
-      };
-      setAvaliacaoAtual(avaliacaoSintetica);
-
+      setLoading(true);
+      getEvaluationDashboard(operadorSelecionado, periodoAtual)
+        .then(data => {
+          setDashboardData(data);
+        })
+        .catch(error => {
+          console.error("Failed to fetch evaluation dashboard:", error);
+          setDashboardData(null);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     } else {
-      setCriteriosAvaliacao([]);
-      setCriteriosParaTabela(state.criterios.filter(c => c.ativo));
-      setAvaliacaoAtual(null);
-      setIsCompleted(false);
+      setDashboardData(null);
     }
-  }, [operadorSelecionado, periodoAtual, state.avaliacoes, state.criterios, state.operadores, activeOperators]);
+  }, [operadorSelecionado, periodoAtual]);
 
-  const valorTotalMeta = avaliacaoAtual?.valorTotalMeta || 0;
-  const valorTotalAlcancado = avaliacaoAtual?.valorTotalAlcancado || 0;
-  const metasAtingidas = criteriosAvaliacao.filter(ca => ca.metaAtingida).length;
-  const totalMetas = state.criterios.filter(c => c.ativo).length;
-  const operadorAtual = state.operadores.find(op => op.id === operadorSelecionado);
+  const operadorAtual = useMemo(() => 
+    state.operadores.find(op => op.id === operadorSelecionado), 
+    [state.operadores, operadorSelecionado]
+  );
+
+  const criteriosParaTabela: Criterio[] = useMemo(() => {
+    if (!dashboardData?.data.criterios) return [];
+    return dashboardData.data.criterios.map(c => ({
+      id: c.criterioId,
+      idCriterio: c.criterioId,
+      nome: c.criterioNome,
+      tipo: c.criterioTipo as 'qualitativo' | 'quantitativo',
+      tipoMeta: c.criterioTipoMeta as 'maior_melhor' | 'menor_melhor',
+      valorMeta: c.metaObjetivo, // Using metaObjetivo for the 'meta' column
+      peso: c.peso,
+      ordem: 0, 
+      ativo: true, 
+      totalAvaliacoes: 0,
+      valorBonus: parseFloat(c.valorMeta), // Using valorMeta for 'R$: Meta'
+      mediaGeral: false,
+    }));
+  }, [dashboardData]);
+
+  const criteriosAvaliacao: CriterioAvaliacao[] = useMemo(() => {
+    if (!dashboardData?.data.criterios) return [];
+    return dashboardData.data.criterios.map(c => ({
+      criterioId: c.criterioId,
+      valorAlcancado: parseFloat(c.valorAlcancado), // Using valorAlcancado for 'Alcançado'
+      valorBonusAlcancado: parseFloat(c.valorAlcancado), // Using valorAlcancado for 'R$: Alcançado'
+      metaAtingida: c.metaAtingida,
+      metaAlcancada: c.metaAlcancada,
+    }));
+  }, [dashboardData]);
+
+  const avaliacaoAtual: Avaliacao | null = useMemo(() => {
+    if (!dashboardData || !operadorSelecionado) return null;
+    return {
+      id: 0, 
+      operadorId: operadorSelecionado,
+      avaliadorId: 0, 
+      periodo: periodoAtual,
+      criterios: criteriosAvaliacao,
+      valorTotalMeta: parseFloat(dashboardData.data.valorTotalMeta),
+      valorTotalAlcancado: parseFloat(dashboardData.data.valorTotalAlcancado),
+      dataCriacao: new Date(),
+      dataUltimaEdicao: new Date(),
+    };
+  }, [dashboardData, operadorSelecionado, periodoAtual, criteriosAvaliacao]);
+
+  if (loading) {
+    return <div>Loading...</div>; 
+  }
 
   return (
     <div className="space-y-6">
@@ -149,9 +129,16 @@ export function EvaluationPanel() {
         <PeriodSelector periodoAtual={periodoAtual} onPeriodoChange={setPeriodoAtual} />
       </div>
 
-      <EvaluationSummary valorTotalMeta={valorTotalMeta} valorTotalAlcancado={valorTotalAlcancado} metasAtingidas={metasAtingidas} totalMetas={totalMetas} />
+      {dashboardData && (
+        <EvaluationSummary 
+          valorTotalMeta={parseFloat(dashboardData.data.valorTotalMeta)}
+          valorTotalAlcancado={parseFloat(dashboardData.data.valorTotalAlcancado)}
+          metasAtingidas={dashboardData.data.metasAtingidas}
+          totalMetas={activeCriteriaCount} 
+        />
+      )}
 
-      {operadorSelecionado ? (
+      {operadorSelecionado && dashboardData ? (
         <>
           <EvaluationTable
               criterios={criteriosParaTabela}
@@ -161,16 +148,16 @@ export function EvaluationPanel() {
           <Card className="shadow-medium">
               <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />Ações da Avaliação</CardTitle></CardHeader>
               <CardContent className="flex flex-wrap gap-4">
-                  {avaliacaoAtual && operadorAtual && isCompleted && (
+                  {avaliacaoAtual && operadorAtual && (
                       <div className="flex-1 min-w-[200px]">
-                          <PDFGenerator avaliacao={avaliacaoAtual} operador={operadorAtual} criterios={state.criterios} />
+                          <PDFGenerator avaliacao={avaliacaoAtual} operador={operadorAtual} criterios={criteriosParaTabela} />
                       </div>
                   )}
               </CardContent>
           </Card>
         </>
       ) : (
-        <Card className="text-center py-12"><CardContent><h3 className="text-lg font-semibold text-muted-foreground">Selecione um operador e um período para começar.</h3></CardContent></Card>
+        <Card className="text-center py-12"><CardContent><h3 className="text-lg font-semibold text-muted-foreground">Selecione um operador e um período para ver os dados.</h3></CardContent></Card>
       )}
     </div>
   );

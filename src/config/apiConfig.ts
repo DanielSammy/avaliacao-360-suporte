@@ -2,7 +2,8 @@ export const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 export const API_ENDPOINTS = {
   OPERADORES: '/operadores',
   CRITERIOS: '/criterios',
-  AVALIACOES: '/avaliacoes'
+  AVALIACOES: '/avaliacoes',
+  RELATORIOS_DASHBOARD: '/relatorios/dashboard'
   // Add other endpoints here as needed
 };
 

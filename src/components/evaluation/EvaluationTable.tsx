@@ -24,33 +24,17 @@ export function EvaluationTable({
   };
 
   const getMeta = (criterio: Criterio) => {
-    // Always use criterio.valorMeta if available, otherwise provide a sensible default
-    // The fallback logic for undefined/null valorMeta is handled in EvaluationPanel's metaParaComparacao
-    // so here we can directly use criterio.valorMeta
     return criterio.valorMeta;
   };
 
-  const metaAtingidaLocal = (criterio: Criterio, valorAlcancado: number) => {
-    const meta = getMeta(criterio);
-    if (meta === undefined || meta === null) {
-      return false; // Cannot determine, assume not met
-    }
-    if (criterio.tipoMeta === 'menor_melhor') {
-      return valorAlcancado <= meta;
-    }
-    return valorAlcancado >= meta;
-  };
-
-  const getStatusIcon = (criterio: Criterio, valorAlcancado: number) => {
-    const atingiu = metaAtingidaLocal(criterio, valorAlcancado);
+  const getStatusIcon = (atingiu: boolean) => {
     if (atingiu) {
       return <CheckCircle className="h-5 w-5 text-green-500" />;
     }
     return <XCircle className="h-5 w-5 text-red-500" />;
   };
 
-  const getStatusBadge = (criterio: Criterio, valorAlcancado: number) => {
-    const atingiu = metaAtingidaLocal(criterio, valorAlcancado);
+  const getStatusBadge = (atingiu: boolean) => {
     return (
       <Badge variant={atingiu ? "default" : "destructive"} className="font-medium">
         {atingiu ? "Meta Atingida" : "Meta Não Atingida"}
@@ -58,14 +42,14 @@ export function EvaluationTable({
     );
   };
 
-  const formatarValor = (criterio: Criterio, valor?: number | null) => {
+  const formatarValor = (criterio: Criterio, valor?: string | number | null) => {
     if (valor === null || valor === undefined) {
       return 'N/A';
     }
     if (criterio.tipo === 'quantitativo') {
-      return valor.toString();
+      return parseInt(valor.toString(), 10).toString();
     }
-    return `${valor.toFixed(1)}%`;
+    return `${parseFloat(valor.toString()).toFixed(1)}%`;
   };
 
   return (
@@ -96,7 +80,6 @@ export function EvaluationTable({
                 .sort((a, b) => a.ordem - b.ordem)
                 .map((criterio) => {
                   const criterioAvaliacao = getCriterioAvaliacao(criterio.id);
-                  const valorAlcancado = criterioAvaliacao?.valorAlcancado || 0;
                   
                   return (
                     <tr key={criterio.id} className="border-b hover:bg-muted/30 transition-colors">
@@ -126,7 +109,7 @@ export function EvaluationTable({
                         {isEditable && onUpdateCriterio ? (
                           <Input
                             type="number"
-                            value={valorAlcancado}
+                            value={criterioAvaliacao?.valorAlcancado || 0}
                             onChange={(e) => onUpdateCriterio(criterio.id, parseFloat(e.target.value) || 0)}
                             className="w-24 text-center mx-auto"
                             step={criterio.tipo === 'quantitativo' ? '1' : '0.1'}
@@ -134,15 +117,15 @@ export function EvaluationTable({
                           />
                         ) : (
                           <span className="font-medium">
-                            {formatarValor(criterio, valorAlcancado)}
+                            {formatarValor(criterio, criterioAvaliacao?.metaAlcancada)}
                           </span>
                         )}
                       </td>
                       
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          {getStatusIcon(criterio, valorAlcancado)}
-                          {getStatusBadge(criterio, valorAlcancado)}
+                          {getStatusIcon(criterioAvaliacao?.metaAtingida || false)}
+                          {getStatusBadge(criterioAvaliacao?.metaAtingida || false)}
                         </div>
                       </td>
                       
@@ -151,7 +134,7 @@ export function EvaluationTable({
                       </td>
                       
                       <td className="p-4 text-center font-bold">
-                        <span className={metaAtingidaLocal(criterio, valorAlcancado) ? 'text-green-500' : 'text-red-500'}>
+                        <span className={(criterioAvaliacao?.valorBonusAlcancado || 0) >= (criterio.valorBonus || 0) ? 'text-green-500' : 'text-red-500'}>
                           {formatarMoeda(criterioAvaliacao?.valorBonusAlcancado || 0)}
                         </span>
                       </td>

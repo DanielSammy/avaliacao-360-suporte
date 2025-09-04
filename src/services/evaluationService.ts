@@ -24,6 +24,37 @@ export interface CreateBulkEvaluationsResponse {
   error?: string;
 }
 
+export interface Criterio {
+  criterioId: number;
+  criterioNome: string;
+  criterioTipo: string;
+  criterioTipoMeta: string;
+  metaObjetivo: number;
+  metaAlcancada: string;
+  valorMeta: string;
+  valorAlcancado: string;
+  metaAtingida: boolean;
+  percentualAlcancado: string;
+  peso: number;
+}
+
+export interface DashboardData {
+  valorTotalMeta: string;
+  valorTotalAlcancado: string;
+  metasAtingidas: number;
+  totalMetas: number;
+  percentualAtingimento: string;
+  criterios: Criterio[];
+}
+
+export interface EvaluationDashboardResponse {
+  success: boolean;
+  data: DashboardData;
+  periodo: string;
+  operadorId: number;
+  geradoEm: string;
+}
+
 const getHeaders = () => {
   const token = getAuthToken();
   return {
@@ -52,6 +83,21 @@ export const createBulkEvaluations = async (bulkData: CreateBulkEvaluationsReque
       ...responseData,
       success: true,
     };
+  }
+
+  return responseData;
+};
+
+export const getEvaluationDashboard = async (operadorId: number, periodo: string): Promise<EvaluationDashboardResponse> => {
+  const response = await fetch(`${BASE_URL}${API_ENDPOINTS.RELATORIOS_DASHBOARD}?operadorId=${operadorId}&periodo=${periodo}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+
+  const responseData = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(responseData.message || `HTTP error! status: ${response.status}`);
   }
 
   return responseData;
