@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useEvaluation } from '@/contexts/EvaluationContext';
 import { PDFGenerator } from './PDFGenerator';
+import { CalculationReportGenerator } from './CalculationReportGenerator';
 import { formatarMoeda, formatarPeriodo, formatarPercentual } from '@/utils/calculations';
 import { BarChart3, TrendingUp, Users, Award, Calendar, FileText } from 'lucide-react';
 
@@ -170,11 +171,14 @@ export function ReportsPanel() {
                 <h2 className="text-3xl font-bold text-primary mb-2">Relatórios e Análises</h2>
                 <p className="text-muted-foreground">Acompanhe o desempenho e gere relatórios detalhados</p>
             </div>
-            <Link to="/ranking">
-                <Button>
-                    <Award className="mr-2 h-4 w-4" /> Ver Ranking Geral
-                </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+                <CalculationReportGenerator />
+                <Link to="/ranking">
+                    <Button>
+                        <Award className="mr-2 h-4 w-4" /> Ver Ranking Geral
+                    </Button>
+                </Link>
+            </div>
       </div>
 
       {/* Filtros */}

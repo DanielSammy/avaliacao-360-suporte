@@ -1,44 +1,83 @@
-﻿DROP PROCEDURE IF EXISTS atualiza_resultado_operador_periodo;
-DELIMITER $$
-CREATE PROCEDURE atualiza_resultado_operador_periodo(
+﻿DELIMITER $$
+
+DROP PROCEDURE IF EXISTS `atualiza_resultado_operador_periodo`$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `atualiza_resultado_operador_periodo`(
     IN p_id_operador INT,
     IN p_periodo     VARCHAR(7)
 )
 BEGIN
-    DECLARE v_total_meta    DECIMAL(10,2);
-    DECLARE v_total_apurado DECIMAL(18,4); -- precisão maior para somar médias
+    DECLARE v_total_meta    DECIMAL(10,2) DEFAULT 0;
+    DECLARE v_total_apurado DECIMAL(18,4) DEFAULT 0;
 
-    -- 1) total_meta: soma do valor_total_meta das avaliações do operador no período
+    -- 1) total_meta
     SELECT COALESCE(a.valor_total_meta, 0)
       INTO v_total_meta
       FROM avaliacoes a
      WHERE a.operador_id = p_id_operador
-       AND a.periodo     = p_periodo limit 1;
+       AND a.periodo     = p_periodo
+     LIMIT 1;
 
-    -- 2) total_apurado: SOMA das MÉDIAS por critério
-    --    para todas as avaliações do operador no período
-    SELECT COALESCE(SUM(t.avg_por_criterio), 0)
-      INTO v_total_apurado
-      FROM (
-            SELECT AVG(ac.valor_alcancado) AS avg_por_criterio
-              FROM avaliacao_criterios ac
-              JOIN avaliacoes a
-                ON a.id = ac.avaliacao_id
-             WHERE a.operador_id = p_id_operador
-               AND a.periodo     = p_periodo
-             GROUP BY ac.criterio_id
-           ) AS t;
+    -- 2) total_apurado: soma das pontuações por critério (usando média por critério)
+    SELECT COALESCE(SUM(
+        CASE t.tipo_meta
+          WHEN 'maior_melhor' THEN
+            CASE
+              WHEN t.meta_objetivo > 0 THEN
+                CASE
+                  WHEN t.avg_meta >= t.meta_objetivo
+                    THEN t.valor_objetivo
+                  ELSE (t.avg_meta / NULLIF(t.meta_objetivo, 0)) * t.valor_objetivo
+                END
+              ELSE 0
+            END
 
-    -- UPSERT no resumo (armazena com 2 casas)
+          WHEN 'menor_melhor' THEN
+            CASE
+              WHEN t.meta_objetivo <= 0 THEN
+                CASE WHEN t.avg_meta <= 0 THEN t.valor_objetivo ELSE 0 END
+              WHEN t.avg_meta <= 0 THEN
+                t.valor_objetivo
+              ELSE
+                (1 - (t.avg_meta / NULLIF(t.meta_objetivo, 0))) * t.valor_objetivo
+            END
+        END
+    ), 0)
+    INTO v_total_apurado
+    FROM (
+        SELECT
+            ac.criterio_id,
+            c.tipo_meta,
+            AVG(ac.meta_alcancada) AS avg_meta,
+            MAX(ac.meta_objetivo)  AS meta_objetivo,
+            MAX(ac.valor_objetivo) AS valor_objetivo
+        FROM avaliacao_criterios ac
+        JOIN avaliacoes a ON a.id = ac.avaliacao_id
+        JOIN criterios  c ON c.id = ac.criterio_id
+        WHERE a.operador_id = p_id_operador
+          AND a.periodo     = p_periodo
+        GROUP BY ac.criterio_id, c.tipo_meta
+    ) t;
+
+    -- 3) UPSERT no resumo
     INSERT INTO resultado_operador (id_operador, periodo, total_meta, total_apurado)
     VALUES (p_id_operador, p_periodo, v_total_meta, ROUND(v_total_apurado, 2))
     ON DUPLICATE KEY UPDATE
         total_meta    = VALUES(total_meta),
         total_apurado = VALUES(total_apurado);
 END$$
+
 DELIMITER ;
 
+
 -- 3) TRIGGERS em avaliacao_criterios
+DROP TRIGGER IF EXISTS trg_ai_criterios_atualiza_resumo;
+DROP TRIGGER IF EXISTS trg_au_criterios_atualiza_resumo;
+DROP TRIGGER IF EXISTS trg_ad_criterios_atualiza_resumo;
+DROP TRIGGER IF EXISTS trg_ai_avaliacoes_atualiza_resumo;
+DROP TRIGGER IF EXISTS trg_au_avaliacoes_atualiza_resumo;
+DROP TRIGGER IF EXISTS trg_ad_avaliacoes_atualiza_resumo;
+
 DELIMITER $$
 
 -- AFTER INSERT em avaliacao_criterios
@@ -56,6 +95,7 @@ BEGIN
 
     CALL atualiza_resultado_operador_periodo (v_op, v_per);
 END$$
+
 
 -- AFTER UPDATE em avaliacao_criterios
 CREATE TRIGGER trg_au_criterios_atualiza_resumo
