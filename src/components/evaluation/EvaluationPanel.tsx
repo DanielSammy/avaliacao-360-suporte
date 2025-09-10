@@ -92,7 +92,7 @@ export function EvaluationPanel() {
         nome: c.criterioNome,
         tipo: c.criterioTipo as 'qualitativo' | 'quantitativo',
         tipoMeta: c.criterioTipoMeta as 'maior_melhor' | 'menor_melhor',
-        valorMeta: parseFloat(c.metaObjetivo) || 0,
+        valorMeta: c.metaObjetivo || 0,
         valorBonus: parseFloat(c.valorMeta) || 0,
         peso: c.peso,
         ordem: 0, 

@@ -10,9 +10,9 @@ import { Criterio, valoresNivel, NivelOperador } from '@/types/evaluation';
 import { createBulkEvaluations, checkCriterionEvaluated } from '../services/evaluationService';
 import { calcularValorAlcancadoFinal } from '../utils/calculations';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { CheckCircle2, Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2, ArrowLeft } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export function EvaluateOperators() {
   const { state, dispatch } = useEvaluation();
@@ -254,8 +254,16 @@ export function EvaluateOperators() {
         </AlertDialog>
 
       <Card className="shadow-lg">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-2xl font-bold">Avaliar por Critério</CardTitle>
+          {(user && (user.grupo === 6 || user.grupo === 7)) && (
+            <Link to="/">
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
+            </Link>
+          )}
         </CardHeader>
         <CardContent>
           <div className="mb-6">
