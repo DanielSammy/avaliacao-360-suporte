@@ -102,3 +102,22 @@ export const getEvaluationDashboard = async (operadorId: number, periodo: string
 
   return responseData;
 };
+
+export interface CriterionEvaluatedResponse {
+  avaliado: boolean;
+}
+
+export const checkCriterionEvaluated = async (periodo: string, avaliadorId: number, criterioId: number): Promise<CriterionEvaluatedResponse> => {
+  const response = await fetch(`${BASE_URL}${API_ENDPOINTS.AVALIACOES_CRITERIO_AVALIADO}?periodo=${periodo}&avaliadorId=${avaliadorId}&criterioId=${criterioId}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+
+  const responseData = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(responseData.message || `HTTP error! status: ${response.status}`);
+  }
+
+  return responseData;
+};

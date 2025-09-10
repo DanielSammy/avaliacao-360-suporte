@@ -3,7 +3,8 @@ export const API_ENDPOINTS = {
   OPERADORES: '/operadores',
   CRITERIOS: '/criterios',
   AVALIACOES: '/avaliacoes',
-  RELATORIOS_DASHBOARD: '/relatorios/dashboard'
+  RELATORIOS_DASHBOARD: '/relatorios/dashboard',
+  AVALIACOES_CRITERIO_AVALIADO: '/avaliacoes/criterio/avaliado'
   // Add other endpoints here as needed
 };
 

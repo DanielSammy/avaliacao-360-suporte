@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useEvaluation } from '../contexts/EvaluationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -7,18 +7,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Criterio, valoresNivel, NivelOperador } from '@/types/evaluation';
-import { createBulkEvaluations } from '../services/evaluationService';
+import { createBulkEvaluations, checkCriterionEvaluated } from '../services/evaluationService';
 import { calcularValorAlcancadoFinal } from '../utils/calculations';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { CheckCircle2 } from 'lucide-react'; // Import check icon
+import { CheckCircle2, Loader2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useNavigate } from 'react-router-dom';
 
 export function EvaluateOperators() {
   const { state, dispatch } = useEvaluation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [selectedCriterionId, setSelectedCriterionId] = useState<string | null>(null);
   const [evaluationValues, setEvaluationValues] = useState<{ [operatorId: string]: number | string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingCriterion, setIsLoadingCriterion] = useState(true);
+  const [isAllEvaluatedDialogOpen, setIsAllEvaluatedDialogOpen] = useState(false);
+  const [sessionEvaluatedIds, setSessionEvaluatedIds] = useState<Set<number>>(new Set());
 
   const loggedInOperatorAsEvaluator = useMemo(() => {
     if (!user?.login) return null;
@@ -33,7 +39,7 @@ export function EvaluateOperators() {
   const filteredCriterios = useMemo(() => {
     return state.criterios.filter(criterio => {
       if (user?.grupo === 6) {
-        return true; // Manager sees all criteria
+        return true;
       }
       return criterio.idCriterio !== 1;
     });
@@ -45,7 +51,6 @@ export function EvaluateOperators() {
       .reduce((sum, criterio) => sum + (criterio.peso || 0), 0);
   }, [state.criterios]);
 
-  // New: Memoize the set of evaluated criteria IDs for the current user
   const evaluatedCriteriaIds = useMemo(() => {
     if (!avaliadorId) return new Set<number>();
     const ids = new Set<number>();
@@ -57,15 +62,59 @@ export function EvaluateOperators() {
     return ids;
   }, [state.avaliacoes, avaliadorId]);
 
-  // New: Effect to select the first unevaluated criterion on load
-  useEffect(() => {
-    const firstUnevaluated = filteredCriterios.find(c => !evaluatedCriteriaIds.has(c.id));
-    if (firstUnevaluated) {
-      setSelectedCriterionId(firstUnevaluated.id.toString());
-    } else if (filteredCriterios.length > 0) {
-      setSelectedCriterionId(filteredCriterios[0].id.toString());
+  const allEvaluatedIds = useMemo(() => 
+    new Set([...evaluatedCriteriaIds, ...sessionEvaluatedIds]), 
+    [evaluatedCriteriaIds, sessionEvaluatedIds]
+  );
+
+  const findNextCriterion = useCallback((startId: string | null = null) => {
+    const availableCriterios = filteredCriterios.filter(c => !allEvaluatedIds.has(c.id));
+    if (availableCriterios.length === 0) return null;
+
+    if (!startId) return availableCriterios[0];
+
+    const currentIndex = availableCriterios.findIndex(c => c.id.toString() === startId);
+    const nextIndex = currentIndex + 1;
+
+    return nextIndex < availableCriterios.length ? availableCriterios[nextIndex] : null;
+  }, [filteredCriterios, allEvaluatedIds]);
+
+
+  const checkAndSetCriterion = useCallback(async (criterion: Criterio | null) => {
+    if (!criterion || !avaliadorId) {
+      const allAvailableEvaluated = filteredCriterios.every(c => allEvaluatedIds.has(c.id));
+      if (allAvailableEvaluated && filteredCriterios.length > 0) {
+        setIsAllEvaluatedDialogOpen(true);
+      }
+      setIsLoadingCriterion(false);
+      return;
     }
-  }, [filteredCriterios, evaluatedCriteriaIds]);
+
+    setIsLoadingCriterion(true);
+    setSelectedCriterionId(criterion.id.toString());
+
+    try {
+      const response = await checkCriterionEvaluated(currentPeriod, avaliadorId, criterion.id);
+      if (response.avaliado) {
+        setSessionEvaluatedIds(prev => new Set(prev).add(criterion.id));
+        const nextCriterion = findNextCriterion(criterion.id.toString());
+        checkAndSetCriterion(nextCriterion);
+      } else {
+        setEvaluationValues({});
+        setIsLoadingCriterion(false);
+      }
+    } catch (error) {
+      toast({ title: "Erro", description: "Falha ao verificar status do critério.", variant: "destructive" });
+      setIsLoadingCriterion(false);
+    }
+  }, [avaliadorId, currentPeriod, findNextCriterion, toast, allEvaluatedIds, filteredCriterios]);
+
+  useEffect(() => {
+    if (state.criterios.length > 0 && avaliadorId) {
+      const firstUnevaluated = findNextCriterion();
+      checkAndSetCriterion(firstUnevaluated);
+    }
+  }, [state.criterios, avaliadorId]);
 
 
   const selectedCriterion = useMemo(() => {
@@ -74,8 +123,8 @@ export function EvaluateOperators() {
   }, [selectedCriterionId, state.criterios]);
 
   const handleCriterionSelect = (criterionId: string) => {
-    setSelectedCriterionId(criterionId);
-    setEvaluationValues({}); // Reset values when changing criterion
+    const criterion = filteredCriterios.find(c => c.id.toString() === criterionId);
+    checkAndSetCriterion(criterion || null);
   };
 
   const handleEvaluationChange = (operatorId: string, value: string) => {
@@ -88,116 +137,122 @@ export function EvaluateOperators() {
 
   const handleSaveAndNext = async () => {
     if (!avaliadorId || !selectedCriterionId || !selectedCriterion) {
-      toast({ title: "Erro", description: "Avaliador não encontrado ou dados de avaliação insuficientes.", variant: "destructive" });
-      return;
-    }
-
-    if (!user?.login) {
-      toast({ title: "Erro", description: "Email do usuário logado não disponível.", variant: "destructive" });
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    const evaluationData = Object.entries(evaluationValues)
-      .filter(([, valorAlcancadoInput]) => valorAlcancadoInput !== '' && valorAlcancadoInput !== null)
-      .map(([operadorId, valorAlcancadoInput]) => {
-        const operator = state.operadores.find(op => op.id.toString() === operadorId);
-        if (!operator) return null;
-
-        const potentialBonus = totalPeso > 0
-          ? (selectedCriterion.peso / totalPeso) * valoresNivel[operator.nivel]
-          : 0;
-        
-        const calculatedValorBonus = calcularValorAlcancadoFinal(
-          selectedCriterion,
-          Number(valorAlcancadoInput),
-          potentialBonus
-        );
-
-        return {
-          operadorId: parseInt(operadorId, 10),
-          avaliadorId: avaliadorId,
-          periodo: currentPeriod,
-          valorMeta: String(selectedCriterion.valorMeta),
-          inputValue: String(valorAlcancadoInput),
-          potentialBonus: potentialBonus,
-          bonusValue: calculatedValorBonus,
-        };
-      })
-      .filter(Boolean);
-
-    if (evaluationData.length === 0) {
-        toast({ title: "Atenção", description: "Nenhuma avaliação foi preenchida para este critério.", variant: "default" });
-        setIsSubmitting(false);
-        goToNextCriterion();
+        toast({ title: "Erro", description: "Avaliador não encontrado ou dados de avaliação insuficientes.", variant: "destructive" });
         return;
-    }
-
-    const avaliacoesParaApi = evaluationData.map(data => ({
-      operadorId: data.operadorId,
-      periodo: data.periodo,
-      valorObjetivo: String(data.potentialBonus.toFixed(2)), 
-      valorAlcancado: String(data.bonusValue.toFixed(2)),
-      metaObjetivo: Number(data.valorMeta), 
-      metaAlcancada: Number(data.inputValue),
-    }));
-
-    const avaliacoesParaDispatch = evaluationData.map(data => ({
-      operadorId: data.operadorId,
-      avaliadorId: data.avaliadorId,
-      periodo: data.periodo,
-      valorAlcancado: data.inputValue,
-      valorBonusAlcancado: String(data.bonusValue.toFixed(2)),
-    }));
-
-    try {
-      const payload = {
-        criterioId: parseInt(selectedCriterionId, 10),
-        avaliadorId: avaliadorId,
-        avaliacoes: avaliacoesParaApi,
-      };
-      console.log("Enviando payload para API (corrigido):", JSON.stringify(payload, null, 2));
-
-      const response = await createBulkEvaluations(payload);
-
-      if (response.success) {
-        toast({ title: "Sucesso!", description: `Avaliações para o critério "${selectedCriterion.nome}" foram salvas.` });
-        dispatch({ type: 'ADD_AVALIACAO_BULK', payload: { criterioId: selectedCriterion.id, avaliacoes: avaliacoesParaDispatch } });
-        goToNextCriterion();
-      } else {
-        toast({ title: "Erro", description: response.message || "Falha ao salvar avaliações.", variant: "destructive" });
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro desconhecido.";
-      toast({ title: "Erro de Rede", description: errorMessage, variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Updated: Go to the next *unevaluated* criterion
-  const goToNextCriterion = () => {
-    const unevaluatedCriterios = filteredCriterios.filter(c => !evaluatedCriteriaIds.has(c.id));
-    const currentInUnevaluatedIndex = unevaluatedCriterios.findIndex(c => c.id.toString() === selectedCriterionId);
-    
-    const nextIndex = currentInUnevaluatedIndex + 1;
-
-    if (nextIndex < unevaluatedCriterios.length) {
-      setSelectedCriterionId(unevaluatedCriterios[nextIndex].id.toString());
-      setEvaluationValues({});
-      window.scrollTo(0, 0);
-    } else {
-      toast({ title: "Fim das Avaliações", description: "Todos os critérios foram avaliados." });
-      setSelectedCriterionId(null); // Or the last one, to show it's completed
-    }
+  
+      if (!user?.login) {
+        toast({ title: "Erro", description: "Email do usuário logado não disponível.", variant: "destructive" });
+        return;
+      }
+  
+      setIsSubmitting(true);
+  
+      const evaluationData = Object.entries(evaluationValues)
+        .filter(([, valorAlcancadoInput]) => valorAlcancadoInput !== '' && valorAlcancadoInput !== null)
+        .map(([operadorId, valorAlcancadoInput]) => {
+          const operator = state.operadores.find(op => op.id.toString() === operadorId);
+          if (!operator) return null;
+  
+          const potentialBonus = totalPeso > 0
+            ? (selectedCriterion.peso / totalPeso) * valoresNivel[operator.nivel]
+            : 0;
+          
+          const calculatedValorBonus = calcularValorAlcancadoFinal(
+            selectedCriterion,
+            Number(valorAlcancadoInput),
+            potentialBonus
+          );
+  
+          return {
+            operadorId: parseInt(operadorId, 10),
+            avaliadorId: avaliadorId,
+            periodo: currentPeriod,
+            valorMeta: String(selectedCriterion.valorMeta),
+            inputValue: String(valorAlcancadoInput),
+            potentialBonus: potentialBonus,
+            bonusValue: calculatedValorBonus,
+          };
+        })
+        .filter(Boolean);
+  
+      if (evaluationData.length === 0) {
+          toast({ title: "Atenção", description: "Nenhuma avaliação foi preenchida para este critério.", variant: "default" });
+          setIsSubmitting(false);
+          const nextCriterion = findNextCriterion(selectedCriterionId);
+          checkAndSetCriterion(nextCriterion);
+          return;
+      }
+  
+      const avaliacoesParaApi = evaluationData.map(data => ({
+        operadorId: data.operadorId,
+        periodo: data.periodo,
+        valorObjetivo: String(data.potentialBonus.toFixed(2)), 
+        valorAlcancado: String(data.bonusValue.toFixed(2)),
+        metaObjetivo: Number(data.valorMeta), 
+        metaAlcancada: Number(data.inputValue),
+      }));
+  
+      const avaliacoesParaDispatch = evaluationData.map(data => ({
+        operadorId: data.operadorId,
+        avaliadorId: data.avaliadorId,
+        periodo: data.periodo,
+        valorAlcancado: data.inputValue,
+        valorBonusAlcancado: String(data.bonusValue.toFixed(2)),
+      }));
+  
+      try {
+        const payload = {
+          criterioId: parseInt(selectedCriterionId, 10),
+          avaliadorId: avaliadorId,
+          avaliacoes: avaliacoesParaApi,
+        };
+  
+        const response = await createBulkEvaluations(payload);
+  
+        if (response.success) {
+          toast({ title: "Sucesso!", description: `Avaliações para o critério \"${selectedCriterion.nome}\" foram salvas.` });
+          dispatch({ type: 'ADD_AVALIACAO_BULK', payload: { criterioId: selectedCriterion.id, avaliacoes: avaliacoesParaDispatch } });
+          const nextCriterion = findNextCriterion(selectedCriterionId);
+          checkAndSetCriterion(nextCriterion);
+        } else {
+          toast({ title: "Erro", description: response.message || "Falha ao salvar avaliações.", variant: "destructive" });
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro desconhecido.";
+        toast({ title: "Erro de Rede", description: errorMessage, variant: "destructive" });
+      } finally {
+        setIsSubmitting(false);
+      }
   };
 
   const allOperatorsEvaluated = activeOperators.length === Object.keys(evaluationValues).length;
-  const isCurrentCriterionEvaluated = selectedCriterionId ? evaluatedCriteriaIds.has(parseInt(selectedCriterionId, 10)) : false;
+  const isCurrentCriterionEvaluated = selectedCriterionId ? allEvaluatedIds.has(parseInt(selectedCriterionId, 10)) : false;
+
+  if (isLoadingCriterion && !selectedCriterionId) {
+    return (
+        <div className="flex justify-center items-center h-screen">
+            <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6">
+        <AlertDialog open={isAllEvaluatedDialogOpen} onOpenChange={setIsAllEvaluatedDialogOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Avaliações Concluídas</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Todos os critérios disponíveis já foram avaliados por você.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogAction onClick={() => navigate('/')}>Voltar para o Início</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl font-bold">Avaliar por Critério</CardTitle>
@@ -207,13 +262,13 @@ export function EvaluateOperators() {
             <label htmlFor="criterion-select" className="block text-sm font-medium text-gray-700 mb-2">
               Selecione o Critério de Avaliação:
             </label>
-            <Select onValueChange={handleCriterionSelect} value={selectedCriterionId || ''}>
+            <Select onValueChange={handleCriterionSelect} value={selectedCriterionId || ''} disabled={isLoadingCriterion}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Selecione um critério" />
+                <SelectValue placeholder={isLoadingCriterion ? "Verificando critérios..." : "Selecione um critério"} />
               </SelectTrigger>
               <SelectContent>
                 {filteredCriterios.map(criterio => {
-                  const isEvaluated = evaluatedCriteriaIds.has(criterio.id);
+                  const isEvaluated = allEvaluatedIds.has(criterio.id);
                   return (
                     <SelectItem key={criterio.id} value={criterio.id.toString()} disabled={isEvaluated}>
                       <div className="flex items-center justify-between w-full">
@@ -227,7 +282,14 @@ export function EvaluateOperators() {
             </Select>
           </div>
 
-          {selectedCriterion && (
+          {isLoadingCriterion && (
+            <div className="text-center p-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+                <p className="mt-2">Verificando critério...</p>
+            </div>
+          )}
+
+          {!isLoadingCriterion && selectedCriterion && (
             <div className="space-y-4">
               <h3 className="text-xl font-semibold mb-4">
                 Avaliando Operadores para: <span className="font-bold">{selectedCriterion.nome}</span>
@@ -274,6 +336,12 @@ export function EvaluateOperators() {
               >
                 {isSubmitting ? 'Salvando...' : 'Salvar e Ir para Próximo Critério'}
               </Button>
+            </div>
+          )}
+
+          {!isLoadingCriterion && !selectedCriterion && !isAllEvaluatedDialogOpen && (
+             <div className="text-center p-8">
+                <h3 className="text-lg font-semibold text-muted-foreground">Nenhum critério disponível para avaliação.</h3>
             </div>
           )}
         </CardContent>
