@@ -367,11 +367,10 @@ export function OperatorManagement() {
                           open={editingOperator?.id === operador.id && isEditDialogOpen}
                           onOpenChange={(open) => {
                             if (!open) {
-                              !open && cancelEdit()
+                              cancelEdit();
                             }
-                            setIsEditDialogOpen(open)
-                          }
-                          }
+                            setIsEditDialogOpen(open);
+                          }}
                         >
                           <DialogTrigger asChild>
                             <Button

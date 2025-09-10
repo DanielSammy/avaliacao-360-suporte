@@ -27,25 +27,29 @@ export function metaAtingida(criterio: Criterio, valorAlcancado: number): boolea
  * @returns O valor do bônus calculado.
  */
 export function calcularBonusAlcancado(criterio: Criterio, valorAlcancado: number): number {
-  const atingiuMeta = metaAtingida(criterio, valorAlcancado);
-  
-  if (atingiuMeta) {
-    return criterio.valorBonus;
-  }
-  
-  // Cálculo proporcional para metas não atingidas
+  const target = criterio.valorMeta;
+  const bonus = criterio.valorBonus;
+
   if (criterio.tipoMeta === 'maior_melhor') {
-    // Para metas 'maior é melhor', a proporção é direta
-    const proporcao = Math.min(valorAlcancado / criterio.valorMeta, 1);
-    return Math.max(0, criterio.valorBonus * proporcao);
-  } else {
-    // Para metas 'menor é melhor', a proporção é inversa
-    if (valorAlcancado <= 0) return criterio.valorBonus; // Bônus máximo se o valor for zero ou negativo
+    const atingiuMeta = valorAlcancado >= target;
+    if (atingiuMeta) {
+      return bonus;
+    }
+    // Cálculo proporcional para metas não atingidas
+    if (target <= 0) return 0;
+    const proporcao = Math.min(valorAlcancado / target, 1);
+    return Math.max(0, bonus * proporcao);
+  } else { // menor_melhor
+    if (valorAlcancado < 0) return 0; // Valor negativo não deve contar
+
+    if (valorAlcancado > target) {
+      // Se alcançado passar do objetivo, multiplica o bônus por 1%.
+      return bonus * 0.01;
+    }
     
-    const distanciaMeta = Math.max(0, valorAlcancado - criterio.valorMeta);
-    // O fator de redução penaliza o quão longe o valor está da meta
-    const fatorReducao = Math.max(0, 1 - (distanciaMeta / criterio.valorMeta) * 0.5);
-    return criterio.valorBonus * fatorReducao;
+    // Cálculo principal: (1 - (alcançado / meta)) * bônus
+    const proportion = 1 - (valorAlcancado / target);
+    return Math.max(0, bonus * proportion);
   }
 }
 
@@ -62,19 +66,29 @@ export function calcularValorAlcancadoFinal(
   inputValue: number,
   potentialBonus: number
 ): number {
-  if (metaAtingida(criterio, inputValue)) {
-    return potentialBonus;
-  }
-
   const target = criterio.valorMeta;
 
   if (criterio.tipoMeta === 'maior_melhor') {
+    // Atingiu ou superou a meta
+    if (inputValue >= target) {
+      return potentialBonus;
+    }
+    // Cálculo proporcional se não atingiu a meta
     if (target <= 0) return 0;
     const proportion = inputValue / target;
     return Math.max(0, potentialBonus * proportion);
   } else { // menor_melhor
-    if (inputValue <= 0) return 0;
-    const proportion = target / inputValue;
+    if (inputValue < 0) return 0; // Não permitir valores negativos
+
+    if (inputValue > target) {
+      // Se o valor alcançado for maior que a meta, o bônus é de 1%
+      return potentialBonus * 0.01;
+    }
+    
+    // A meta é ser menor, então a proporção é inversa.
+    // Se inputValue é 0, proportion é 1 (bônus máximo).
+    // Se inputValue é igual a target, proportion é 0.
+    const proportion = 1 - (inputValue / target);
     return Math.max(0, potentialBonus * proportion);
   }
 }

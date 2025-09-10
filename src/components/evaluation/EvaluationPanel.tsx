@@ -13,6 +13,7 @@ import { FileText, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getEvaluationDashboard, EvaluationDashboardResponse } from '@/services/evaluationService';
 import { getCriterios } from '@/services/criteriaService';
+import { calcularBonusAlcancado } from '@/utils/calculations';
 
 export function EvaluationPanel() {
   const { state } = useEvaluation();
@@ -84,13 +85,33 @@ export function EvaluationPanel() {
 
   const criteriosAvaliacao: CriterioAvaliacao[] = useMemo(() => {
     if (!dashboardData?.data.criterios) return [];
-    return dashboardData.data.criterios.map(c => ({
-      criterioId: c.criterioId,
-      valorAlcancado: parseFloat(c.valorAlcancado), // Using valorAlcancado for 'Alcançado'
-      valorBonusAlcancado: parseFloat(c.valorAlcancado), // Using valorAlcancado for 'R$: Alcançado'
-      metaAtingida: c.metaAtingida,
-      metaAlcancada: c.metaAlcancada,
-    }));
+    return dashboardData.data.criterios.map(c => {
+      const criterioParaCalculo: Criterio = {
+        id: c.criterioId,
+        idCriterio: c.criterioId,
+        nome: c.criterioNome,
+        tipo: c.criterioTipo as 'qualitativo' | 'quantitativo',
+        tipoMeta: c.criterioTipoMeta as 'maior_melhor' | 'menor_melhor',
+        valorMeta: parseFloat(c.metaObjetivo) || 0,
+        valorBonus: parseFloat(c.valorMeta) || 0,
+        peso: c.peso,
+        ordem: 0, 
+        ativo: true, 
+        totalAvaliacoes: 0,
+        mediaGeral: false,
+      };
+      
+      const valorAlcancadoNumerico = parseFloat(c.metaAlcancada) || 0;
+      const bonusCalculado = calcularBonusAlcancado(criterioParaCalculo, valorAlcancadoNumerico);
+
+      return {
+        criterioId: c.criterioId,
+        valorAlcancado: valorAlcancadoNumerico,
+        valorBonusAlcancado: bonusCalculado,
+        metaAtingida: c.metaAtingida,
+        metaAlcancada: c.metaAlcancada,
+      };
+    });
   }, [dashboardData]);
 
   const avaliacaoAtual: Avaliacao | null = useMemo(() => {
