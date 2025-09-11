@@ -38,10 +38,10 @@ export function EvaluateOperators() {
 
   const filteredCriterios = useMemo(() => {
     return state.criterios.filter(criterio => {
-      if (user?.grupo === 6) {
+      if (user?.grupo === 6 || user?.grupo === 7) {
         return true;
       }
-      return criterio.idCriterio !== 1;
+      return criterio.idCriterio === 2;
     });
   }, [state.criterios, user?.grupo]);
 

@@ -1,30 +1,56 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useEvaluation } from '../contexts/EvaluationContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { getCriterios } from '../services/criteriaService';
+import { Criterio } from '../types/evaluation';
 
 export function EvaluationTracking() {
   const { state } = useEvaluation();
+  const [activeCriteriaList, setActiveCriteriaList] = useState<Criterio[]>([]);
+
+  useEffect(() => {
+    const fetchCriteria = async () => {
+      try {
+        const response = await getCriterios();
+        if (response.success) {
+          const active = response.data.filter(c => c.ativo);
+          setActiveCriteriaList(active);
+        }
+      } catch (error) {
+        console.error("Failed to fetch criteria:", error);
+      }
+    };
+
+    fetchCriteria();
+  }, []);
 
   const allActiveOperators = state.operadores.filter(op => op.ativo);
-  const participatingOperators = state.operadores.filter(op => op.ativo && op.participaAvaliacao);
-  const totalParticipatingOperatorsCount = participatingOperators.length;
 
   const operatorEvaluationSummary = allActiveOperators.map(operator => {
-    const evaluationsReceived = state.avaliacoes.filter(evalItem => evalItem.operadorId === operator.id);
-    const evaluationsGiven = state.avaliacoes.filter(evalItem => evalItem.avaliadorId === operator.id);
+    const evaluationsGivenByOperator = state.avaliacoes.filter(evalItem => evalItem.avaliadorId === operator.id);
+    const distinctCriteriaGiven = new Set(evaluationsGivenByOperator.map(e => e.criterios).flat().map(c => c.criterioId));
+    const evaluationsGivenCount = distinctCriteriaGiven.size;
 
-    // An operator should evaluate all participating operators (including themselves if self-evaluation is desired)
-    const evaluationsExpectedToGive = totalParticipatingOperatorsCount;
+    const evaluationsReceivedByOperator = state.avaliacoes.filter(evalItem => evalItem.operadorId === operator.id);
+    const distinctCriteriaReceived = new Set(evaluationsReceivedByOperator.map(e => e.criterios).flat().map(c => c.criterioId));
+    const evaluationsReceivedCount = distinctCriteriaReceived.size;
+
+    const expectedCriteriaForOperator = (operator.grupo === 6 || operator.grupo === 7)
+      ? activeCriteriaList.length
+      : activeCriteriaList.filter(c => c.idCriterio === 2).length;
+
+    const evaluationsExpectedToGive = expectedCriteriaForOperator;
+    const evaluationsExpectedToReceive = operator.participaAvaliacao ? activeCriteriaList.length : 0;
 
     let statusGiven: 'Concluído' | 'Pendente' | 'Em Andamento';
     let variantGiven: 'default' | 'secondary' | 'destructive' | 'outline';
 
-    if (evaluationsGiven.length === evaluationsExpectedToGive) {
+    if (evaluationsGivenCount === evaluationsExpectedToGive) {
       statusGiven = 'Concluído';
       variantGiven = 'default';
-    } else if (evaluationsGiven.length > 0) {
+    } else if (evaluationsGivenCount > 0) {
       statusGiven = 'Em Andamento';
       variantGiven = 'secondary';
     } else {
@@ -32,16 +58,16 @@ export function EvaluationTracking() {
       variantGiven = 'destructive';
     }
 
-    // An operator should receive evaluations from all participating operators (including themselves if self-evaluation is desired)
-    const evaluationsExpectedToReceive = operator.participaAvaliacao ? totalParticipatingOperatorsCount : 0;
-
-    let statusReceived: 'Concluído' | 'Pendente' | 'Em Andamento';
+    let statusReceived: 'Concluído' | 'Pendente' | 'Em Andamento' | 'N/A';
     let variantReceived: 'default' | 'secondary' | 'destructive' | 'outline';
 
-    if (evaluationsReceived.length === evaluationsExpectedToReceive) {
+    if (!operator.participaAvaliacao) {
+      statusReceived = 'N/A';
+      variantReceived = 'outline';
+    } else if (evaluationsReceivedCount === evaluationsExpectedToReceive) {
       statusReceived = 'Concluído';
       variantReceived = 'default';
-    } else if (evaluationsReceived.length > 0) {
+    } else if (evaluationsReceivedCount > 0) {
       statusReceived = 'Em Andamento';
       variantReceived = 'secondary';
     } else {
@@ -51,8 +77,8 @@ export function EvaluationTracking() {
 
     return {
       operator,
-      evaluationsReceivedCount: evaluationsReceived.length,
-      evaluationsGivenCount: evaluationsGiven.length,
+      evaluationsReceivedCount,
+      evaluationsGivenCount,
       evaluationsExpectedToGive,
       evaluationsExpectedToReceive,
       statusGiven,
@@ -63,9 +89,8 @@ export function EvaluationTracking() {
   });
 
   const totalPendingEvaluations = operatorEvaluationSummary.reduce((total, summary) => {
-    const pendingGiven = summary.evaluationsExpectedToGive - summary.evaluationsGivenCount;
-    const pendingReceived = summary.evaluationsExpectedToReceive - summary.evaluationsReceivedCount;
-    return total + pendingGiven + pendingReceived;
+    const pendingGiven = (summary.evaluationsExpectedToGive || 0) - (summary.evaluationsGivenCount || 0);
+    return total + pendingGiven;
   }, 0);
 
   return (
