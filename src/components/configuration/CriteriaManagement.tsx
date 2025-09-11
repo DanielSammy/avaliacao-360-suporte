@@ -5,9 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useEvaluation } from '@/contexts/EvaluationContext';
-import { Criterio, NivelOperador, valoresNivel } from '@/types/evaluation';
-import { formatarMoeda } from '@/utils/calculations';
-import { Target, Save, Trash2, Info, TrendingUp, TrendingDown } from 'lucide-react';
+import { Criterio } from '@/types/evaluation';
+import { Target, Save, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { createCriterio, updateCriterio, deleteCriterio } from '@/services/criteriaService';
@@ -143,8 +142,6 @@ export function CriteriaManagement() {
     }
   };
 
-  const niveis = Object.keys(valoresNivel) as NivelOperador[];
-
   return (
     <TooltipProvider>
       <div className="space-y-6">
@@ -195,7 +192,7 @@ export function CriteriaManagement() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1500px]">
+              <table className="w-full min-w-[1200px]">
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="text-left p-4 font-semibold w-1/4">Critério</th>
@@ -205,11 +202,6 @@ export function CriteriaManagement() {
                     <th className="text-center p-4 font-semibold">Tipo</th>
                     <th className="text-center p-4 font-semibold">Tipo de Meta</th>
                     <th className="text-center p-4 font-semibold">Valor da Meta</th>
-                    {niveis.map(nivel => (
-                      <th key={nivel} className="text-center p-4 font-semibold">
-                        Valor ({nivel})
-                      </th>
-                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -296,42 +288,12 @@ export function CriteriaManagement() {
                               disabled={currentCriterio.mediaGeral}
                             />
                           </td>
-                          {niveis.map(nivel => {
-                            const valorCalculado = 0; // Peso não é mais usado
-                            return (
-                              <td key={nivel} className="p-4 text-center font-mono text-sm">
-                                {formatarMoeda(valorCalculado)}
-                              </td>
-                            );
-                          })}
                         </tr>
                       );
                     })
                   }
                 </tbody>
               </table>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-medium">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-                <Info className="h-5 w-5 text-primary" />
-                Resumo de Bônus por Nível (Baseado nos Critérios Ativos)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`grid grid-cols-1 md:grid-cols-${niveis.length} gap-4`}>
-                {niveis.map(nivel => (
-                    <div key={nivel} className="text-center p-4 rounded-lg bg-muted/50">
-                        <div className="text-lg font-semibold text-primary">{nivel}</div>
-                        <div className="text-2xl font-bold text-foreground">
-                            {formatarMoeda(valoresNivel[nivel])}
-                        </div>
-                        <div className="text-sm text-muted-foreground">Bônus Total Potencial</div>
-                    </div>
-                ))}
             </div>
           </CardContent>
         </Card>
