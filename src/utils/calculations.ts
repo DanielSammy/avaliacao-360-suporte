@@ -162,6 +162,43 @@ export function calcularResultadoFinal(criterio: Criterio, avaliacoes: Avaliacao
   }
 }
 
+/**
+ * Calcula o resultado final de um bloco de critérios.
+ * A lógica é: a soma das médias de todos os critérios do bloco, dividida pela quantidade de critérios no bloco.
+ * @param idCriterioBloco O ID do bloco de critérios (e.g., 1 para gestão, 2 para pares).
+ * @param todosCriterios A lista de todos os critérios disponíveis na aplicação.
+ * @param todasAvaliacoes A lista de todas as avaliações do período.
+ * @param todosOperadores A lista de todos os operadores.
+ * @returns A média final para o bloco.
+ */
+export function calcularResultadoBloco(
+  idCriterioBloco: number,
+  todosCriterios: Criterio[],
+  todasAvaliacoes: Avaliacao[],
+  todosOperadores: Operador[]
+): number {
+  // 1. Filtrar os critérios ativos que pertencem a este bloco
+  const criteriosDoBloco = todosCriterios.filter(
+    c => c.idCriterio === idCriterioBloco && c.ativo
+  );
+
+  if (criteriosDoBloco.length === 0) {
+    return 0;
+  }
+
+  // 2. Para cada critério do bloco, calcular sua média final.
+  // A função `calcularResultadoFinal` já calcula a média de um critério com base em múltiplas avaliações.
+  const mediasDosCriterios = criteriosDoBloco.map(criterio =>
+    calcularResultadoFinal(criterio, todasAvaliacoes, todosOperadores)
+  );
+
+  // 3. Somar as médias calculadas.
+  const somaDasMedias = mediasDosCriterios.reduce((acc, media) => acc + media, 0);
+
+  // 4. Dividir pela quantidade de critérios no bloco para obter a média do bloco.
+  return somaDasMedias / criteriosDoBloco.length;
+}
+
 // =================================================================================
 // Funções de Formatação e Utilitários
 // =================================================================================

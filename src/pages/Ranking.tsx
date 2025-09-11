@@ -5,67 +5,66 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { Award, ChevronLeft } from 'lucide-react';
 import { useEvaluation } from '@/contexts/EvaluationContext';
-import { formatarMoeda, calcularResultadoFinal } from '@/utils/calculations';
-import { Operador, valoresNivel } from '@/types/evaluation';
+import { formatarMoeda, calcularResultadoFinal, calcularResultadoBloco } from '@/utils/calculations';
+import { Operador, Criterio } from '@/types/evaluation';
 
 interface RankingData {
   operador: Operador;
   pontuacaoFinal: number;
   totalAvaliacoes: number;
-  averageValorAlcancado: number; // New field
+  averageValorAlcancado: number;
 }
 
 const RankingPage = () => {
   const { state } = useEvaluation();
 
   const ranking = useMemo((): RankingData[] => {
-    const criteriosAtivos = state.criterios.filter(c => c.ativo);
-    
+    const todosCriteriosAtivos = state.criterios.filter(c => c.ativo);
+
+    const blocos = todosCriteriosAtivos.reduce((acc, criterio) => {
+      const idBloco = criterio.idCriterio;
+      if (!acc[idBloco]) {
+        acc[idBloco] = [];
+      }
+      acc[idBloco].push(criterio);
+      return acc;
+    }, {} as { [key: number]: Criterio[] });
+
     return state.operadores
       .filter(op => op.ativo && op.participaAvaliacao)
       .map(operador => {
         const avaliacoesDoOperador = state.avaliacoes.filter(av => av.operadorId === operador.id);
-
-        const baseMetaValue = valoresNivel[operador.nivel] || 0;
-        const totalPeso = criteriosAtivos.reduce((sum, c) => sum + c.peso, 0);
 
         if (avaliacoesDoOperador.length === 0) {
           return {
             operador,
             pontuacaoFinal: 0,
             totalAvaliacoes: 0,
-            averageValorAlcancado: 0, // Initialize new field
+            averageValorAlcancado: 0,
           };
         }
 
-        let sumOfAchievedValues = 0;
-        const pontuacaoCriterios = criteriosAtivos.map(criterio => {
-            const resultadoMedio = calcularResultadoFinal(criterio, avaliacoesDoOperador, state.operadores);
-            sumOfAchievedValues += resultadoMedio;
+        const pontuacaoDosBlocos = Object.keys(blocos).map(idBlocoStr => {
+          const idBloco = parseInt(idBlocoStr);
+          const criteriosDoBloco = blocos[idBloco];
 
-            const metaParaComparacao = criterio.valorMeta !== undefined && criterio.valorMeta !== null
-                ? criterio.valorMeta
-                : (criterio.tipo === 'qualitativo' 
-                    ? (criterio.tipoMeta === 'maior_melhor' ? 100 : 25) // Fallback para qualitativo
-                    : baseMetaValue); // Fallback para quantitativo (ainda pode ser ajustado)
+          const performanceDoBloco = calcularResultadoBloco(idBloco, todosCriteriosAtivos, avaliacoesDoOperador, state.operadores);
 
-            const metaAtingidaStatus = criterio.tipoMeta === 'maior_melhor'
-                ? resultadoMedio >= metaParaComparacao
-                : resultadoMedio <= metaParaComparacao;
+          const bonusPotencialDoBloco = criteriosDoBloco.reduce((sum, c) => sum + c.valorBonus, 0);
 
-            const criterioValorBonus = totalPeso > 0 ? (criterio.peso / totalPeso) * baseMetaValue : 0;
-
-            return metaAtingidaStatus ? criterioValorBonus : 0;
+          return (performanceDoBloco / 100) * bonusPotencialDoBloco;
         });
 
-        const pontuacaoFinal = pontuacaoCriterios.reduce((sum, bonus) => sum + bonus, 0);
-        const averageValorAlcancado = criteriosAtivos.length > 0 ? sumOfAchievedValues / criteriosAtivos.length : 0;
+        const pontuacaoFinal = pontuacaoDosBlocos.reduce((sum, bonus) => sum + bonus, 0);
+
+        const allAchievedScores = todosCriteriosAtivos.map(c => calcularResultadoFinal(c, avaliacoesDoOperador, state.operadores));
+        const averageValorAlcancado = allAchievedScores.length > 0 ? allAchievedScores.reduce((a, b) => a + b, 0) / allAchievedScores.length : 0;
 
         return {
           operador,
           pontuacaoFinal,
           totalAvaliacoes: avaliacoesDoOperador.length,
-          averageValorAlcancado, // Assign calculated value
+          averageValorAlcancado,
         };
       })
       .sort((a, b) => b.pontuacaoFinal - a.pontuacaoFinal);
@@ -98,7 +97,7 @@ const RankingPage = () => {
                   <th className="text-left p-4 font-semibold">Operador</th>
                   <th className="text-center p-4 font-semibold">Pontuação Final</th>
                   <th className="text-center p-4 font-semibold">Avaliações Recebidas</th>
-                  <th className="text-center p-4 font-semibold">Média Alcançada</th> {/* New Header */}
+                  <th className="text-center p-4 font-semibold">Média Alcançada</th>
                 </tr>
               </thead>
               <tbody>
@@ -108,7 +107,7 @@ const RankingPage = () => {
                     <td className="p-4 font-medium">{item.operador.nome}</td>
                     <td className="p-4 text-center font-semibold text-primary text-lg">{formatarMoeda(item.pontuacaoFinal)}</td>
                     <td className="p-4 text-center">{item.totalAvaliacoes}</td>
-                    <td className="p-4 text-center">{item.averageValorAlcancado.toFixed(1)}%</td> {/* New Cell */}
+                    <td className="p-4 text-center">{item.averageValorAlcancado.toFixed(1)}%</td>
                   </tr>
                 ))}
               </tbody>

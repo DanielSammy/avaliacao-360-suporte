@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,9 +7,9 @@ import { Switch } from '@/components/ui/switch';
 import { useEvaluation } from '@/contexts/EvaluationContext';
 import { Criterio, NivelOperador, valoresNivel } from '@/types/evaluation';
 import { formatarMoeda } from '@/utils/calculations';
-import { Target, Save, Trash2, Info, TrendingUp, TrendingDown, RotateCcw } from 'lucide-react';
+import { Target, Save, Trash2, Info, TrendingUp, TrendingDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { createCriterio, updateCriterio, deleteCriterio } from '@/services/criteriaService';
 import {
   AlertDialog,
@@ -26,6 +26,7 @@ export function CriteriaManagement() {
   const { state, dispatch } = useEvaluation();
   const [editedCriteria, setEditedCriteria] = useState<{ [key: number]: Partial<Criterio> }>({});
   const [newCriterionName, setNewCriterionName] = useState<string>('');
+  const [newCriterionBlock, setNewCriterionBlock] = useState<number>(2);
   const [totalTeamTickets, setTotalTeamTickets] = useState<number>(state.totalTeamTickets);
   const [isTicketsConfigLocked, setIsTicketsConfigLocked] = useState<boolean>(true);
   const [criterionToDelete, setCriterionToDelete] = useState<number | null>(null);
@@ -40,9 +41,7 @@ export function CriteriaManagement() {
     }
 
     state.criterios.forEach(criterio => {
-      if (criterio.mediaGeral) { // Check the new mediaGeral flag
-        // Only update if the value has actually changed to avoid unnecessary re-renders
-        // Use the value from editedCriteria if it exists, otherwise use the original criterio.valorMeta
+      if (criterio.mediaGeral) { 
         const currentValorMeta = editedCriteria[criterio.id]?.valorMeta ?? criterio.valorMeta;
         if (currentValorMeta !== calculatedValorMeta) {
           setEditedCriteria((prev) => ({
@@ -55,15 +54,7 @@ export function CriteriaManagement() {
         }
       }
     });
-  }, [totalTeamTickets, state.criterios, state.operadores, editedCriteria]); // Add editedCriteria to dependencies
-
-  const activeCriteria = useMemo(() => {
-    return state.criterios.filter(c => c.ativo);
-  }, [state.criterios]);
-
-  const totalPeso = useMemo(() => {
-    return activeCriteria.reduce((sum, criterio) => sum + (criterio.peso || 0), 0);
-  }, [activeCriteria]);
+  }, [totalTeamTickets, state.criterios, state.operadores, editedCriteria]);
 
   const addNewCriterion = async () => {
     if (!newCriterionName.trim()) {
@@ -72,14 +63,15 @@ export function CriteriaManagement() {
     }
 
     const newCriterionData = {
-      idCriterio: `criterio-${Date.now()}`,
+      idCriterio: newCriterionBlock,
       nome: newCriterionName.trim(),
       tipo: 'qualitativo' as 'qualitativo' | 'quantitativo',
       tipoMeta: 'maior_melhor' as 'maior_melhor' | 'menor_melhor',
       valorMeta: 100,
-      peso: 1,
       ordem: state.criterios.length + 1,
       ativo: true,
+      valorBonus: 0,
+      mediaGeral: false,
     };
 
     try {
@@ -108,26 +100,26 @@ export function CriteriaManagement() {
     if (!changes) return;
 
     const updatedCriterio = { ...originalCriterio, ...changes };
+    
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: originalId, totalAvaliacoes: originalTotalAvaliacoes, ...originalCriterioWithoutIdAndTotalAvaliacoes } = originalCriterio;
     const dataToSend = { ...originalCriterioWithoutIdAndTotalAvaliacoes, ...changes };
-    // Explicitly remove mediaGeral if it's present, as the backend does not expect it
+    
     if ('mediaGeral' in dataToSend) {
-      delete dataToSend.mediaGeral;
+      delete (dataToSend as any).mediaGeral;
     }
 
     try {
       const updated = await updateCriterio(id, dataToSend);
-      if (updated && updated.success) { // Check for success property
-        dispatch({ type: 'UPDATE_CRITERIO', payload: updatedCriterio }); // Use locally constructed updatedCriterio
-        // Remove from edited state after successful save
+      if (updated && updated.success) {
+        dispatch({ type: 'UPDATE_CRITERIO', payload: updatedCriterio });
         setEditedCriteria(prev => {
           const newEdited = { ...prev };
           delete newEdited[id];
           return newEdited;
         });
-        toast({ title: "Critério atualizado", description: `${originalCriterio.nome} foi atualizado.` }); // Use originalCriterio.nome
+        toast({ title: "Critério atualizado", description: `${originalCriterio.nome} foi atualizado.` });
       } else {
-        // Handle cases where updated.success is false or updated is null
         console.error("Failed to update criterion: Server response indicates failure or missing success property.", updated);
         toast({ title: "Erro", description: "Não foi possível atualizar o critério: Resposta do servidor inválida ou falha na atualização.", variant: "destructive" });
       }
@@ -156,7 +148,6 @@ export function CriteriaManagement() {
   return (
     <TooltipProvider>
       <div className="space-y-6">
-        {/* Configuração de Tickets Card */}
         <Card className="shadow-medium">
           <CardHeader>
             <CardTitle>Configuração de Tickets</CardTitle>
@@ -210,10 +201,10 @@ export function CriteriaManagement() {
                     <th className="text-left p-4 font-semibold w-1/4">Critério</th>
                     <th className="text-center p-4 font-semibold">Ações</th>
                     <th className="text-center p-4 font-semibold">Status</th>
+                    <th className="text-center p-4 font-semibold">Bloco</th>
                     <th className="text-center p-4 font-semibold">Tipo</th>
                     <th className="text-center p-4 font-semibold">Tipo de Meta</th>
                     <th className="text-center p-4 font-semibold">Valor da Meta</th>
-                    <th className="text-center p-4 font-semibold">Peso</th>
                     {niveis.map(nivel => (
                       <th key={nivel} className="text-center p-4 font-semibold">
                         Valor ({nivel})
@@ -246,6 +237,17 @@ export function CriteriaManagement() {
                           </td>
                           <td className="p-4 text-center">
                             <Switch checked={currentCriterio.ativo} onCheckedChange={(c) => handleInputChange(criterio.id, 'ativo', c)} />
+                          </td>
+                          <td className="p-4 text-center">
+                            <Select value={String(currentCriterio.idCriterio)} onValueChange={(v) => handleInputChange(criterio.id, 'idCriterio', Number(v))}>
+                              <SelectTrigger className="w-32 mx-auto">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1">Gestão</SelectItem>
+                                <SelectItem value="2">Pares</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </td>
                           <td className="p-4 text-center">
                             <Select value={currentCriterio.tipo} onValueChange={(v: 'qualitativo' | 'quantitativo') => handleInputChange(criterio.id, 'tipo', v)}>
@@ -294,17 +296,8 @@ export function CriteriaManagement() {
                               disabled={currentCriterio.mediaGeral}
                             />
                           </td>
-                          <td className="p-4 text-center">
-                            <Input
-                              type="number"
-                              value={currentCriterio.peso}
-                              onChange={(e) => handleInputChange(criterio.id, 'peso', parseInt(e.target.value) || 0)}
-                              className="w-20 text-center mx-auto"
-                              step="1" min="1" max="5"
-                            />
-                          </td>
                           {niveis.map(nivel => {
-                            const valorCalculado = totalPeso > 0 ? (currentCriterio.peso / totalPeso) * valoresNivel[nivel] : 0;
+                            const valorCalculado = 0; // Peso não é mais usado
                             return (
                               <td key={nivel} className="p-4 text-center font-mono text-sm">
                                 {formatarMoeda(valorCalculado)}
@@ -340,20 +333,29 @@ export function CriteriaManagement() {
                     </div>
                 ))}
             </div>
-            {totalPeso === 0 && <p className="text-center text-destructive mt-4">A soma dos pesos dos critérios ativos é zero. Os valores de bônus não podem ser calculados.</p>}
           </CardContent>
         </Card>
 
         <Card className="shadow-medium">
           <CardHeader><CardTitle>Adicionar Novo Critério</CardTitle></CardHeader>
-          <CardContent className="flex gap-2">
+          <CardContent className="flex flex-col md:flex-row gap-2">
             <Input
               placeholder="Nome do novo critério"
               value={newCriterionName}
               onChange={(e) => setNewCriterionName(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && addNewCriterion()}
+              className="flex-grow"
             />
-            <Button onClick={addNewCriterion}>Adicionar</Button>
+            <Select value={String(newCriterionBlock)} onValueChange={(value) => setNewCriterionBlock(Number(value))}>
+              <SelectTrigger className="w-full md:w-[180px]">
+                <SelectValue placeholder="Selecione o Bloco" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Gestão</SelectItem>
+                <SelectItem value="2">Pares</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={addNewCriterion} className="w-full md:w-auto">Adicionar</Button>
           </CardContent>
         </Card>
 

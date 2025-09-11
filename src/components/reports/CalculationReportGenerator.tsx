@@ -91,14 +91,17 @@ export function CalculationReportGenerator() {
         checkPageBreak();
       };
 
-      drawSectionTitle('1. Critérios de Avaliação');
-      drawParagraph('A avaliação de desempenho é composta por um conjunto de critérios, cada um com seu respectivo peso, meta e valor de bônus. Os critérios são divididos em duas categorias: Quantitativos e Qualitativos.');
+      drawSectionTitle('1. Estrutura da Avaliação');
+      drawParagraph('A avaliação de desempenho é composta por um conjunto de critérios, organizados em blocos, cada um com sua respectiva meta e valor de bônus. Os critérios são divididos em duas categorias: Quantitativos e Qualitativos.');
 
       drawSubSectionTitle('1.1. Critérios Quantitativos');
-      drawParagraph('São critérios mensuráveis por meio de indicadores numéricos. A meta é definida por um valor a ser alcançado. Ex: Quantidade de atendimentos, tempo médio de atendimento, etc.');
+      drawParagraph('São critérios mensuráveis por meio de indicadores numéricos. A meta é definida por um valor a ser alcançado (ex: Quantidade de atendimentos, tempo médio de atendimento).');
 
       drawSubSectionTitle('1.2. Critérios Qualitativos');
-      drawParagraph('São critérios que avaliam a qualidade do trabalho do operador, geralmente por meio de notas ou conceitos. A meta é definida por um percentual a ser atingido. Ex: Qualidade da comunicação, cordialidade, etc.');
+      drawParagraph('São critérios que avaliam a qualidade do trabalho do operador, geralmente por meio de notas ou conceitos. A meta é definida por um percentual a ser atingido (ex: Qualidade da comunicação, cordialidade).');
+
+      drawSubSectionTitle('1.3. Blocos de Critérios');
+      drawParagraph('Os critérios são agrupados em "blocos" (ex: Bloco de Gestão, Bloco de Pares). Cada bloco possui um valor total de bônus que é distribuído entre seus critérios. A performance em um bloco é calculada pela média dos resultados de seus critérios.');
 
       drawSectionTitle('2. Apuração dos Resultados');
       drawSubSectionTitle('2.1. Consolidação dos Resultados por Critério');
@@ -106,22 +109,18 @@ export function CalculationReportGenerator() {
       drawFormula(formulas.consolidacao.gestor);
       drawFormula(formulas.consolidacao.media);
 
-      drawSubSectionTitle('2.2. Verificação de Atingimento da Meta');
-      drawParagraph('Para cada critério, o resultado consolidado é comparado com a meta definida, considerando o tipo de meta:');
-      drawFormula(`- ${formulas.metaAtingida.maiorMelhor}`);
-      drawFormula(`- ${formulas.metaAtingida.menorMelhor}`);
+      drawSubSectionTitle('2.2. Média Final por Bloco');
+      drawParagraph('Após a consolidação de cada critério, é calculada a média de performance para cada bloco de avaliação.');
+      drawFormula('Média do Bloco = (Soma das médias de todos os critérios do bloco) / (Número de critérios no bloco)');
 
       drawSectionTitle('3. Cálculo do Valor do Bônus');
-      drawSubSectionTitle('3.1. Bônus por Critério');
-      drawParagraph('O cálculo do bônus para cada critério é realizado da seguinte forma:');
-      drawFormula(formulas.calculoBonus.metaAtingida);
-      drawParagraph('Caso a meta não seja atingida, o bônus é calculado proporcionalmente:');
-      drawFormula(formulas.calculoBonus.proporcionalMaior);
-      drawFormula(formulas.calculoBonus.proporcionalMenor);
-
+      drawSubSectionTitle('3.1. Bônus por Bloco');
+      drawParagraph('O valor do bônus para cada bloco é pré-definido e o valor alcançado pelo operador é proporcional à Média do Bloco calculada.');
+      drawFormula('Bônus do Bloco = (Média do Bloco / 100) * Valor Total do Bloco');
+      
       drawSubSectionTitle('3.2. Bônus Total');
-      drawParagraph('O bônus total do operador é a soma dos bônus alcançados em cada um dos critérios avaliados.');
-      drawFormula('Bônus Total = Σ (Bônus Alcançado por Critério)');
+      drawParagraph('O bônus total do operador é a soma dos bônus alcançados em cada um dos blocos de avaliação.');
+      drawFormula('Bônus Total = Σ (Bônus Alcançado por Bloco)');
 
       drawSectionTitle('4. Performance Geral');
       drawParagraph('A performance geral do operador é calculada em percentual, e representa a proporção do bônus total alcançado em relação ao bônus total possível.');
