@@ -26,7 +26,6 @@ export interface Criterio {
   tipo: 'qualitativo' | 'quantitativo';
   tipoMeta: 'maior_melhor' | 'menor_melhor';
   valorMeta: number;
-  peso: number;
   ordem: number;
   ativo: boolean;
   totalAvaliacoes: number;

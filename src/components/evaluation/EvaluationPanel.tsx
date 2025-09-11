@@ -3,8 +3,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useEvaluation } from '@/contexts/EvaluationContext';
-import { EvaluationTable } from './EvaluationTable';
-import { EvaluationSummary } from './EvaluationSummary';
 import { OperatorSelector } from './OperatorSelector';
 import { PeriodSelector } from './PeriodSelector';
 import { PDFGenerator } from '../reports/PDFGenerator';
@@ -12,8 +10,8 @@ import { Avaliacao, Criterio, CriterioAvaliacao } from '@/types/evaluation';
 import { FileText, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getEvaluationDashboard, EvaluationDashboardResponse } from '@/services/evaluationService';
-import { getCriterios } from '@/services/criteriaService';
 import { calcularBonusAlcancado } from '@/utils/calculations';
+import { BlockEvaluation } from './BlockEvaluation';
 
 export function EvaluationPanel() {
   const { state } = useEvaluation();
@@ -23,7 +21,6 @@ export function EvaluationPanel() {
     return `${hoje.getFullYear()}-${(hoje.getMonth() + 1).toString().padStart(2, '0')}`;
   });
   const [dashboardData, setDashboardData] = useState<EvaluationDashboardResponse | null>(null);
-  const [activeCriteriaCount, setActiveCriteriaCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
 
   const activeOperators = useMemo(() => state.operadores.filter(op => op.ativo && op.participaAvaliacao), [state.operadores]);
@@ -35,13 +32,6 @@ export function EvaluationPanel() {
   }, [activeOperators, operadorSelecionado]);
 
   useEffect(() => {
-    getCriterios().then(response => {
-      if (response.success) {
-        const active = response.data.filter(c => c.ativo);
-        setActiveCriteriaCount(active.length);
-      }
-    });
-
     if (operadorSelecionado && periodoAtual) {
       setLoading(true);
       getEvaluationDashboard(operadorSelecionado, periodoAtual)
@@ -67,36 +57,38 @@ export function EvaluationPanel() {
 
   const criteriosParaTabela: Criterio[] = useMemo(() => {
     if (!dashboardData?.data.criterios) return [];
-    return dashboardData.data.criterios.map(c => ({
-      id: c.criterioId,
-      idCriterio: c.criterioId,
-      nome: c.criterioNome,
-      tipo: c.criterioTipo as 'qualitativo' | 'quantitativo',
-      tipoMeta: c.criterioTipoMeta as 'maior_melhor' | 'menor_melhor',
-      valorMeta: c.metaObjetivo, // Using metaObjetivo for the 'meta' column
-      peso: c.peso,
-      ordem: 0, 
-      ativo: true, 
-      totalAvaliacoes: 0,
-      valorBonus: parseFloat(c.valorMeta), // Using valorMeta for 'R$: Meta'
-      mediaGeral: false,
-    }));
-  }, [dashboardData]);
+    return dashboardData.data.criterios.map(c => {
+      const originalCriterio = state.criterios.find(crit => crit.id === c.criterioId);
+      return {
+        id: c.criterioId,
+        idCriterio: originalCriterio ? originalCriterio.idCriterio : 0,
+        nome: c.criterioNome,
+        tipo: c.criterioTipo as 'qualitativo' | 'quantitativo',
+        tipoMeta: c.criterioTipoMeta as 'maior_melhor' | 'menor_melhor',
+        valorMeta: c.metaObjetivo,
+        ordem: originalCriterio ? originalCriterio.ordem : 0,
+        ativo: originalCriterio ? originalCriterio.ativo : true,
+        totalAvaliacoes: 0,
+        valorBonus: parseFloat(c.valorMeta),
+        mediaGeral: false,
+      };
+    });
+  }, [dashboardData, state.criterios]);
 
   const criteriosAvaliacao: CriterioAvaliacao[] = useMemo(() => {
     if (!dashboardData?.data.criterios) return [];
     return dashboardData.data.criterios.map(c => {
+      const originalCriterio = state.criterios.find(crit => crit.id === c.criterioId);
       const criterioParaCalculo: Criterio = {
         id: c.criterioId,
-        idCriterio: c.criterioId,
+        idCriterio: originalCriterio ? originalCriterio.idCriterio : 0,
         nome: c.criterioNome,
         tipo: c.criterioTipo as 'qualitativo' | 'quantitativo',
         tipoMeta: c.criterioTipoMeta as 'maior_melhor' | 'menor_melhor',
         valorMeta: c.metaObjetivo || 0,
         valorBonus: parseFloat(c.valorMeta) || 0,
-        peso: c.peso,
-        ordem: 0, 
-        ativo: true, 
+        ordem: originalCriterio ? originalCriterio.ordem : 0,
+        ativo: originalCriterio ? originalCriterio.ativo : true,
         totalAvaliacoes: 0,
         mediaGeral: false,
       };
@@ -112,7 +104,7 @@ export function EvaluationPanel() {
         metaAlcancada: c.metaAlcancada,
       };
     });
-  }, [dashboardData]);
+  }, [dashboardData, state.criterios]);
 
   const avaliacaoAtual: Avaliacao | null = useMemo(() => {
     if (!dashboardData || !operadorSelecionado) return null;
@@ -128,6 +120,29 @@ export function EvaluationPanel() {
       dataUltimaEdicao: new Date(),
     };
   }, [dashboardData, operadorSelecionado, periodoAtual, criteriosAvaliacao]);
+
+  const groupedCriteria = useMemo(() => {
+    const groups: { [key: number]: Criterio[] } = {};
+    criteriosParaTabela.forEach(criterio => {
+      if (!groups[criterio.idCriterio]) {
+        groups[criterio.idCriterio] = [];
+      }
+      groups[criterio.idCriterio].push(criterio);
+    });
+    return groups;
+  }, [criteriosParaTabela]);
+
+  const blockTitles: { [key: number]: string } = {
+    1: 'Avaliação Gerencial',
+    2: 'Avaliação 360º',
+    3: 'Metas',
+  };
+
+  const blockTotalValues: { [key: number]: number } = {
+    1: 299,
+    2: 300,
+    3: 200,
+  };
 
   if (loading) {
     return <div>Loading...</div>; 
@@ -150,22 +165,17 @@ export function EvaluationPanel() {
         <PeriodSelector periodoAtual={periodoAtual} onPeriodoChange={setPeriodoAtual} />
       </div>
 
-      {dashboardData && (
-        <EvaluationSummary 
-          valorTotalMeta={parseFloat(dashboardData.data.valorTotalMeta)}
-          valorTotalAlcancado={parseFloat(dashboardData.data.valorTotalAlcancado)}
-          metasAtingidas={dashboardData.data.metasAtingidas}
-          totalMetas={activeCriteriaCount} 
-        />
-      )}
-
       {operadorSelecionado && dashboardData ? (
-        <>
-          <EvaluationTable
-              criterios={criteriosParaTabela}
+        <div className="space-y-6">
+          {Object.keys(groupedCriteria).map(groupId => (
+            <BlockEvaluation
+              key={groupId}
+              title={blockTitles[Number(groupId)] || `Bloco ${groupId}`}
+              criterios={groupedCriteria[Number(groupId)]}
               criteriosAvaliacao={criteriosAvaliacao}
-              isEditable={false}
-          />
+              totalValue={blockTotalValues[Number(groupId)] || 0}
+            />
+          ))}
           <Card className="shadow-medium">
               <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />Ações da Avaliação</CardTitle></CardHeader>
               <CardContent className="flex flex-wrap gap-4">
@@ -176,7 +186,7 @@ export function EvaluationPanel() {
                   )}
               </CardContent>
           </Card>
-        </>
+        </div>
       ) : (
         <Card className="text-center py-12"><CardContent><h3 className="text-lg font-semibold text-muted-foreground">Selecione um operador e um período para ver os dados.</h3></CardContent></Card>
       )}

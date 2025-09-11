@@ -1,53 +1,62 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useEvaluation } from '../contexts/EvaluationContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { getCriterios } from '../services/criteriaService';
-import { Criterio } from '../types/evaluation';
+import { Operador } from '../types/evaluation';
 
 export function EvaluationTracking() {
   const { state } = useEvaluation();
-  const [activeCriteriaList, setActiveCriteriaList] = useState<Criterio[]>([]);
 
-  useEffect(() => {
-    const fetchCriteria = async () => {
-      try {
-        const response = await getCriterios();
-        if (response.success) {
-          const active = response.data.filter(c => c.ativo);
-          setActiveCriteriaList(active);
-        }
-      } catch (error) {
-        console.error("Failed to fetch criteria:", error);
-      }
-    };
+  const allActiveAndParticipatingOperators = state.operadores.filter(op => op.ativo && op.participaAvaliacao);
 
-    fetchCriteria();
-  }, []);
+  const operatorEvaluationSummary = allActiveAndParticipatingOperators.map(operator => {
+    const isManager = operator.grupo === 6 || operator.grupo === 7;
 
-  const allActiveOperators = state.operadores.filter(op => op.ativo);
+    // --- GIVEN: How many people should this operator evaluate? ---
+    let peopleToEvaluate: Operador[];
+    if (isManager) {
+      // Managers/Admins evaluate all OTHER participating operators
+      peopleToEvaluate = allActiveAndParticipatingOperators.filter(p => p.id !== operator.id);
+    } else {
+      // Peers evaluate all OTHER participating PEERS
+      peopleToEvaluate = allActiveAndParticipatingOperators.filter(p => p.id !== operator.id && p.grupo !== 6 && p.grupo !== 7);
+    }
+    const evaluationsExpectedToGive = peopleToEvaluate.length;
 
-  const operatorEvaluationSummary = allActiveOperators.map(operator => {
+    // How many have they actually evaluated?
     const evaluationsGivenByOperator = state.avaliacoes.filter(evalItem => evalItem.avaliadorId === operator.id);
-    const distinctCriteriaGiven = new Set(evaluationsGivenByOperator.map(e => e.criterios).flat().map(c => c.criterioId));
-    const evaluationsGivenCount = distinctCriteriaGiven.size;
+    const distinctPeopleEvaluated = new Set(evaluationsGivenByOperator.map(e => e.operadorId));
+    const evaluationsGivenCount = distinctPeopleEvaluated.size;
 
+
+    // --- RECEIVED: How many people should evaluate this operator? ---
+    let peopleWhoShouldEvaluateThisOperator: Operador[];
+
+    // Everyone is evaluated by managers (except other managers)
+    const managers = allActiveAndParticipatingOperators.filter(p => (p.grupo === 6 || p.grupo === 7) && p.id !== operator.id);
+
+    if (isManager) {
+      // A manager is evaluated by other managers only (if any)
+      peopleWhoShouldEvaluateThisOperator = managers;
+    } else {
+      // A peer is evaluated by managers and other peers
+      const peers = allActiveAndParticipatingOperators.filter(p => p.grupo !== 6 && p.grupo !== 7 && p.id !== operator.id);
+      peopleWhoShouldEvaluateThisOperator = [...managers, ...peers];
+    }
+    const evaluationsExpectedToReceive = peopleWhoShouldEvaluateThisOperator.length;
+
+    // How many have actually evaluated them?
     const evaluationsReceivedByOperator = state.avaliacoes.filter(evalItem => evalItem.operadorId === operator.id);
-    const distinctCriteriaReceived = new Set(evaluationsReceivedByOperator.map(e => e.criterios).flat().map(c => c.criterioId));
-    const evaluationsReceivedCount = distinctCriteriaReceived.size;
+    const distinctEvaluators = new Set(evaluationsReceivedByOperator.map(e => e.avaliadorId));
+    const evaluationsReceivedCount = distinctEvaluators.size;
 
-    const expectedCriteriaForOperator = (operator.grupo === 6 || operator.grupo === 7)
-      ? activeCriteriaList.length
-      : activeCriteriaList.filter(c => c.idCriterio === 2).length;
 
-    const evaluationsExpectedToGive = expectedCriteriaForOperator;
-    const evaluationsExpectedToReceive = operator.participaAvaliacao ? activeCriteriaList.length : 0;
-
+    // --- Status Logic ---
     let statusGiven: 'Concluído' | 'Pendente' | 'Em Andamento';
     let variantGiven: 'default' | 'secondary' | 'destructive' | 'outline';
 
-    if (evaluationsGivenCount === evaluationsExpectedToGive) {
+    if (evaluationsGivenCount >= evaluationsExpectedToGive) {
       statusGiven = 'Concluído';
       variantGiven = 'default';
     } else if (evaluationsGivenCount > 0) {
@@ -61,10 +70,10 @@ export function EvaluationTracking() {
     let statusReceived: 'Concluído' | 'Pendente' | 'Em Andamento' | 'N/A';
     let variantReceived: 'default' | 'secondary' | 'destructive' | 'outline';
 
-    if (!operator.participaAvaliacao) {
+    if (!operator.participaAvaliacao) { // This check is a bit redundant now, but safe
       statusReceived = 'N/A';
       variantReceived = 'outline';
-    } else if (evaluationsReceivedCount === evaluationsExpectedToReceive) {
+    } else if (evaluationsReceivedCount >= evaluationsExpectedToReceive) {
       statusReceived = 'Concluído';
       variantReceived = 'default';
     } else if (evaluationsReceivedCount > 0) {
@@ -89,7 +98,7 @@ export function EvaluationTracking() {
   });
 
   const totalPendingEvaluations = operatorEvaluationSummary.reduce((total, summary) => {
-    const pendingGiven = (summary.evaluationsExpectedToGive || 0) - (summary.evaluationsGivenCount || 0);
+    const pendingGiven = Math.max(0, (summary.evaluationsExpectedToGive || 0) - (summary.evaluationsGivenCount || 0));
     return total + pendingGiven;
   }, 0);
 
