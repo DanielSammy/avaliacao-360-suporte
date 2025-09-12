@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useEvaluation } from '@/contexts/EvaluationContext';
-import { Operador, NivelOperador, valoresNivel } from '@/types/evaluation';
+import { Operador } from '@/types/evaluation';
 import { gerarId } from '@/utils/calculations'; // This might not be needed if API handles IDs
 import { UserPlus, Edit, Trash2, Users, Calendar, Mail, Star, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -30,7 +30,7 @@ export function OperatorManagement() {
   const [editingOperator, setEditingOperator] = useState<Operador | null>(null);
   const [newOperatorName, setNewOperatorName] = useState('');
   const [newOperatorEmail, setNewOperatorEmail] = useState('');
-  const [newOperatorLevel, setNewOperatorLevel] = useState<NivelOperador>('Nivel 1');
+  
   const [newOperatorParticipatesInEvaluation, setNewOperatorParticipatesInEvaluation] = useState(true);
 
   const handleAddOperator = async () => {
@@ -73,7 +73,7 @@ export function OperatorManagement() {
         ativo: true,
         grupo: 0, // Definir um grupo padrão
         participaAvaliacao: newOperatorParticipatesInEvaluation,
-        nivel: newOperatorLevel,
+        
       };
 
       const createdOperator = await createOperador(novoOperador);
@@ -81,7 +81,7 @@ export function OperatorManagement() {
 
       setNewOperatorName('');
       setNewOperatorEmail('');
-      setNewOperatorLevel('Nivel 1');
+      
       setEditingOperator(null); // Ensure no operator is being edited
       setIsAddDialogOpen(false);
 
@@ -132,7 +132,7 @@ export function OperatorManagement() {
         nome: newOperatorName.trim(),
         login: newOperatorEmail.trim(),
         participaAvaliacao: newOperatorParticipatesInEvaluation,
-        nivel: newOperatorLevel,
+        
       };
 
       const updatedOp = await updateOperador(operadorAtualizado);
@@ -141,7 +141,7 @@ export function OperatorManagement() {
       setEditingOperator(null);
       setNewOperatorName('');
       setNewOperatorEmail('');
-      setNewOperatorLevel('Nivel 1');
+      
 
       toast({
         title: "Operador atualizado",
@@ -210,7 +210,7 @@ export function OperatorManagement() {
     setEditingOperator(operador);
     setNewOperatorName(operador.nome);
     setNewOperatorEmail(operador.login);
-    setNewOperatorLevel(operador.nivel || 'Nivel 1');
+    
     setNewOperatorParticipatesInEvaluation(operador.participaAvaliacao);
   };
 
@@ -218,7 +218,7 @@ export function OperatorManagement() {
     setEditingOperator(null);
     setNewOperatorName('');
     setNewOperatorEmail('');
-    setNewOperatorLevel('Nivel 1');
+    
   };
 
   if (state.loading) {
@@ -252,7 +252,7 @@ export function OperatorManagement() {
               if (!open) {
                 setNewOperatorName('');
                 setNewOperatorEmail('');
-                setNewOperatorLevel('Nivel 1'); // Reset level on close
+                 // Reset level on close
                 setNewOperatorParticipatesInEvaluation(true); // Reset participates on close
               }
               setIsAddDialogOpen(open);
@@ -286,19 +286,7 @@ export function OperatorManagement() {
                       onKeyDown={(e) => e.key === 'Enter' && handleAddOperator()}
                     />
                   </div>
-                  <div>
-                    <label className="text-sm font-medium">Nível do Operador</label>
-                    <Select value={newOperatorLevel} onValueChange={(value: NivelOperador) => setNewOperatorLevel(value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o nível" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.keys(valoresNivel).map(nivel => (
-                          <SelectItem key={nivel} value={nivel}>{nivel}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="participates-evaluation"
@@ -345,10 +333,7 @@ export function OperatorManagement() {
                           <Calendar className="h-3 w-3" />
                           Cadastrado em {new Date(operador.dataInclusao).toLocaleDateString('pt-BR')}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Star className="h-3 w-3" />
-                          <span>{operador.nivel || 'Nível não definido'}</span>
-                        </div>
+                        
                         <div>Avaliações: {stats.totalAvaliacoes}</div>
                         {stats.ultimaAvaliacao && (
                           <div>
@@ -406,19 +391,7 @@ export function OperatorManagement() {
                                   onKeyDown={(e) => e.key === 'Enter' && handleEditOperator()}
                                 />
                               </div>
-                              <div>
-                                <label className="text-sm font-medium">Nível do Operador</label>
-                                <Select value={newOperatorLevel} onValueChange={(value: NivelOperador) => setNewOperatorLevel(value)}>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Selecione o nível" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {Object.keys(valoresNivel).map(nivel => (
-                                      <SelectItem key={nivel} value={nivel}>{nivel}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
+                              
                               <div className="flex items-center space-x-2">
                                 <Switch
                                   id="edit-participates-evaluation"

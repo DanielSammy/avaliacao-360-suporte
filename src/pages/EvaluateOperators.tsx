@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Criterio, valoresNivel, NivelOperador } from '@/types/evaluation';
+import { Criterio } from '@/types/evaluation';
 import { createBulkEvaluations, checkCriterionEvaluated } from '../services/evaluationService';
 import { calcularValorAlcancadoFinal } from '../utils/calculations';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -45,11 +45,7 @@ export function EvaluateOperators() {
     });
   }, [state.criterios, user?.grupo]);
 
-  const totalPeso = useMemo(() => {
-    return state.criterios
-      .filter(c => c.ativo)
-      .reduce((sum, criterio) => sum + (criterio.peso || 0), 0);
-  }, [state.criterios]);
+  
 
   const evaluatedCriteriaIds = useMemo(() => {
     if (!avaliadorId) return new Set<number>();
@@ -154,9 +150,7 @@ export function EvaluateOperators() {
           const operator = state.operadores.find(op => op.id.toString() === operadorId);
           if (!operator) return null;
   
-          const potentialBonus = totalPeso > 0
-            ? (selectedCriterion.peso / totalPeso) * valoresNivel[operator.nivel]
-            : 0;
+          const potentialBonus = 0;
           
           const calculatedValorBonus = calcularValorAlcancadoFinal(
             selectedCriterion,
