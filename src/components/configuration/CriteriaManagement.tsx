@@ -99,10 +99,27 @@ export function CriteriaManagement() {
   };
 
   const handleInputChange = (id: number, field: keyof Criterio, value: string | number | boolean) => {
-    setEditedCriteria(prev => ({
-      ...prev,
-      [id]: { ...prev[id], [field]: value },
-    }));
+    const originalCriterio = state.criterios.find(c => c.id === id);
+    if (!originalCriterio) return;
+
+    setEditedCriteria(prev => {
+      const newEdited = { ...prev };
+      const criterionChanges = { ...newEdited[id] };
+
+      if (value === originalCriterio[field]) {
+        delete criterionChanges[field];
+      } else {
+        (criterionChanges as any)[field] = value;
+      }
+
+      if (Object.keys(criterionChanges).length === 0) {
+        delete newEdited[id];
+      } else {
+        newEdited[id] = criterionChanges;
+      }
+
+      return newEdited;
+    });
   };
 
   const saveCriterio = async (id: number) => {
