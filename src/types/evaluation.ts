@@ -24,6 +24,15 @@ export interface Criterio {
   mediaGeral: boolean;
 }
 
+export interface TipoCriterio {
+  id: number;
+  descricao: string;
+  valorNvl1: number;
+  valorNvl2: number;
+  valorNvl3: number;
+  valorSpa: number;
+}
+
 export interface CriterioAvaliacao {
   criterioId: number;
   valorAlcancado: number;

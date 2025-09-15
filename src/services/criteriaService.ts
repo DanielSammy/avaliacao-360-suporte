@@ -1,5 +1,5 @@
 import { BASE_URL, API_ENDPOINTS, getAuthToken } from '../config/apiConfig';
-import { Criterio } from '../types/evaluation';
+import { Criterio, TipoCriterio } from '../types/evaluation';
 
 const getHeaders = () => {
   const token = getAuthToken();
@@ -70,4 +70,25 @@ export const updateCriterioStatus = async (id: number, ativo: boolean): Promise<
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);
   }
+};
+
+export const getTipoCriterios = async (): Promise<TipoCriterio[]> => {
+    const response = await fetch(`${BASE_URL}/tipocriterio`, {
+        headers: getHeaders(),
+    });
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+};
+
+export const updateTipoCriterio = async (id: number, tipoCriterio: TipoCriterio): Promise<void> => {
+    const response = await fetch(`${BASE_URL}/tipocriterio/${id}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(tipoCriterio),
+    });
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
 };

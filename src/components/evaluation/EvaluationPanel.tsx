@@ -6,10 +6,11 @@ import { useEvaluation } from '@/contexts/EvaluationContext';
 import { OperatorSelector } from './OperatorSelector';
 import { PeriodSelector } from './PeriodSelector';
 import { PDFGenerator } from '../reports/PDFGenerator';
-import { Avaliacao, Criterio, CriterioAvaliacao } from '@/types/evaluation';
+import { Avaliacao, Criterio, CriterioAvaliacao, TipoCriterio } from '@/types/evaluation';
 import { FileText, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getEvaluationDashboard, EvaluationDashboardResponse } from '@/services/evaluationService';
+import { getTipoCriterios } from '@/services/criteriaService';
 import { calcularBonusAlcancado } from '@/utils/calculations';
 import { BlockEvaluation } from './BlockEvaluation';
 
@@ -22,6 +23,7 @@ export function EvaluationPanel() {
   });
   const [dashboardData, setDashboardData] = useState<EvaluationDashboardResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [tiposCriterio, setTiposCriterio] = useState<TipoCriterio[]>([]);
 
   const activeOperators = useMemo(() => state.operadores.filter(op => op.ativo && op.participaAvaliacao), [state.operadores]);
 
@@ -30,6 +32,12 @@ export function EvaluationPanel() {
       setOperadorSelecionado(activeOperators[0].id);
     }
   }, [activeOperators, operadorSelecionado]);
+
+  useEffect(() => {
+    getTipoCriterios()
+      .then(setTiposCriterio)
+      .catch(error => console.error("Failed to fetch tipos de critério:", error));
+  }, []);
 
   useEffect(() => {
     if (operadorSelecionado && periodoAtual) {
@@ -132,17 +140,21 @@ export function EvaluationPanel() {
     return groups;
   }, [criteriosParaTabela]);
 
-  const blockTitles: { [key: number]: string } = {
-    1: 'Avaliação Gerencial',
-    2: 'Avaliação 360º',
-    3: 'Metas',
-  };
-
-  const blockTotalValues: { [key: number]: number } = {
-    1: 299,
-    2: 300,
-    3: 200,
-  };
+  const blockInfo = useMemo(() => {
+    const info: { [key: number]: { title: string, totalValue: number } } = {};
+    tiposCriterio.forEach(tc => {
+      let totalValue = 0;
+      if (tc.id === 1) totalValue = tc.valorNvl1;
+      else if (tc.id === 2) totalValue = tc.valorNvl2;
+      else if (tc.id === 3) totalValue = tc.valorNvl3;
+      
+      info[tc.id] = {
+        title: tc.descricao,
+        totalValue: totalValue,
+      };
+    });
+    return info;
+  }, [tiposCriterio]);
 
   if (loading) {
     return <div>Loading...</div>; 
@@ -167,15 +179,19 @@ export function EvaluationPanel() {
 
       {operadorSelecionado && dashboardData ? (
         <div className="space-y-6">
-          {Object.keys(groupedCriteria).map(groupId => (
-            <BlockEvaluation
-              key={groupId}
-              title={blockTitles[Number(groupId)] || `Bloco ${groupId}`}
-              criterios={groupedCriteria[Number(groupId)]}
-              criteriosAvaliacao={criteriosAvaliacao}
-              totalValue={blockTotalValues[Number(groupId)] || 0}
-            />
-          ))}
+          {Object.keys(groupedCriteria).map(groupId => {
+            const groupIdNum = Number(groupId);
+            const block = blockInfo[groupIdNum];
+            return (
+              <BlockEvaluation
+                key={groupId}
+                title={block?.title || `Bloco ${groupId}`}
+                criterios={groupedCriteria[groupIdNum]}
+                criteriosAvaliacao={criteriosAvaliacao}
+                totalValue={block?.totalValue || 0}
+              />
+            )
+          })}
           <Card className="shadow-medium">
               <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />Ações da Avaliação</CardTitle></CardHeader>
               <CardContent className="flex flex-wrap gap-4">
@@ -193,3 +209,4 @@ export function EvaluationPanel() {
     </div>
   );
 }
+

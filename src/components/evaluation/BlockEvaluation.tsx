@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Criterio, CriterioAvaliacao } from '@/types/evaluation';
@@ -38,12 +38,40 @@ export function BlockEvaluation({ title, criterios, criteriosAvaliacao, totalVal
     return `${parseFloat(valor.toString()).toFixed(1)}%`;
   };
 
+  const calculatedValues = useMemo(() => {
+    const activeCriteria = criterios.filter(c => c.ativo);
+    if (activeCriteria.length === 0) {
+      return { achievedValue: 0, percentage: 0 };
+    }
+
+    const sumValorAlcancado = activeCriteria.reduce((acc, criterio) => {
+      const ca = getCriterioAvaliacao(criterio.id);
+      return acc + (ca?.valorAlcancado || 0);
+    }, 0);
+
+    const avgValorAlcancado = sumValorAlcancado / activeCriteria.length;
+    const achievedValue = (avgValorAlcancado / 100) * totalValue;
+    const percentage = totalValue > 0 ? (achievedValue / totalValue) * 100 : 0;
+
+    return { achievedValue, percentage };
+  }, [criterios, criteriosAvaliacao, totalValue, getCriterioAvaliacao]);
+
+  const isAvaliacao360 = criterios[0]?.idCriterio === 2;
+
   return (
     <Card className="shadow-medium">
       <CardHeader className="bg-gradient-card">
         <CardTitle className="flex items-center justify-between">
           <span>{title}</span>
-          <span className="text-lg font-semibold">Valor Total do Bloco: {formatarMoeda(totalValue)}</span>
+          <div className="text-right">
+            <span className="text-lg font-semibold">Valor Total do Bloco: {formatarMoeda(totalValue)}</span>
+            {isAvaliacao360 && (
+              <div className="text-sm font-normal">
+                <span>Atingido: {formatarMoeda(calculatedValues.achievedValue)}</span>
+                <span className="ml-2 font-semibold">({calculatedValues.percentage.toFixed(2)}%)</span>
+              </div>
+            )}
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">

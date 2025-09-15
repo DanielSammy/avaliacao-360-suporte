@@ -5,11 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useEvaluation } from '@/contexts/EvaluationContext';
-import { Criterio } from '@/types/evaluation';
+import { Criterio, TipoCriterio } from '@/types/evaluation';
 import { Target, Save, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { createCriterio, updateCriterio, deleteCriterio } from '@/services/criteriaService';
+import { createCriterio, updateCriterio, deleteCriterio, getTipoCriterios } from '@/services/criteriaService';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,7 +29,21 @@ export function CriteriaManagement() {
   const [totalTeamTickets, setTotalTeamTickets] = useState<number>(state.totalTeamTickets);
   const [isTicketsConfigLocked, setIsTicketsConfigLocked] = useState<boolean>(true);
   const [criterionToDelete, setCriterionToDelete] = useState<number | null>(null);
+  const [tiposCriterio, setTiposCriterio] = useState<TipoCriterio[]>([]);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchTiposCriterio = async () => {
+      try {
+        const data = await getTipoCriterios();
+        setTiposCriterio(data);
+      } catch (error) {
+        console.error("Failed to fetch tipos de critério:", error);
+        toast({ title: "Erro", description: "Não foi possível buscar os tipos de critério.", variant: "destructive" });
+      }
+    };
+    fetchTiposCriterio();
+  }, [toast]);
 
   useEffect(() => {
     const activeOperatorsCount = state.operadores.filter(op => op.participaAvaliacao).length;
@@ -232,18 +246,19 @@ export function CriteriaManagement() {
                           </td>
                           <td className="p-4 text-center">
                             <Select value={String(currentCriterio.idCriterio)} onValueChange={(v) => handleInputChange(criterio.id, 'idCriterio', Number(v))}>
-                              <SelectTrigger className="w-32 mx-auto">
+                              <SelectTrigger className="w-32 mx-auto text-xs">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="1">Gestão</SelectItem>
-                                <SelectItem value="2">Pares</SelectItem>
+                                {tiposCriterio.map(tipo => (
+                                  <SelectItem key={tipo.id} value={String(tipo.id)}>{tipo.descricao}</SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </td>
                           <td className="p-4 text-center">
                             <Select value={currentCriterio.tipo} onValueChange={(v: 'qualitativo' | 'quantitativo') => handleInputChange(criterio.id, 'tipo', v)}>
-                              <SelectTrigger className="w-32 mx-auto"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="w-32 mx-auto text-xs"><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="qualitativo">Qualitativo</SelectItem>
                                 <SelectItem value="quantitativo">Quantitativo</SelectItem>
@@ -257,7 +272,7 @@ export function CriteriaManagement() {
                                 handleInputChange(criterio.id, 'tipoMeta', value)
                               }
                             >
-                              <SelectTrigger className="w-40 mx-auto">
+                              <SelectTrigger className="w-40 mx-auto text-xs">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -309,12 +324,13 @@ export function CriteriaManagement() {
               className="flex-grow"
             />
             <Select value={String(newCriterionBlock)} onValueChange={(value) => setNewCriterionBlock(Number(value))}>
-              <SelectTrigger className="w-full md:w-[180px]">
+              <SelectTrigger className="w-full md:w-[180px] text-xs">
                 <SelectValue placeholder="Selecione o Bloco" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">Gestão</SelectItem>
-                <SelectItem value="2">Pares</SelectItem>
+                {tiposCriterio.map(tipo => (
+                  <SelectItem key={tipo.id} value={String(tipo.id)}>{tipo.descricao}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Button onClick={addNewCriterion} className="w-full md:w-auto">Adicionar</Button>
