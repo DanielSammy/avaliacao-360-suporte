@@ -97,6 +97,7 @@ export function BlockManagement() {
                         type="number"
                         step="0.01"
                         value={currentTipo.valorNvl1}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => handleInputChange(tipo.id, 'valorNvl1', e.target.value)}
                         className="w-24 text-center mx-auto"
                       />
@@ -106,6 +107,7 @@ export function BlockManagement() {
                         type="number"
                         step="0.01"
                         value={currentTipo.valorNvl2}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => handleInputChange(tipo.id, 'valorNvl2', e.target.value)}
                         className="w-24 text-center mx-auto"
                       />
@@ -115,6 +117,7 @@ export function BlockManagement() {
                         type="number"
                         step="0.01"
                         value={currentTipo.valorNvl3}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => handleInputChange(tipo.id, 'valorNvl3', e.target.value)}
                         className="w-24 text-center mx-auto"
                       />
@@ -124,6 +127,7 @@ export function BlockManagement() {
                         type="number"
                         step="0.01"
                         value={currentTipo.valorSpa}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => handleInputChange(tipo.id, 'valorSpa', e.target.value)}
                         className="w-24 text-center mx-auto"
                       />

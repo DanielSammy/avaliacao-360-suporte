@@ -224,18 +224,28 @@ export function CriteriaManagement() {
                     .map((criterio) => {
                       const edited = editedCriteria[criterio.id] || {};
                       const currentCriterio = { ...criterio, ...edited };
+                      const getCriterioDisplayName = () => {
+                        let displayName = currentCriterio.nome;
+                        if (currentCriterio.idCriterio === 1) {
+                          displayName += ' - Avaliação Gerencial';
+                        } else if (currentCriterio.idCriterio === 3) {
+                          displayName += ' - Meta';
+                        }
+                        return displayName;
+                      };
+
                       return (
                         <tr key={criterio.id} className={`border-b hover:bg-muted/30 transition-colors`}>
                           <td className="p-4">
                             <Input
-                              value={currentCriterio.nome}
-                              onChange={(e) => handleInputChange(criterio.id, 'nome', e.target.value)}
+                              value={getCriterioDisplayName()}
+                              disabled
                               className="font-medium"
                             />
                           </td>
                           <td className="p-4 text-center">
                             <div className="flex gap-2 justify-center">
-                              <Button variant="destructive" size="sm" onClick={() => setCriterionToDelete(criterio.id)}><Trash2 className="h-3 w-3" /></Button>
+                              {false && <Button variant="destructive" size="sm" onClick={() => setCriterionToDelete(criterio.id)}><Trash2 className="h-3 w-3" /></Button>}
                               {editedCriteria[criterio.id] && (
                                 <Button size="sm" onClick={() => saveCriterio(criterio.id)}><Save className="h-3 w-3" /></Button>
                               )}
