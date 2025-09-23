@@ -92,9 +92,14 @@ export function EvaluateOperators() {
     try {
       const response = await checkCriterionEvaluated(currentPeriod, avaliadorId, criterion.id);
       if (response.avaliado) {
-        setSessionEvaluatedIds(prev => new Set(prev).add(criterion.id));
+        setSessionEvaluatedIds(prev => {
+          const s = new Set(prev);
+          s.add(criterion.id);
+          return s;
+        });
         const nextCriterion = findNextCriterion(criterion.id.toString());
-        checkAndSetCriterion(nextCriterion);
+        // await next check to avoid unbounded recursion
+        if (nextCriterion) await checkAndSetCriterion(nextCriterion);
       } else {
         setEvaluationValues({});
         setIsLoadingCriterion(false);
@@ -108,9 +113,9 @@ export function EvaluateOperators() {
   useEffect(() => {
     if (state.criterios.length > 0 && avaliadorId) {
       const firstUnevaluated = findNextCriterion();
-      checkAndSetCriterion(firstUnevaluated);
+      void checkAndSetCriterion(firstUnevaluated);
     }
-  }, [state.criterios, avaliadorId]);
+  }, [state.criterios, avaliadorId, findNextCriterion, checkAndSetCriterion]);
 
 
   const selectedCriterion = useMemo(() => {
@@ -205,7 +210,7 @@ export function EvaluateOperators() {
         const response = await createBulkEvaluations(payload);
   
         if (response.success) {
-          toast({ title: "Sucesso!", description: `Avaliações para o critério \"${selectedCriterion.nome}\" foram salvas.` });
+          toast({ title: "Sucesso!", description: `Avaliações para o critério "${selectedCriterion.nome}" foram salvas.` });
           dispatch({ type: 'ADD_AVALIACAO_BULK', payload: { criterioId: selectedCriterion.id, avaliacoes: avaliacoesParaDispatch } });
           const nextCriterion = findNextCriterion(selectedCriterionId);
           checkAndSetCriterion(nextCriterion);

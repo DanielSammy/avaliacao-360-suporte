@@ -30,7 +30,7 @@ export function BlockManagement() {
     if (regex.test(value) || value === '') {
         setEditedTipos(prev => ({
             ...prev,
-            [id]: { ...prev[id], [field]: value as any },
+            [id]: { ...prev[id], [field]: value as unknown as TipoCriterio[typeof field] },
         }));
     }
   };

@@ -12,13 +12,8 @@ interface BlockEvaluationProps {
 }
 
 export function BlockEvaluation({ title, criterios, criteriosAvaliacao, totalValue }: BlockEvaluationProps) {
-  if (!criterios || criterios.length === 0) {
-    return null;
-  }
 
-  const getCriterioAvaliacao = (criterioId: number) => {
-    return criteriosAvaliacao.find(ca => ca.criterioId === criterioId);
-  };
+  const getCriterioAvaliacao = (criterioId: number) => criteriosAvaliacao.find(ca => ca.criterioId === criterioId);
 
   const getStatusBadge = (atingiu: boolean) => {
     return (
@@ -40,12 +35,10 @@ export function BlockEvaluation({ title, criterios, criteriosAvaliacao, totalVal
 
   const calculatedValues = useMemo(() => {
     const activeCriteria = criterios.filter(c => c.ativo);
-    if (activeCriteria.length === 0) {
-      return { achievedValue: 0, percentage: 0 };
-    }
+    if (activeCriteria.length === 0) return { achievedValue: 0, percentage: 0 };
 
     const sumValorAlcancado = activeCriteria.reduce((acc, criterio) => {
-      const ca = getCriterioAvaliacao(criterio.id);
+      const ca = criteriosAvaliacao.find(ca => ca.criterioId === criterio.id);
       return acc + (ca?.valorAlcancado || 0);
     }, 0);
 
@@ -54,9 +47,13 @@ export function BlockEvaluation({ title, criterios, criteriosAvaliacao, totalVal
     const percentage = totalValue > 0 ? (achievedValue / totalValue) * 100 : 0;
 
     return { achievedValue, percentage };
-  }, [criterios, criteriosAvaliacao, totalValue, getCriterioAvaliacao]);
+  }, [criterios, criteriosAvaliacao, totalValue]);
 
   const isAvaliacao360 = criterios[0]?.idCriterio === 2;
+
+  if (!criterios || criterios.length === 0) {
+    return null;
+  }
 
   return (
     <Card className="shadow-medium">

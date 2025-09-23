@@ -57,3 +57,57 @@ Ajude desenvolvedores a trabalhar rapidamente neste frontend React + Vite + Type
 - Evite grandes refactors sem testes; prefer incremental.
 
 Se algo ficou faltando ou você quer que eu inclua exemplos de código específicos, diga quais áreas devo detalhar.
+
+### PR checklist (para agentes)
+
+- Atualize tipos em `src/types/evaluation.ts` se mudanças de contrato forem necessárias.
+- Rode `npm run lint` e corrija warnings relevantes.
+- Verifique manualmente a rota protegida afetada (abra a rota no browser via `npm run dev` e simule token se necessário).
+- Mantenha as mudanças pequenas (um recurso/correção por PR) e documente a intenção no título do PR.
+
+### Snippets úteis (copiar/colar)
+
+1) Template mínimo de novo service (siga `getHeaders()` padrão):
+
+// src/services/novoService.ts
+```ts
+import { BASE_URL, API_ENDPOINTS, getAuthToken } from '../config/apiConfig';
+
+const getHeaders = () => ({
+  'Content-Type': 'application/json',
+  ...(getAuthToken() && { Authorization: `Bearer ${getAuthToken()}` }),
+});
+
+export const fetchAlgo = async () => {
+  const res = await fetch(`${BASE_URL}${API_ENDPOINTS.AVALIACOES}`, { headers: getHeaders() });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+};
+```
+
+2) Como adicionar uma rota protegida em `src/App.tsx` (exemplo):
+
+```tsx
+<Route path="/nova-rota" element={<ProtectedRoute allowedGroups={[1,2,3]}><NovaPagina /></ProtectedRoute>} />
+```
+
+3) Simular um usuário autenticado durante desenvolvimento (devtools/localStorage):
+
+Abra DevTools -> Console e cole:
+
+```js
+localStorage.setItem('authToken', 'SEU_TOKEN_DE_TESTE');
+// Depois atualize a página
+location.reload();
+```
+
+### Como rodar / depurar rapidamente
+
+- Instalar: `npm i`
+- Dev: `npm run dev` (usa Vite, servidor em `http://localhost:3000` por padrão — ver `vite.config.ts`)
+- Build: `npm run build`
+- Preview: `npm run preview`
+- Lint: `npm run lint`
+
+Se quiser que eu gere automaticamente um template de `service` ou um PR checklist mais detalhado (com exemplos de testes manuais), eu adiciono agora.
+

@@ -117,12 +117,14 @@ export function CriteriaManagement() {
 
     setEditedCriteria(prev => {
       const newEdited = { ...prev };
-      const criterionChanges = { ...newEdited[id] };
+      const criterionChanges: Partial<Criterio> = { ...newEdited[id] };
 
       if (value === originalCriterio[field]) {
-        delete criterionChanges[field];
+        // remove change if equal to original
+        Reflect.deleteProperty(criterionChanges, field as keyof Criterio);
       } else {
-        (criterionChanges as any)[field] = value;
+        // assign with indexed access to preserve typings
+        (criterionChanges as unknown as Record<string, unknown>)[String(field)] = value as unknown;
       }
 
       if (Object.keys(criterionChanges).length === 0) {
@@ -144,12 +146,12 @@ export function CriteriaManagement() {
 
     const updatedCriterio = { ...originalCriterio, ...changes };
     
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id: originalId, totalAvaliacoes: originalTotalAvaliacoes, ...originalCriterioWithoutIdAndTotalAvaliacoes } = originalCriterio;
+  const { id: originalId, totalAvaliacoes: originalTotalAvaliacoes, ...originalCriterioWithoutIdAndTotalAvaliacoes } = originalCriterio;
     const dataToSend = { ...originalCriterioWithoutIdAndTotalAvaliacoes, ...changes };
     
     if ('mediaGeral' in dataToSend) {
-      delete (dataToSend as any).mediaGeral;
+      // delete with a looser cast to avoid TypeScript any usage
+      delete (dataToSend as Partial<Record<string, unknown>>).mediaGeral;
     }
 
     try {
@@ -274,12 +276,13 @@ export function CriteriaManagement() {
                             />
                           </td>
                           <td className="p-4 text-center">
-                            <div className="flex gap-2 justify-center">
-                              {false && <Button variant="destructive" size="sm" onClick={() => setCriterionToDelete(criterio.id)}><Trash2 className="h-3 w-3" /></Button>}
-                              {editedCriteria[criterio.id] && (
-                                <Button size="sm" onClick={() => saveCriterio(criterio.id)}><Save className="h-3 w-3" /></Button>
-                              )}
-                            </div>
+                              <div className="flex gap-2 justify-center">
+                                {/* Botão de excluir (desabilitado por padrão). Para habilitar, remova o comentário abaixo. */}
+                                {/* <Button variant="destructive" size="sm" onClick={() => setCriterionToDelete(criterio.id)}><Trash2 className="h-3 w-3" /></Button> */}
+                                {editedCriteria[criterio.id] && (
+                                  <Button size="sm" onClick={() => saveCriterio(criterio.id)}><Save className="h-3 w-3" /></Button>
+                                )}
+                              </div>
                           </td>
                           <td className="p-4 text-center">
                             <Switch checked={currentCriterio.ativo} onCheckedChange={(c) => handleInputChange(criterio.id, 'ativo', c)} />
