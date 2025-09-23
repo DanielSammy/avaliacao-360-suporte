@@ -20,12 +20,27 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 export function CriteriaManagement() {
   const { state, dispatch } = useEvaluation();
   const [editedCriteria, setEditedCriteria] = useState<{ [key: number]: Partial<Criterio> }>({});
-  const [newCriterionName, setNewCriterionName] = useState<string>('');
+  
+  const [isAddCriterionDialogOpen, setIsAddCriterionDialogOpen] = useState(false);
+  const [newCriterionName, setNewCriterionName] = useState('');
   const [newCriterionBlock, setNewCriterionBlock] = useState<number>(2);
+  const [newCriterionTipo, setNewCriterionTipo] = useState<'qualitativo' | 'quantitativo'>('qualitativo');
+  const [newCriterionTipoMeta, setNewCriterionTipoMeta] = useState<'maior_melhor' | 'menor_melhor'>('maior_melhor');
+  const [newCriterionValorMeta, setNewCriterionValorMeta] = useState<number>(100);
+  const [newCriterionOrdem, setNewCriterionOrdem] = useState<number>(0);
+
   const [totalTeamTickets, setTotalTeamTickets] = useState<number>(state.totalTeamTickets);
   const [isTicketsConfigLocked, setIsTicketsConfigLocked] = useState<boolean>(true);
   const [criterionToDelete, setCriterionToDelete] = useState<number | null>(null);
@@ -78,19 +93,17 @@ export function CriteriaManagement() {
     const newCriterionData = {
       idCriterio: newCriterionBlock,
       nome: newCriterionName.trim(),
-      tipo: 'qualitativo' as 'qualitativo' | 'quantitativo',
-      tipoMeta: 'maior_melhor' as 'maior_melhor' | 'menor_melhor',
-      valorMeta: 100,
-      ordem: state.criterios.length + 1,
-      ativo: true,
-      valorBonus: 0,
-      mediaGeral: false,
+      tipo: newCriterionTipo,
+      tipoMeta: newCriterionTipoMeta,
+      valorMeta: newCriterionValorMeta,
+      ordem: newCriterionOrdem || state.criterios.length + 1,
     };
 
     try {
       const created = await createCriterio(newCriterionData);
       dispatch({ type: 'ADD_CRITERIO', payload: created.data });
       setNewCriterionName('');
+      setIsAddCriterionDialogOpen(false);
       toast({ title: "Critério adicionado", description: `"${created.data.nome}" foi adicionado.` });
     } catch (error) {
       console.error("Failed to create criterion:", error);
@@ -332,8 +345,7 @@ export function CriteriaManagement() {
                           </td>
                         </tr>
                       );
-                    })
-                  }
+                    })}
                 </tbody>
               </table>
             </div>
@@ -341,28 +353,87 @@ export function CriteriaManagement() {
         </Card>
 
         <Card className="shadow-medium">
-          <CardHeader><CardTitle>Adicionar Novo Critério</CardTitle></CardHeader>
-          <CardContent className="flex flex-col md:flex-row gap-2">
-            <Input
-              placeholder="Nome do novo critério"
-              value={newCriterionName}
-              onChange={(e) => setNewCriterionName(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && addNewCriterion()}
-              className="flex-grow"
-            />
-            <Select value={String(newCriterionBlock)} onValueChange={(value) => setNewCriterionBlock(Number(value))}>
-              <SelectTrigger className="w-full md:w-[180px] text-xs">
-                <SelectValue placeholder="Selecione o Bloco" />
-              </SelectTrigger>
-              <SelectContent>
-                {tiposCriterio.map(tipo => (
-                  <SelectItem key={tipo.id} value={String(tipo.id)}>{tipo.descricao}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button onClick={addNewCriterion} className="w-full md:w-auto">Adicionar</Button>
+          <CardHeader>
+            <CardTitle>Adicionar Novo Critério</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => setIsAddCriterionDialogOpen(true)} className="w-full md:w-auto">Adicionar Novo Critério</Button>
           </CardContent>
         </Card>
+
+        <Dialog open={isAddCriterionDialogOpen} onOpenChange={setIsAddCriterionDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Adicionar Novo Critério</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">
+                  Nome
+                </Label>
+                <Input id="name" value={newCriterionName} onChange={(e) => setNewCriterionName(e.target.value)} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="block" className="text-right">
+                  Bloco
+                </Label>
+                <Select value={String(newCriterionBlock)} onValueChange={(value) => setNewCriterionBlock(Number(value))}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Selecione o Bloco" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tiposCriterio.map(tipo => (
+                      <SelectItem key={tipo.id} value={String(tipo.id)}>{tipo.descricao}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="type" className="text-right">
+                  Tipo
+                </Label>
+                <Select value={newCriterionTipo} onValueChange={(v: 'qualitativo' | 'quantitativo') => setNewCriterionTipo(v)}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="qualitativo">Qualitativo</SelectItem>
+                    <SelectItem value="quantitativo">Quantitativo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="goal-type" className="text-right">
+                  Tipo de Meta
+                </Label>
+                <Select value={newCriterionTipoMeta} onValueChange={(v: 'maior_melhor' | 'menor_melhor') => setNewCriterionTipoMeta(v)}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="maior_melhor">Maior é Melhor</SelectItem>
+                    <SelectItem value="menor_melhor">Menor é Melhor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="goal-value" className="text-right">
+                  Valor da Meta
+                </Label>
+                <Input id="goal-value" type="number" value={newCriterionValorMeta} onChange={(e) => setNewCriterionValorMeta(Number(e.target.value))} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="order" className="text-right">
+                  Ordem
+                </Label>
+                <Input id="order" type="number" value={newCriterionOrdem} onChange={(e) => setNewCriterionOrdem(Number(e.target.value))} className="col-span-3" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit" onClick={addNewCriterion}>Salvar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <AlertDialog open={criterionToDelete !== null} onOpenChange={(open) => !open && setCriterionToDelete(null)}>
           <AlertDialogContent>
