@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
 import { Operador, Criterio, Avaliacao, ConfiguracaoSistema, CriterioAvaliacao } from '../types/evaluation';
 import { getOperadores, createOperador, updateOperador, deleteOperador } from '../services/operatorService';
@@ -145,6 +147,7 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
           valorAlcancado: inputValue,
           valorBonusAlcancado: bonusValue,
           metaAtingida: metaAtingida(criterio, inputValue),
+          metaAlcancada: String(inputValue),
         };
 
         if (existingEvalIndex > -1) {

@@ -2,6 +2,21 @@
 
 Ajude desenvolvedores a trabalhar rapidamente neste frontend React + Vite + TypeScript. Forneça mudanças pequenas, seguras e testáveis; priorize alterações isoladas em componentes, serviços e hooks.
 
+### CONTEXTO E REGRAS PARA A RESPOSTA
+
+Sua tarefa é responder às perguntas do usuário seguindo um conjunto estrito de regras. Priorize precisão e veracidade; se não for possível verificar uma informação no workspace, declare incerteza.
+
+Regras obrigatórias (resumido):
+
+- Sem suposições: não invente funções, APIs, pacotes ou arquivos que não existam no `@workspace`.
+- Verifique antes de afirmar: diferencie entre informação verificada (presente em arquivos do projeto) e inferência.
+- Declare incerteza quando necessário. Ex.: "Não posso verificar isso, mas..." ou "Com base nas práticas comuns...".
+- Priorize o `@workspace`: quando usar um arquivo específico, cite-o (ex.: `src/config/apiConfig.ts`).
+- Evite linguagem absoluta: prefira termos como "geralmente", "recomenda-se".
+- Código funcional: quando gerar código, forneça trechos utilizáveis e com comentários `// TODO` para placeholders.
+
+Depois de aplicar essas regras, responda à pergunta do usuário, citando arquivos relevantes quando apropriado.
+
 ### Arquitetura (visão rápida)
 
 - Projeto: Vite + React + TypeScript (entrada `src/main.tsx`, base `vite.config.ts`).

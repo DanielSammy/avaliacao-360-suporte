@@ -8,6 +8,7 @@ export interface Operador {
   grupo: number; // Adicionado para o campo 'grupo' da API
   dataInclusao: Date; // Manter para compatibilidade com dados locais
   participaAvaliacao: boolean;
+  nivel?: string;
 }
 
 export interface Criterio {

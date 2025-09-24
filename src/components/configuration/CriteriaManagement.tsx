@@ -97,6 +97,10 @@ export function CriteriaManagement() {
       tipoMeta: newCriterionTipoMeta,
       valorMeta: newCriterionValorMeta,
       ordem: newCriterionOrdem || state.criterios.length + 1,
+      // defaults required by Omit<Criterio, 'id' | 'totalAvaliacoes'>
+      ativo: true,
+      valorBonus: 0,
+      mediaGeral: false,
     };
 
     try {
