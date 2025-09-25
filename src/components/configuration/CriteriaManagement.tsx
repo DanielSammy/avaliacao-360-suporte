@@ -10,7 +10,7 @@ import { formatarMoeda } from '@/utils/calculations';
 import { Target, Save, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { createCriterio, updateCriterio, deleteCriterio, getTipoCriterios } from '@/services/criteriaService';
+import { createCriterio, updateCriterio, deleteCriterio, getTipoCriterios, getCriterios } from '@/services/criteriaService';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -152,12 +152,41 @@ export function CriteriaManagement() {
     }
 
     try {
+      console.debug('Creating criterion payload:', newCriterionData);
       const created = await createCriterio(newCriterionData);
-      dispatch({ type: 'ADD_CRITERIO', payload: created.data });
+
+      // Tentar obter nome retornado pela API (varias formas possíveis)
+      // Extrair nome retornado pela API com cuidados de tipagem
+      let createdName = newCriterionName;
+      if (created) {
+        if ((created as any).data && (created as any).data.nome) createdName = (created as any).data.nome;
+        else if ((created as any).nome) createdName = (created as any).nome;
+        else if ((created as any).data && (created as any).data.name) createdName = (created as any).data.name;
+      }
+
+      // Recarregar lista de critérios do backend para garantir dados consistentes
+      try {
+        const all = await getCriterios();
+        const transformedCriterios = all.data.map((criterio: Criterio) => ({
+          ...criterio,
+          idCriterio: parseInt(String((criterio as any).idCriterio), 10),
+          valorMeta: parseFloat(String((criterio as any).valorMeta)),
+        }));
+        dispatch({ type: 'SET_CRITERIOS', payload: transformedCriterios });
+      } catch (reloadErr) {
+        // Fallback: se reload falhar, tentar adicionar o objeto retornado pela API
+        if (created && created.data) {
+          dispatch({ type: 'ADD_CRITERIO', payload: created.data });
+        } else {
+          // fallback local: use newCriterionData com id temporário
+          dispatch({ type: 'ADD_CRITERIO', payload: { id: Date.now(), ...newCriterionData, totalAvaliacoes: 0 } as unknown as Criterio });
+        }
+      }
+
       setNewCriterionName('');
-  setNewCriterionValorBonus(0);
+      setNewCriterionValorBonus(0);
       setIsAddCriterionDialogOpen(false);
-      toast({ title: "Critério adicionado", description: `"${created.data.nome}" foi adicionado.` });
+      toast({ title: "Critério adicionado", description: `${createdName} foi adicionado.` });
     } catch (error) {
       console.error("Failed to create criterion:", error);
       toast({ title: "Erro", description: "Não foi possível adicionar o critério.", variant: "destructive" });
