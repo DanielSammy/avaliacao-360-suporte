@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { useEvaluation } from '@/contexts/EvaluationContext';
 import { Criterio, TipoCriterio } from '@/types/evaluation';
+import { formatarMoeda } from '@/utils/calculations';
 import { Target, Save, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -39,6 +40,7 @@ export function CriteriaManagement() {
   const [newCriterionTipo, setNewCriterionTipo] = useState<'qualitativo' | 'quantitativo'>('qualitativo');
   const [newCriterionTipoMeta, setNewCriterionTipoMeta] = useState<'maior_melhor' | 'menor_melhor'>('maior_melhor');
   const [newCriterionValorMeta, setNewCriterionValorMeta] = useState<number>(100);
+  const [newCriterionValorBonus, setNewCriterionValorBonus] = useState<number>(0);
   const [newCriterionOrdem, setNewCriterionOrdem] = useState<number>(0);
 
   const [totalTeamTickets, setTotalTeamTickets] = useState<number>(state.totalTeamTickets);
@@ -46,6 +48,46 @@ export function CriteriaManagement() {
   const [criterionToDelete, setCriterionToDelete] = useState<number | null>(null);
   const [tiposCriterio, setTiposCriterio] = useState<TipoCriterio[]>([]);
   const { toast } = useToast();
+
+  // Valida a soma dos valorBonus para critérios do bloco 3 (Avaliação Metas)
+  const validateMetasCriteriaTotals = (override?: { id: number; valorBonus: number; ativo?: boolean }) => {
+    const tipoMetas = tiposCriterio.find(t => t.id === 3);
+    if (!tipoMetas) {
+      toast({ title: 'Configuração incompleta', description: 'Valores por nível não carregados. Aguarde e tente novamente.', variant: 'destructive' });
+      return false;
+    }
+
+    const limite = tipoMetas.valorNvl3 || 0;
+
+    let sum = state.criterios
+      .filter(c => Number(c.idCriterio) === 3)
+      .reduce((acc, c) => {
+        const edited = editedCriteria[c.id];
+        const currentValorBonus = (edited && typeof edited.valorBonus === 'number') ? edited.valorBonus : (c.valorBonus || 0);
+        // determine active state considering pending edits
+        const currentAtivo = (edited && typeof edited.ativo === 'boolean') ? edited.ativo : !!c.ativo;
+        // apply override if matches existing criterion
+        const finalValor = (override && override.id === c.id) ? override.valorBonus : currentValorBonus;
+        // only add if active
+        return acc + ((currentAtivo && !isNaN(finalValor)) ? finalValor : 0);
+      }, 0);
+
+    // If override id === -1, it represents a new criterion to add — consider its ativo flag (default true)
+    if (override && override.id === -1) {
+      const novoAtivo = typeof override.ativo === 'boolean' ? override.ativo : true;
+      if (novoAtivo) sum += (isNaN(override.valorBonus) ? 0 : override.valorBonus);
+    }
+
+    if (sum > limite) {
+      toast({
+        title: 'Limite excedido',
+        description: `Soma dos valores de 'Avaliação Metas' é ${formatarMoeda(sum)} e excede o limite de ${formatarMoeda(limite)} para este bloco.`,
+        variant: 'destructive'
+      });
+      return false;
+    }
+    return true;
+  };
 
   useEffect(() => {
     const fetchTiposCriterio = async () => {
@@ -99,14 +141,21 @@ export function CriteriaManagement() {
       ordem: newCriterionOrdem || state.criterios.length + 1,
       // defaults required by Omit<Criterio, 'id' | 'totalAvaliacoes'>
       ativo: true,
-      valorBonus: 0,
+      valorBonus: newCriterionValorBonus || 0,
       mediaGeral: false,
     };
+
+    // Validação: se for bloco 3 (Avaliação Metas), verificar soma não exceder limite
+    if (Number(newCriterionBlock) === 3) {
+      const ok = validateMetasCriteriaTotals({ id: -1, valorBonus: newCriterionValorBonus || 0, ativo: true });
+      if (!ok) return;
+    }
 
     try {
       const created = await createCriterio(newCriterionData);
       dispatch({ type: 'ADD_CRITERIO', payload: created.data });
       setNewCriterionName('');
+  setNewCriterionValorBonus(0);
       setIsAddCriterionDialogOpen(false);
       toast({ title: "Critério adicionado", description: `"${created.data.nome}" foi adicionado.` });
     } catch (error) {
@@ -156,6 +205,13 @@ export function CriteriaManagement() {
     if ('mediaGeral' in dataToSend) {
       // delete with a looser cast to avoid TypeScript any usage
       delete (dataToSend as Partial<Record<string, unknown>>).mediaGeral;
+    }
+
+    // Se o critério pertence ao bloco 3 (Avaliação Metas), validar soma dos valores antes de salvar
+    if (Number(updatedCriterio.idCriterio) === 3) {
+      const updatedValorBonus = typeof changes.valorBonus === 'number' ? changes.valorBonus : originalCriterio.valorBonus;
+      const ok = validateMetasCriteriaTotals({ id, valorBonus: updatedValorBonus });
+      if (!ok) return;
     }
 
     try {
@@ -246,6 +302,7 @@ export function CriteriaManagement() {
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="text-left p-4 font-semibold w-1/4">Critério</th>
+                    <th className="text-center p-4 font-semibold">Valor R$</th>
                     <th className="text-center p-4 font-semibold">Ações</th>
                     <th className="text-center p-4 font-semibold">Status</th>
                     <th className="text-center p-4 font-semibold">Bloco</th>
@@ -279,6 +336,23 @@ export function CriteriaManagement() {
                               className="font-medium"
                             />
                           </td>
+                              <td className="p-4 text-center">
+                                {Number(currentCriterio.idCriterio) === 3 ? (
+                                  <Input
+                                    type="number"
+                                    value={currentCriterio.valorBonus ?? 0}
+                                    onChange={(e) => {
+                                      const v = parseFloat(e.target.value) || 0;
+                                      handleInputChange(criterio.id, 'valorBonus', v);
+                                    }}
+                                    className="w-28 text-center mx-auto"
+                                    step="0.01"
+                                    min="0"
+                                  />
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </td>
                           <td className="p-4 text-center">
                               <div className="flex gap-2 justify-center">
                                 {/* Botão de excluir (desabilitado por padrão). Para habilitar, remova o comentário abaixo. */}
@@ -429,6 +503,14 @@ export function CriteriaManagement() {
                 </Label>
                 <Input id="goal-value" type="number" value={newCriterionValorMeta} onChange={(e) => setNewCriterionValorMeta(Number(e.target.value))} className="col-span-3" />
               </div>
+              {Number(newCriterionBlock) === 3 && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="bonus-value" className="text-right">
+                    Valor do Bônus (R$)
+                  </Label>
+                  <Input id="bonus-value" type="number" value={newCriterionValorBonus} onChange={(e) => setNewCriterionValorBonus(Number(e.target.value))} className="col-span-3" step="0.01" min="0" />
+                </div>
+              )}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="order" className="text-right">
                   Ordem
