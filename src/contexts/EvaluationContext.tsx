@@ -224,7 +224,28 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'FETCH_OPERADORES_REQUEST' });
     try {
       const response = await getOperadores();
-      dispatch({ type: 'FETCH_OPERADORES_SUCCESS', payload: response.data });
+      
+      let operadores: Operador[] = response.data;
+
+      // Tentar buscar dados do MySuite e mesclar codigoMysuite por email/login
+      try {
+  const mys = await (await import('@/services/operatorService')).getMySuiteOperadores();
+        // índice por email lowercased -> codigo
+        const mysIndex: Record<string, number> = {};
+        (mys || []).forEach((m: any) => {
+          if (m && m.email) mysIndex[String(m.email).toLowerCase()] = Number(m.codigo);
+        });
+
+        operadores = operadores.map(op => ({
+          ...op,
+          codigoMysuite: mysIndex[String(op.login || '').toLowerCase()]
+        }));
+      } catch (mysErr) {
+        console.warn('fetchOperadores - Failed to fetch MySuite operadores, continuing without merge:', mysErr);
+      }
+
+  // operadores carregados (debug logs removed)
+  dispatch({ type: 'FETCH_OPERADORES_SUCCESS', payload: operadores });
     } catch (err) {
       console.error("Failed to fetch operators:", err);
       dispatch({ type: 'FETCH_OPERADORES_FAILURE', payload: 'Failed to load operators.' });

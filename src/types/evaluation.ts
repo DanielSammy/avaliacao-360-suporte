@@ -9,6 +9,7 @@ export interface Operador {
   dataInclusao: Date; // Manter para compatibilidade com dados locais
   participaAvaliacao: boolean;
   nivel?: string;
+  codigoMysuite?: number;
 }
 
 export interface Criterio {

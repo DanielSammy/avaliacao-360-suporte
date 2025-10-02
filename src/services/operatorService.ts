@@ -74,3 +74,23 @@ export const updateOperadorStatus = async (id: number, ativo: boolean): Promise<
     throw new Error(`HTTP error! status: ${response.status}`);
   }
 };
+
+// ===== MySuite integration =====
+// Busca operadores no MySuite (não requer token)
+export const getMySuiteOperadores = async (): Promise<Array<any>> => {
+  const base = import.meta.env.VITE_API_MYSUITE_URL;
+  if (!base) {
+    throw new Error('VITE_API_MYSUITE_URL não configurado');
+  }
+  // Garantir que o sufixo /apimysuite esteja presente (se a variável não incluir)
+  let normalized = base.replace(/\/$/, '');
+  if (!/apimysuite$/i.test(normalized)) {
+    normalized = `${normalized}/apimysuite`;
+  }
+  const url = `${normalized}/dados/operador`;
+  const response = await fetch(url, { method: 'GET' });
+  if (!response.ok) {
+    throw new Error(`MySuite HTTP error! status: ${response.status}`);
+  }
+  return response.json();
+};

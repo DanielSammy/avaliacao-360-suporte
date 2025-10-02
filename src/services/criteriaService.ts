@@ -32,9 +32,6 @@ export const createCriterio = async (criterio: Omit<Criterio, 'id' | 'totalAvali
     valorCriterio: (typeof criterio.valorBonus === 'number' ? criterio.valorBonus : parseFloat(String(criterio.valorBonus || 0))).toFixed(2),
   };
 
-  // Log do payload para depuração
-  console.debug('createCriterio - payload:', bodyPayload);
-
   const response = await fetch(`${BASE_URL}${API_ENDPOINTS.CRITERIOS}`, {
     method: 'POST',
     headers: getHeaders(),
@@ -44,13 +41,10 @@ export const createCriterio = async (criterio: Omit<Criterio, 'id' | 'totalAvali
   if (!response.ok) {
     // tenta ler corpo da resposta para entender o 500
     const text = await response.text().catch(() => '<no body>');
-    console.error('createCriterio failed', response.status, text, 'payload:', bodyPayload);
     throw new Error(`HTTP error! status: ${response.status}`);
   }
 
-  const json = await response.json();
-  console.debug('createCriterio - response:', json);
-  return json;
+  return response.json();
 };
 
 export const updateCriterio = async (id: number, criterio: Partial<Omit<Criterio, 'id' | 'totalAvaliacoes'>>): Promise<{ success: boolean, data: Criterio }> => {
@@ -68,8 +62,6 @@ export const updateCriterio = async (id: number, criterio: Partial<Omit<Criterio
     delete payload.valorBonus;
   }
 
-  console.debug('updateCriterio - payload:', payload);
-
   const response = await fetch(`${BASE_URL}${API_ENDPOINTS.CRITERIOS}/${id}`, {
     method: 'PUT',
     headers: getHeaders(),
@@ -78,13 +70,9 @@ export const updateCriterio = async (id: number, criterio: Partial<Omit<Criterio
 
   if (!response.ok) {
     const text = await response.text().catch(() => '<no body>');
-    console.error('updateCriterio failed', response.status, text, 'payload:', payload);
     throw new Error(`HTTP error! status: ${response.status}`);
   }
-
-  const json = await response.json();
-  console.debug('updateCriterio - response:', json);
-  return json;
+  return response.json();
 };
 
 export const deleteCriterio = async (id: number): Promise<void> => {
