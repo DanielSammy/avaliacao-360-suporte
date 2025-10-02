@@ -111,7 +111,10 @@ export function CriteriaManagement() {
     }
 
     state.criterios.forEach(criterio => {
-      if (criterio.mediaGeral) { 
+      // aplicar quando mediaGeral é true
+      // ou quando for bloco 3 (Metas), tipo quantitativo e metaCalculo === 2
+      const isQuantitativoMetaCalculo2 = Number(criterio.idCriterio) === 3 && criterio.tipo === 'quantitativo' && criterio.metaCalculo === 2;
+      if (criterio.mediaGeral || isQuantitativoMetaCalculo2) { 
         const currentValorMeta = editedCriteria[criterio.id]?.valorMeta ?? criterio.valorMeta;
         if (currentValorMeta !== calculatedValorMeta) {
           setEditedCriteria((prev) => ({
@@ -450,7 +453,10 @@ export function CriteriaManagement() {
                               step="1"
                               min="0"
                               max="100"
-                              disabled={currentCriterio.mediaGeral}
+                              disabled={
+                                currentCriterio.mediaGeral ||
+                                (Number(currentCriterio.idCriterio) === 3 && currentCriterio.tipo === 'quantitativo' && currentCriterio.metaCalculo === 2)
+                              }
                             />
                           </td>
                         </tr>

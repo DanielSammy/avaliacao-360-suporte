@@ -20,9 +20,10 @@ export interface Criterio {
   valorMeta: number;
   ordem: number;
   ativo: boolean;
-  totalAvaliacoes: number;
+  totalAvaliacoes?: number; // pode vir ausente quando for 0
   valorBonus: number;
   mediaGeral: boolean;
+  metaCalculo?: number;
 }
 
 export interface TipoCriterio {

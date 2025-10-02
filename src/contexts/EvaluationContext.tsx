@@ -276,11 +276,21 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
       try {
         const response = await getCriterios();
         // Garante que idCriterio seja sempre um número para consistência da aplicação
-        const transformedCriterios = response.data.map((criterio: Criterio) => ({
+        const transformedCriterios = response.data.map((criterio: any) => ({
           ...criterio,
+          id: criterio.id,
           idCriterio: parseInt(String(criterio.idCriterio), 10),
-          valorMeta: parseFloat(String(criterio.valorMeta)), // Ensure valorMeta is a number
-        }));
+          nome: criterio.nome,
+          tipo: criterio.tipo as 'qualitativo' | 'quantitativo',
+          tipoMeta: criterio.tipoMeta as 'maior_melhor' | 'menor_melhor',
+          valorMeta: parseFloat(String(criterio.valorMeta || 0)),
+          ordem: criterio.ordem ?? 0,
+          ativo: !!criterio.ativo,
+          mediaGeral: !!criterio.mediaGeral,
+          totalAvaliacoes: criterio.totalAvaliacoes !== undefined ? parseInt(String(criterio.totalAvaliacoes), 10) : undefined,
+          valorBonus: criterio.valorCriterio ? parseFloat(String(criterio.valorCriterio)) : 0,
+          metaCalculo: criterio.metaCalculo !== undefined ? parseInt(String(criterio.metaCalculo), 10) : undefined,
+        } as Criterio));
         dispatch({ type: 'SET_CRITERIOS', payload: transformedCriterios });
       } catch (err) {
         console.error("Failed to fetch criterios:", err);
