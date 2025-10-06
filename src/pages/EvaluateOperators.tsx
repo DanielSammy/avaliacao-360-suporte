@@ -474,7 +474,9 @@ export function EvaluateOperators() {
                 >
                   {isSubmitting ? 'Salvando...' : 'Salvar e Ir para Próximo Critério'}
                 </Button>
-                <Button onClick={handleImportMySuiteAndSave} className="w-full" disabled={isSubmitting || isCurrentCriterionEvaluated} variant="default">Importar Dados do Mysuite</Button>
+                {(user && (user.grupo === 6 || user.grupo === 7)) && (
+                  <Button onClick={handleImportMySuiteAndSave} className="w-full" disabled={isSubmitting || isCurrentCriterionEvaluated} variant="default">Importar Dados do Mysuite</Button>
+                )}
               </div>
             </div>
           )}
