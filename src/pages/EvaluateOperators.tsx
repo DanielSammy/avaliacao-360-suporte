@@ -259,10 +259,10 @@ export function EvaluateOperators() {
       const resultsByCodigo: Record<number, any> = {};
       results.forEach((r: any) => { if (r && typeof r.operadorCodigo === 'number') resultsByCodigo[r.operadorCodigo] = r; });
 
-      // escolher critérios do state que têm metaCalculo === 3
-      const criteriosToImport = state.criterios.filter(c => c.metaCalculo === 3 && c.ativo);
+      // escolher critérios do state que têm metaCalculo === 3 (metas) ou 2 (quantitativo)
+      const criteriosToImport = state.criterios.filter(c => (c.metaCalculo === 3 || c.metaCalculo === 2) && c.ativo);
       if (criteriosToImport.length === 0) {
-        toast({ title: 'Nenhum critério', description: 'Não há critérios ativos com metaCalculo = 3.', variant: 'default' });
+        toast({ title: 'Nenhum critério', description: 'Não há critérios ativos com metaCalculo = 2 ou 3.', variant: 'default' });
         return;
       }
 
@@ -274,20 +274,24 @@ export function EvaluateOperators() {
           .filter(op => op.codigoMysuite && resultsByCodigo[op.codigoMysuite])
           .map(op => {
             const mys = resultsByCodigo[op.codigoMysuite];
-            const media = Number(mys.mediaAvaliacao || 0);
+            // decidir o valor base conforme o tipo de meta
+            // metaCalculo === 3 -> usar mediaAvaliacao
+            // metaCalculo === 2 -> usar quantidadeTotalTicket
+            const isQuantitativo = criterio.metaCalculo === 2;
+            const baseValue = isQuantitativo ? Number(mys.quantidadeTotalTicket || 0) : Number(mys.mediaAvaliacao || 0);
             const potentialBonusFromCriterio = criterio.valorBonus || 0;
-            const bonusValue = calcularValorAlcancadoFinal(criterio, media, potentialBonusFromCriterio);
+            const bonusValue = calcularValorAlcancadoFinal(criterio, baseValue, potentialBonusFromCriterio);
 
-            // valorAlcancado deve ser a média vinda do MySuite (string decimal)
+            // construir objeto: metaAlcancada sempre será o valor vindo do MySuite (string)
             return {
               operadorId: op.id,
               periodo: currentPeriod,
               valorObjetivo: String(potentialBonusFromCriterio.toFixed(2)),
-                // enviar a média como valorAlcancado (string com 2 casas)
-                valorAlcancado: String(media.toFixed(2)),
+              // enviar o valor base (média ou quantidade) como valorAlcancado para cálculo local
+              valorAlcancado: String(baseValue.toFixed(2)),
               metaObjetivo: Math.round(Number(criterio.valorMeta)),
-              // metaAlcancada agora é a média como string com 2 casas
-              metaAlcancada: String(media.toFixed(2)),
+              // metaAlcancada agora é o valor base (string com 2 casas)
+              metaAlcancada: String(baseValue.toFixed(2)),
               // incluir bônus calculado para uso local/dispatch
               _valorBonusCalculado: String(bonusValue.toFixed(2)),
             };
@@ -345,7 +349,7 @@ export function EvaluateOperators() {
       if (criteriosProcessados > 0) {
         toast({ title: 'Importação concluída', description: `${criteriosProcessados} critérios processados e ${totalAvaliacoesImportadas} avaliações importadas.`, variant: 'default' });
       } else {
-        toast({ title: 'Nenhuma correspondência', description: 'Nenhum operador com codigoMysuite correspondente foi encontrado para os critérios com metaCalculo = 3.', variant: 'default' });
+        toast({ title: 'Nenhuma correspondência', description: 'Nenhum operador com codigoMysuite correspondente foi encontrado para os critérios com metaCalculo = 2 ou 3.', variant: 'default' });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
