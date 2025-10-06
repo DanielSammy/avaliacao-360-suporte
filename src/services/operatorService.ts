@@ -112,6 +112,57 @@ export interface MySuitePerformanceItem {
   operadorNome: string;
 }
 
+export interface MySuiteConcluidoItem {
+  codigo: number;
+  codigoOperador: number;
+  // outros campos do response do MySuite omitted
+}
+
+/**
+ * Busca tickets concluídos por contato no MySuite para o intervalo informado.
+ * Endpoint: /dashboard/suporte/ticket/concluido/contato
+ */
+export const getMySuiteConcluidosPorContato = async (payload: MySuitePerformanceRequest): Promise<MySuiteConcluidoItem[]> => {
+  const base = import.meta.env.VITE_API_MYSUITE_URL;
+  if (!base) {
+    throw new Error('VITE_API_MYSUITE_URL não configurado');
+  }
+  let normalized = base.replace(/\/$/, '');
+  if (!/apimysuite$/i.test(normalized)) {
+    normalized = `${normalized}/apimysuite`;
+  }
+
+  const url = `${normalized}/dashboard/suporte/ticket/concluido/contato`;
+
+  try {
+    if (process.env.NODE_ENV !== 'production') console.log('[MySuite] POST ->', url, 'payload:', payload);
+  } catch (e) {}
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '<no body>');
+    throw new Error(`MySuite concluidos HTTP error! status: ${response.status} body: ${text}`);
+  }
+
+  const data = await response.json();
+  // Espera-se um array de tickets; normalizar apenas codigoOperador
+  if (Array.isArray(data)) {
+    return data.map((r: any) => ({
+      codigo: Number(r.codigo ?? r.id ?? 0),
+      codigoOperador: Number(r.codigoOperador ?? r.codigo_operador ?? r.operadorCodigo ?? 0),
+    }));
+  }
+
+  return [];
+};
+
 export const getMySuitePerformanceAvaliacoes = async (payload: MySuitePerformanceRequest): Promise<MySuitePerformanceItem[]> => {
   const base = import.meta.env.VITE_API_MYSUITE_URL;
   if (!base) {

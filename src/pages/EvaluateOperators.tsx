@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Criterio } from '@/types/evaluation';
 import { createBulkEvaluations, checkCriterionEvaluated } from '../services/evaluationService';
-import { getMySuitePerformanceAvaliacoes, MySuitePerformanceRequest } from '@/services/operatorService';
+import { getMySuitePerformanceAvaliacoes, MySuitePerformanceRequest, getMySuiteConcluidosPorContato } from '@/services/operatorService';
 import { calcularValorAlcancadoFinal } from '../utils/calculations';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CheckCircle2, Loader2, ArrowLeft } from 'lucide-react';
@@ -259,10 +259,10 @@ export function EvaluateOperators() {
       const resultsByCodigo: Record<number, any> = {};
       results.forEach((r: any) => { if (r && typeof r.operadorCodigo === 'number') resultsByCodigo[r.operadorCodigo] = r; });
 
-      // escolher critérios do state que têm metaCalculo === 3 (metas) ou 2 (quantitativo)
-      const criteriosToImport = state.criterios.filter(c => (c.metaCalculo === 3 || c.metaCalculo === 2) && c.ativo);
+      // escolher critérios do state que têm metaCalculo === 1 (tickets concluídos), 2 (quantitativo) ou 3 (metas)
+      const criteriosToImport = state.criterios.filter(c => (c.metaCalculo === 1 || c.metaCalculo === 2 || c.metaCalculo === 3) && c.ativo);
       if (criteriosToImport.length === 0) {
-        toast({ title: 'Nenhum critério', description: 'Não há critérios ativos com metaCalculo = 2 ou 3.', variant: 'default' });
+        toast({ title: 'Nenhum critério', description: 'Não há critérios ativos com metaCalculo = 1, 2 ou 3.', variant: 'default' });
         return;
       }
 
@@ -270,32 +270,71 @@ export function EvaluateOperators() {
       let criteriosProcessados = 0;
 
       for (const criterio of criteriosToImport) {
-        const avaliacoesParaApi = state.operadores
-          .filter(op => op.codigoMysuite && resultsByCodigo[op.codigoMysuite])
-          .map(op => {
-            const mys = resultsByCodigo[op.codigoMysuite];
-            // decidir o valor base conforme o tipo de meta
-            // metaCalculo === 3 -> usar mediaAvaliacao
-            // metaCalculo === 2 -> usar quantidadeTotalTicket
-            const isQuantitativo = criterio.metaCalculo === 2;
-            const baseValue = isQuantitativo ? Number(mys.quantidadeTotalTicket || 0) : Number(mys.mediaAvaliacao || 0);
-            const potentialBonusFromCriterio = criterio.valorBonus || 0;
-            const bonusValue = calcularValorAlcancadoFinal(criterio, baseValue, potentialBonusFromCriterio);
+        // Se metaCalculo === 1, precisamos consultar outro endpoint que retorna tickets concluídos por contato
+        let avaliacoesParaApi = [] as Array<any>;
 
-            // construir objeto: metaAlcancada sempre será o valor vindo do MySuite (string)
-            return {
-              operadorId: op.id,
-              periodo: currentPeriod,
-              valorObjetivo: String(potentialBonusFromCriterio.toFixed(2)),
-              // enviar o valor base (média ou quantidade) como valorAlcancado para cálculo local
-              valorAlcancado: String(baseValue.toFixed(2)),
-              metaObjetivo: Math.round(Number(criterio.valorMeta)),
-              // metaAlcancada agora é o valor base (string com 2 casas)
-              metaAlcancada: String(baseValue.toFixed(2)),
-              // incluir bônus calculado para uso local/dispatch
-              _valorBonusCalculado: String(bonusValue.toFixed(2)),
-            };
+        if (criterio.metaCalculo === 1) {
+          // buscar tickets concluidos por contato
+          const tickets = await getMySuiteConcluidosPorContato(payload);
+          // contar por codigoOperador
+          const countsByCodigo: Record<number, number> = {};
+          (tickets || []).forEach((t: any) => {
+            const cod = Number(t.codigoOperador || 0);
+            if (!cod) return;
+            countsByCodigo[cod] = (countsByCodigo[cod] || 0) + 1;
           });
+
+          // calcular totalConcluidos a partir do endpoint de contato (todos os tickets retornados)
+          const totalConcluidos = (tickets || []).length;
+          avaliacoesParaApi = state.operadores
+            .filter(op => op.codigoMysuite && countsByCodigo[op.codigoMysuite])
+            .map(op => {
+              const qty = countsByCodigo[op.codigoMysuite] || 0;
+              // calcular porcentagem = (qty / totalConcluidos) * 100
+              const percentage = totalConcluidos > 0 ? (qty / totalConcluidos) * 100 : 0;
+              const potentialBonusFromCriterio = criterio.valorBonus || 0;
+              // usar a porcentagem para calcular o bônus
+              const bonusValue = calcularValorAlcancadoFinal(criterio, percentage, potentialBonusFromCriterio);
+              return {
+                operadorId: op.id,
+                periodo: currentPeriod,
+                valorObjetivo: String(potentialBonusFromCriterio.toFixed(2)),
+                // usar a porcentagem como valorAlcancado/metaAlcancada
+                valorAlcancado: String(percentage.toFixed(2)),
+                metaObjetivo: Math.round(Number(criterio.valorMeta)),
+                metaAlcancada: String(percentage.toFixed(2)),
+                _valorBonusCalculado: String(bonusValue.toFixed(2)),
+              };
+            });
+        } else {
+          // metaCalculo 2 ou 3 já cobertos pelo payload de performance
+          avaliacoesParaApi = state.operadores
+            .filter(op => op.codigoMysuite && resultsByCodigo[op.codigoMysuite])
+            .map(op => {
+              const mys = resultsByCodigo[op.codigoMysuite];
+              // decidir o valor base conforme o tipo de meta
+              // metaCalculo === 3 -> usar mediaAvaliacao
+              // metaCalculo === 2 -> usar quantidadeTotalTicket
+              const isQuantitativo = criterio.metaCalculo === 2;
+              const baseValue = isQuantitativo ? Number(mys.quantidadeTotalTicket || 0) : Number(mys.mediaAvaliacao || 0);
+              const potentialBonusFromCriterio = criterio.valorBonus || 0;
+              const bonusValue = calcularValorAlcancadoFinal(criterio, baseValue, potentialBonusFromCriterio);
+
+              // construir objeto: metaAlcancada sempre será o valor vindo do MySuite (string)
+              return {
+                operadorId: op.id,
+                periodo: currentPeriod,
+                valorObjetivo: String(potentialBonusFromCriterio.toFixed(2)),
+                // enviar o valor base (média ou quantidade) como valorAlcancado para cálculo local
+                valorAlcancado: String(baseValue.toFixed(2)),
+                metaObjetivo: Math.round(Number(criterio.valorMeta)),
+                // metaAlcancada agora é o valor base (string com 2 casas)
+                metaAlcancada: String(baseValue.toFixed(2)),
+                // incluir bônus calculado para uso local/dispatch
+                _valorBonusCalculado: String(bonusValue.toFixed(2)),
+              };
+            });
+        }
 
         if (avaliacoesParaApi.length === 0) continue;
 
