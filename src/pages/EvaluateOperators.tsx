@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Criterio } from '@/types/evaluation';
 import { createBulkEvaluations, checkCriterionEvaluated } from '../services/evaluationService';
+import { getMySuitePerformanceAvaliacoes, MySuitePerformanceRequest } from '@/services/operatorService';
 import { calcularValorAlcancadoFinal } from '../utils/calculations';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CheckCircle2, Loader2, ArrowLeft } from 'lucide-react';
@@ -189,14 +190,16 @@ export function EvaluateOperators() {
         valorObjetivo: String(data.potentialBonus.toFixed(2)), 
         valorAlcancado: String(data.bonusValue.toFixed(2)),
         metaObjetivo: Number(data.valorMeta), 
-        metaAlcancada: Number(data.inputValue),
+        // metaAlcancada deve ser enviada como string com 2 casas decimais
+        metaAlcancada: String(Number(data.inputValue).toFixed(2)),
       }));
   
       const avaliacoesParaDispatch = evaluationData.map(data => ({
         operadorId: data.operadorId,
         avaliadorId: data.avaliadorId,
         periodo: data.periodo,
-        valorAlcancado: data.inputValue,
+        // para o estado local, armazenamos valorAlcancado como string
+        valorAlcancado: String(data.inputValue),
         valorBonusAlcancado: String(data.bonusValue.toFixed(2)),
       }));
   
@@ -223,6 +226,133 @@ export function EvaluateOperators() {
       } finally {
         setIsSubmitting(false);
       }
+  };
+
+  const handleImportMySuiteAndSave = async () => {
+    if (!avaliadorId || !selectedCriterionId || !selectedCriterion) {
+      toast({ title: 'Erro', description: 'Avaliador ou critério não encontrado.', variant: 'destructive' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // calcular datas: dataInicial 21 do mês anterior, dataFinal 20 do mês atual baseado em currentPeriod
+      const [year, month] = currentPeriod.split('-').map(Number);
+      const dataFinal = new Date(year, month - 1, 20);
+      const prevMonth = new Date(year, month - 2, 1);
+      const dataInicial = new Date(prevMonth.getFullYear(), prevMonth.getMonth(), 21);
+      const formatDDMMYYYY = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+
+      const payload: MySuitePerformanceRequest = {
+        dataInicial: formatDDMMYYYY(dataInicial),
+        dataFinal: formatDDMMYYYY(dataFinal),
+        consideraDtAbertura: true,
+      };
+
+      const results = await getMySuitePerformanceAvaliacoes(payload);
+      if (!results || results.length === 0) {
+        toast({ title: 'Nenhum dado', description: 'MySuite retornou vazio para o período selecionado.', variant: 'default' });
+        return;
+      }
+
+      // índice por operadorCodigo
+      const resultsByCodigo: Record<number, any> = {};
+      results.forEach((r: any) => { if (r && typeof r.operadorCodigo === 'number') resultsByCodigo[r.operadorCodigo] = r; });
+
+      // escolher critérios do state que têm metaCalculo === 3
+      const criteriosToImport = state.criterios.filter(c => c.metaCalculo === 3 && c.ativo);
+      if (criteriosToImport.length === 0) {
+        toast({ title: 'Nenhum critério', description: 'Não há critérios ativos com metaCalculo = 3.', variant: 'default' });
+        return;
+      }
+
+      let totalAvaliacoesImportadas = 0;
+      let criteriosProcessados = 0;
+
+      for (const criterio of criteriosToImport) {
+        const avaliacoesParaApi = state.operadores
+          .filter(op => op.codigoMysuite && resultsByCodigo[op.codigoMysuite])
+          .map(op => {
+            const mys = resultsByCodigo[op.codigoMysuite];
+            const media = Number(mys.mediaAvaliacao || 0);
+            const potentialBonusFromCriterio = criterio.valorBonus || 0;
+            const bonusValue = calcularValorAlcancadoFinal(criterio, media, potentialBonusFromCriterio);
+
+            // valorAlcancado deve ser a média vinda do MySuite (string decimal)
+            return {
+              operadorId: op.id,
+              periodo: currentPeriod,
+              valorObjetivo: String(potentialBonusFromCriterio.toFixed(2)),
+                // enviar a média como valorAlcancado (string com 2 casas)
+                valorAlcancado: String(media.toFixed(2)),
+              metaObjetivo: Math.round(Number(criterio.valorMeta)),
+              // metaAlcancada agora é a média como string com 2 casas
+              metaAlcancada: String(media.toFixed(2)),
+              // incluir bônus calculado para uso local/dispatch
+              _valorBonusCalculado: String(bonusValue.toFixed(2)),
+            };
+          });
+
+        if (avaliacoesParaApi.length === 0) continue;
+
+        // preparar payload sem campos temporários
+        const payloadToSend = {
+          criterioId: criterio.id,
+          avaliadorId: avaliadorId,
+          avaliacoes: avaliacoesParaApi.map(a => {
+            const media = parseFloat(String(a.valorAlcancado).replace(',', '.')) || 0;
+            const potentialBonus = criterio.valorBonus || 0;
+            const bonusValue = calcularValorAlcancadoFinal(criterio, media, potentialBonus);
+            return {
+              operadorId: a.operadorId,
+              periodo: a.periodo,
+              valorObjetivo: a.valorObjetivo,
+              // enviar o bônus calculado como valorAlcancado (string)
+              valorAlcancado: String(bonusValue.toFixed(2)),
+              metaObjetivo: a.metaObjetivo,
+              // enviar a média como metaAlcancada (string com casas decimais)
+              metaAlcancada: String(media.toFixed(2)),
+            };
+          }),
+        };
+
+        // log do payload em dev para ajudar a debugar 400
+        try { if (process.env.NODE_ENV !== 'production') console.log('[Bulk][EvaluateOperators] Enviando payload:', JSON.stringify(payloadToSend)); } catch(e) {}
+
+        const resp = await createBulkEvaluations(payloadToSend);
+        if (resp && resp.success) {
+          const avaliacoesParaDispatch = avaliacoesParaApi.map(a => {
+            const criterioAtual = criterio;
+            const mediaNum = parseFloat(String((a as any).valorAlcancado).replace(',', '.')) || 0;
+            const potentialBonus = criterioAtual.valorBonus || 0;
+            const bonusCalc = calcularValorAlcancadoFinal(criterioAtual, mediaNum, potentialBonus);
+            return {
+              operadorId: a.operadorId,
+              avaliadorId: avaliadorId,
+              periodo: a.periodo,
+              // para o estado local, valorAlcancado deve ser a média (string)
+              valorAlcancado: String((a as any).valorAlcancado),
+              // valorBonusAlcancado será o bônus calculado (string)
+              valorBonusAlcancado: String(bonusCalc.toFixed(2)),
+            };
+          });
+          dispatch({ type: 'ADD_AVALIACAO_BULK', payload: { criterioId: criterio.id, avaliacoes: avaliacoesParaDispatch } });
+          totalAvaliacoesImportadas += avaliacoesParaApi.length;
+          criteriosProcessados += 1;
+        }
+      }
+
+      if (criteriosProcessados > 0) {
+        toast({ title: 'Importação concluída', description: `${criteriosProcessados} critérios processados e ${totalAvaliacoesImportadas} avaliações importadas.`, variant: 'default' });
+      } else {
+        toast({ title: 'Nenhuma correspondência', description: 'Nenhum operador com codigoMysuite correspondente foi encontrado para os critérios com metaCalculo = 3.', variant: 'default' });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      toast({ title: 'Erro', description: message, variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const allOperatorsEvaluated = activeOperators.length === Object.keys(evaluationValues).length;
@@ -336,13 +466,16 @@ export function EvaluateOperators() {
                   )}
                 </div>
               ))}
-              <Button 
-                onClick={handleSaveAndNext} 
-                className="w-full mt-6" 
-                disabled={isSubmitting || !allOperatorsEvaluated || isCurrentCriterionEvaluated}
-              >
-                {isSubmitting ? 'Salvando...' : 'Salvar e Ir para Próximo Critério'}
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button 
+                  onClick={handleSaveAndNext} 
+                  className="w-full mt-6" 
+                  disabled={isSubmitting || !allOperatorsEvaluated || isCurrentCriterionEvaluated}
+                >
+                  {isSubmitting ? 'Salvando...' : 'Salvar e Ir para Próximo Critério'}
+                </Button>
+                <Button onClick={handleImportMySuiteAndSave} className="w-full" disabled={isSubmitting || isCurrentCriterionEvaluated} variant="default">Importar Dados do Mysuite</Button>
+              </div>
             </div>
           )}
 

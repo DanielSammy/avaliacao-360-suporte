@@ -3,19 +3,22 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useEvaluation } from '@/contexts/EvaluationContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { OperatorSelector } from './OperatorSelector';
 import { PeriodSelector } from './PeriodSelector';
 import { PDFGenerator } from '../reports/PDFGenerator';
 import { Avaliacao, Criterio, CriterioAvaliacao, TipoCriterio } from '@/types/evaluation';
 import { FileText, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { getEvaluationDashboard, EvaluationDashboardResponse } from '@/services/evaluationService';
+import { getEvaluationDashboard, EvaluationDashboardResponse, createBulkEvaluations } from '@/services/evaluationService';
+import { useToast } from '@/hooks/use-toast';
 import { getTipoCriterios } from '@/services/criteriaService';
 import { calcularBonusAlcancado } from '@/utils/calculations';
 import { BlockEvaluation } from './BlockEvaluation';
 
 export function EvaluationPanel() {
-  const { state } = useEvaluation();
+  const { state, dispatch } = useEvaluation();
+  const { user } = useAuth();
   const [operadorSelecionado, setOperadorSelecionado] = useState<number | null>(null);
   const [periodoAtual, setPeriodoAtual] = useState<string>(() => {
     const hoje = new Date();
@@ -24,6 +27,7 @@ export function EvaluationPanel() {
   const [dashboardData, setDashboardData] = useState<EvaluationDashboardResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [tiposCriterio, setTiposCriterio] = useState<TipoCriterio[]>([]);
+  const { toast } = useToast();
 
   const activeOperators = useMemo(() => state.operadores.filter(op => op.ativo && op.participaAvaliacao), [state.operadores]);
 
@@ -63,6 +67,12 @@ export function EvaluationPanel() {
     [state.operadores, operadorSelecionado]
   );
 
+  // avaliador: usuário logado se estiver mapeado a um operador local
+  const avaliadorLogado = useMemo(() => {
+    if (!user?.login) return null;
+    return state.operadores.find(op => String(op.login).toLowerCase() === String(user.login).toLowerCase()) || null;
+  }, [state.operadores, user?.login]);
+
   const criteriosParaTabela: Criterio[] = useMemo(() => {
     if (!dashboardData?.data.criterios) return [];
     return dashboardData.data.criterios.map(c => {
@@ -79,6 +89,7 @@ export function EvaluationPanel() {
         totalAvaliacoes: 0,
         valorBonus: parseFloat(c.valorMeta),
         mediaGeral: false,
+        metaCalculo: originalCriterio ? originalCriterio.metaCalculo : undefined,
       };
     });
   }, [dashboardData, state.criterios]);
@@ -106,7 +117,8 @@ export function EvaluationPanel() {
 
       return {
         criterioId: c.criterioId,
-        valorAlcancado: valorAlcancadoNumerico,
+        // armazenar como string para preservar precisão (decimal)
+        valorAlcancado: String(valorAlcancadoNumerico),
         valorBonusAlcancado: bonusCalculado,
         metaAtingida: c.metaAtingida,
         metaAlcancada: c.metaAlcancada,
@@ -128,6 +140,8 @@ export function EvaluationPanel() {
       dataUltimaEdicao: new Date(),
     };
   }, [dashboardData, operadorSelecionado, periodoAtual, criteriosAvaliacao]);
+
+  // função de import do MySuite removida desta tela; permanece apenas em EvaluateOperators
 
   const groupedCriteria = useMemo(() => {
     const groups: { [key: number]: Criterio[] } = {};
@@ -200,6 +214,9 @@ export function EvaluationPanel() {
                           <PDFGenerator avaliacao={avaliacaoAtual} operador={operadorAtual} criterios={criteriosParaTabela} />
                       </div>
                   )}
+                  <div className="flex items-center gap-2">
+                    {/* Button removed to eliminate reference to the removed function */}
+                  </div>
               </CardContent>
           </Card>
         </div>

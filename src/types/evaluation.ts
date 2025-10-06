@@ -38,7 +38,8 @@ export interface TipoCriterio {
 
 export interface CriterioAvaliacao {
   criterioId: number;
-  valorAlcancado: number;
+  // agora armazenamos o valor alcançado como string (decimal) para preservar precisão
+  valorAlcancado: string;
   valorBonusAlcancado: number;
   metaAtingida: boolean;
   metaAlcancada: string;

@@ -92,7 +92,7 @@ export function PDFGenerator({ avaliacao, operador, criterios }: PDFGeneratorPro
         .sort((a, b) => a.ordem - b.ordem)
         .forEach((criterio, index) => {
           const criterioAvaliacao = avaliacao.criterios.find(ca => ca.criterioId === criterio.id);
-          const valorAlcancado = criterioAvaliacao?.valorAlcancado || 0;
+          const valorAlcancado = criterioAvaliacao ? parseFloat(String(criterioAvaliacao.valorAlcancado).replace(',', '.')) || 0 : 0;
           const valorBonusAlcancado = criterioAvaliacao?.valorBonusAlcancado || 0;
           const metaAlcancada = criterioAvaliacao?.metaAlcancada || '';
           const atingiu = metaAtingida(criterio, valorAlcancado);

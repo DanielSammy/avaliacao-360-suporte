@@ -139,15 +139,16 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
           ev => ev.operadorId === operadorId && ev.periodo === periodo && ev.avaliadorId === bulkAval.avaliadorId
         );
 
-        const inputValue = parseFloat(valorAlcancado);
+        const inputValueNum = parseFloat(valorAlcancado);
         const bonusValue = parseFloat(valorBonusAlcancado);
 
         const newCriterioAvaliacao: CriterioAvaliacao = {
           criterioId: criterioId,
-          valorAlcancado: inputValue,
+          // armazenar como string para preservar casas decimais
+          valorAlcancado: String(valorAlcancado),
           valorBonusAlcancado: bonusValue,
-          metaAtingida: metaAtingida(criterio, inputValue),
-          metaAlcancada: String(inputValue),
+          metaAtingida: metaAtingida(criterio, inputValueNum),
+          metaAlcancada: String(inputValueNum),
         };
 
         if (existingEvalIndex > -1) {

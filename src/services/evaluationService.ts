@@ -10,7 +10,8 @@ export interface CreateBulkEvaluationsRequest {
     valorObjetivo: string;
     valorAlcancado: string;
     metaObjetivo : number;
-    metaAlcancada : number;
+    // metaAlcancada pode ser enviada como string decimal (ex: "4.63")
+    metaAlcancada : string;
   }>;
 }
 

@@ -39,7 +39,8 @@ export function BlockEvaluation({ title, criterios, criteriosAvaliacao, totalVal
 
     const sumValorAlcancado = activeCriteria.reduce((acc, criterio) => {
       const ca = criteriosAvaliacao.find(ca => ca.criterioId === criterio.id);
-      return acc + (ca?.valorAlcancado || 0);
+      const v = ca ? parseFloat(String(ca.valorAlcancado).replace(',', '.')) || 0 : 0;
+      return acc + v;
     }, 0);
 
     const avgValorAlcancado = sumValorAlcancado / activeCriteria.length;

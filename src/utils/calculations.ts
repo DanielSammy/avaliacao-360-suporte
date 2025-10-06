@@ -10,11 +10,12 @@ import { Criterio, CriterioAvaliacao, Avaliacao, Operador } from '../types/evalu
  * @param valorAlcancado O valor alcançado pelo operador.
  * @returns `true` se a meta foi atingida, `false` caso contrário.
  */
-export function metaAtingida(criterio: Criterio, valorAlcancado: number): boolean {
+export function metaAtingida(criterio: Criterio, valorAlcancado: number | string): boolean {
+  const v = typeof valorAlcancado === 'string' ? parseFloat(valorAlcancado.replace(',', '.')) || 0 : valorAlcancado || 0;
   if (criterio.tipoMeta === 'menor_melhor') {
-    return valorAlcancado <= criterio.valorMeta;
+    return v <= criterio.valorMeta;
   } else {
-    return valorAlcancado >= criterio.valorMeta;
+    return v >= criterio.valorMeta;
   }
 }
 
@@ -26,29 +27,30 @@ export function metaAtingida(criterio: Criterio, valorAlcancado: number): boolea
  * @param valorAlcancado O valor alcançado pelo operador.
  * @returns O valor do bônus calculado.
  */
-export function calcularBonusAlcancado(criterio: Criterio, valorAlcancado: number): number {
+export function calcularBonusAlcancado(criterio: Criterio, valorAlcancado: number | string): number {
+  const v = typeof valorAlcancado === 'string' ? parseFloat(valorAlcancado.replace(',', '.')) || 0 : valorAlcancado || 0;
   const target = criterio.valorMeta;
   const bonus = criterio.valorBonus;
 
   if (criterio.tipoMeta === 'maior_melhor') {
-    const atingiuMeta = valorAlcancado >= target;
+    const atingiuMeta = v >= target;
     if (atingiuMeta) {
       return bonus;
     }
     // Cálculo proporcional para metas não atingidas
     if (target <= 0) return 0;
-    const proporcao = Math.min(valorAlcancado / target, 1);
+    const proporcao = Math.min(v / target, 1);
     return Math.max(0, bonus * proporcao);
   } else { // menor_melhor
-    if (valorAlcancado < 0) return 0; // Valor negativo não deve contar
+    if (v < 0) return 0; // Valor negativo não deve contar
 
-    if (valorAlcancado > target) {
+    if (v > target) {
       // Se alcançado passar do objetivo, multiplica o bônus por 1%.
       return bonus * 0.01;
     }
     
     // Cálculo principal: (1 - (alcançado / meta)) * bônus
-    const proportion = 1 - (valorAlcancado / target);
+    const proportion = 1 - (v / target);
     return Math.max(0, bonus * proportion);
   }
 }
@@ -63,24 +65,25 @@ export function calcularBonusAlcancado(criterio: Criterio, valorAlcancado: numbe
  */
 export function calcularValorAlcancadoFinal(
   criterio: Criterio,
-  inputValue: number,
+  inputValue: number | string,
   potentialBonus: number
 ): number {
+  const v = typeof inputValue === 'string' ? parseFloat(inputValue.replace(',', '.')) || 0 : inputValue || 0;
   const target = criterio.valorMeta;
 
   if (criterio.tipoMeta === 'maior_melhor') {
     // Atingiu ou superou a meta
-    if (inputValue >= target) {
+    if (v >= target) {
       return potentialBonus;
     }
     // Cálculo proporcional se não atingiu a meta
     if (target <= 0) return 0;
-    const proportion = inputValue / target;
+    const proportion = v / target;
     return Math.max(0, potentialBonus * proportion);
   } else { // menor_melhor
-    if (inputValue < 0) return 0; // Não permitir valores negativos
+    if (v < 0) return 0; // Não permitir valores negativos
 
-    if (inputValue > target) {
+    if (v > target) {
       // Se o valor alcançado for maior que a meta, o bônus é de 1%
       return potentialBonus * 0.01;
     }
@@ -88,7 +91,7 @@ export function calcularValorAlcancadoFinal(
     // A meta é ser menor, então a proporção é inversa.
     // Se inputValue é 0, proportion é 1 (bônus máximo).
     // Se inputValue é igual a target, proportion é 0.
-    const proportion = 1 - (inputValue / target);
+    const proportion = 1 - (v / target);
     return Math.max(0, potentialBonus * proportion);
   }
 }
@@ -111,7 +114,7 @@ export function calcularTotaisAvaliacao(
   }, 0);
 
   const valorTotalAlcancado = criteriosAvaliacao.reduce((total, criterioAvaliacao) => {
-    return total + criterioAvaliacao.valorBonusAlcancado;
+    return total + (criterioAvaliacao.valorBonusAlcancado || 0);
   }, 0);
 
   return { valorTotalMeta, valorTotalAlcancado };
@@ -139,7 +142,7 @@ export function calcularResultadoFinal(criterio: Criterio, avaliacoes: Avaliacao
 
     if (managerEvaluation) {
       const criterioAvaliado = managerEvaluation.criterios.find(c => c.criterioId === criterio.id);
-      return criterioAvaliado?.valorAlcancado || 0;
+      return criterioAvaliado ? (parseFloat(String(criterioAvaliado.valorAlcancado).replace(',', '.')) || 0) : 0;
     }
     return 0;
   } else {
@@ -150,7 +153,7 @@ export function calcularResultadoFinal(criterio: Criterio, avaliacoes: Avaliacao
 
     const allScores = nonManagerEvaluations.flatMap(av => {
       const criterioAvaliado = av.criterios.find(c => c.criterioId === criterio.id);
-      return criterioAvaliado ? [criterioAvaliado.valorAlcancado] : [];
+      return criterioAvaliado ? [parseFloat(String(criterioAvaliado.valorAlcancado).replace(',', '.')) || 0] : [];
     });
 
     if (allScores.length === 0) {
