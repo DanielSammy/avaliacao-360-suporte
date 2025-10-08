@@ -39,16 +39,21 @@ export interface TipoCriterio {
 export interface CriterioAvaliacao {
   criterioId: number;
   // agora armazenamos o valor alcançado como string (decimal) para preservar precisão
-  valorAlcancado: string;
-  valorBonusAlcancado: number;
-  metaAtingida: boolean;
-  metaAlcancada: string;
+  valorAlcancado?: string;
+  // valorMeta pode vir como string na API (ex: "85.75")
+  valorMeta?: string;
+  // alguns responses colocam o avaliadorId no próprio critério
+  avaliadorId?: number;
+  valorBonusAlcancado?: number;
+  metaAtingida?: boolean;
+  metaAlcancada?: string;
 }
 
 export interface Avaliacao {
   id: number;
   operadorId: number; // ID do operador avaliado
-  avaliadorId: number; // ID do operador que realizou a avaliação
+  // em alguns endpoints o avaliadorId fica no nível superior, em outros dentro de cada criterio
+  avaliadorId?: number; // ID do operador que realizou a avaliação (opcional)
   periodo: string; // formato: "YYYY-MM"
   criterios: CriterioAvaliacao[];
   valorTotalMeta: number;

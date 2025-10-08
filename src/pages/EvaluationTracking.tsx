@@ -4,15 +4,90 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Info } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEvaluation } from '../contexts/EvaluationContext';
+import { getAvaliacoes } from '@/services/evaluationService';
+import { getOperadores } from '@/services/operatorService';
+import { getCriterios } from '@/services/criteriaService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Operador } from '../types/evaluation';
+import { getCurrentPeriod } from '@/lib/period';
 
 export function EvaluationTracking() {
   const { state } = useEvaluation();
   const { user } = useAuth();
+
+  const { dispatch } = useEvaluation();
+  const [loading, setLoading] = React.useState<boolean>(false);
+  const [authError, setAuthError] = React.useState<string | null>(null);
+  const currentPeriod = getCurrentPeriod();
+
+  const fetchAllData = React.useCallback(async () => {
+    let mounted = true; // local guard for this invocation
+    setAuthError(null);
+    setLoading(true);
+    try {
+      // operadores
+      try {
+        const resp = await getOperadores();
+        const ops = resp.data || [];
+        if (mounted) dispatch({ type: 'FETCH_OPERADORES_SUCCESS', payload: ops });
+      } catch (opErr) {
+        console.error('Failed to fetch operadores for EvaluationTracking:', opErr);
+        if (String(opErr).includes('401')) {
+          if (mounted) setAuthError('Sessão inválida ou expirada. Por favor, faça login novamente.');
+          throw opErr;
+        }
+      }
+
+      // criterios
+      try {
+        const resp = await getCriterios();
+        const raw = (resp && resp.data) ? resp.data : [];
+        const transformed = raw.map((criterio: unknown) => {
+          const rc = criterio as Record<string, unknown>;
+          return {
+            ...rc,
+            id: rc.id as number,
+            idCriterio: parseInt(String(rc.idCriterio ?? rc['idCriterio'] ?? 0), 10),
+            nome: String(rc.nome ?? ''),
+            tipo: (rc.tipo as 'qualitativo' | 'quantitativo') ?? 'qualitativo',
+            tipoMeta: (rc.tipoMeta as 'maior_melhor' | 'menor_melhor') ?? 'maior_melhor',
+            valorMeta: parseFloat(String(rc.valorMeta ?? 0)),
+            ordem: Number(rc.ordem ?? 0),
+            ativo: !!rc.ativo,
+            mediaGeral: !!rc.mediaGeral,
+            totalAvaliacoes: rc.totalAvaliacoes !== undefined ? parseInt(String(rc.totalAvaliacoes), 10) : undefined,
+            valorBonus: rc.valorCriterio ? parseFloat(String(rc.valorCriterio)) : 0,
+            metaCalculo: rc.metaCalculo !== undefined ? parseInt(String(rc.metaCalculo), 10) : undefined,
+          };
+        });
+        if (mounted) dispatch({ type: 'SET_CRITERIOS', payload: transformed });
+      } catch (crErr) {
+        console.error('Failed to fetch criterios for EvaluationTracking:', crErr);
+        if (String(crErr).includes('401')) {
+          if (mounted) setAuthError('Sessão inválida ou expirada. Por favor, faça login novamente.');
+          throw crErr;
+        }
+      }
+
+      // avaliacoes
+      const data = await getAvaliacoes(currentPeriod);
+      const normalized = (data || []).map((d: any) => ({
+        ...d,
+        dataCriacao: d.dataCriacao ? new Date(d.dataCriacao) : new Date(),
+        dataUltimaEdicao: d.dataUltimaEdicao ? new Date(d.dataUltimaEdicao) : new Date(),
+      }));
+      if (mounted) dispatch({ type: 'SET_AVALIACOES', payload: normalized });
+    } catch (err) {
+      console.error('Failed to fetch all data for EvaluationTracking:', err);
+    } finally {
+      setLoading(false);
+    }
+    return () => { mounted = false; };
+  }, [currentPeriod, dispatch]);
+
 
   // operadores ativos (podem avaliar) e operadores exibidos (participam da avaliação, são avaliados)
   const allActiveOperators = state.operadores.filter(op => op.ativo);
@@ -20,7 +95,11 @@ export function EvaluationTracking() {
   // critérios aplicáveis: somente critérios ativos com idCriterio === 2
   const applicableCriterios = state.criterios.filter(criterio => criterio.ativo && criterio.idCriterio === 2);
   const applicableCriterioIds = new Set(applicableCriterios.map(c => c.id));
-  const currentPeriod = new Date().getFullYear().toString() + '-' + (new Date().getMonth() + 1).toString().padStart(2, '0');
+
+  React.useEffect(() => { fetchAllData(); }, [fetchAllData]);
+
+  // ...existing code...
+
 
   const operatorEvaluationSummary = displayedOperators.map(operator => {
     const isManager = operator.grupo === 6 || operator.grupo === 7;
@@ -39,14 +118,22 @@ export function EvaluationTracking() {
 
     // For 'Avaliações Dadas' conte critérios completos onde este operador, como avaliador,
     // avaliou TODOS os alvos esperados (peopleToEvaluate) para aquele critério no período atual.
-    const evaluationsGivenByOperator = state.avaliacoes.filter(ev => ev.avaliadorId === operator.id && ev.periodo === currentPeriod);
+    const evaluationsGivenByOperator = state.avaliacoes.filter(ev => {
+      if (ev.periodo !== currentPeriod) return false;
+      if (ev.avaliadorId === operator.id) return true;
+      if (!Array.isArray(ev.criterios)) return false;
+      return ev.criterios.some((c: any) => Number(c.avaliadorId) === operator.id);
+    });
     let completedGivenCriteria = 0;
     for (const criterio of applicableCriterios) {
       const targetsEvaluated = new Set<number>();
       for (const ev of evaluationsGivenByOperator) {
         if (!Array.isArray(ev.criterios)) continue;
-        if (ev.criterios.some(c => c.criterioId === criterio.id)) {
-          targetsEvaluated.add(ev.operadorId);
+        for (const c of ev.criterios) {
+          if (c.criterioId === criterio.id) {
+            // cada criterio traz o avaliadorId agora; para 'dados' precisamos do operador alvo
+            targetsEvaluated.add(ev.operadorId);
+          }
         }
       }
       if (targetsEvaluated.size >= peopleToEvaluate.length) completedGivenCriteria += 1;
@@ -78,11 +165,18 @@ export function EvaluationTracking() {
       const evaluatorsWhoRated = new Set<number>();
       for (const ev of evaluationsReceivedByOperator) {
         if (!Array.isArray(ev.criterios)) continue;
-        if (ev.criterios.some(c => c.criterioId === criterio.id)) {
-          evaluatorsWhoRated.add(ev.avaliadorId);
+        for (const c of ev.criterios) {
+          if (c.criterioId === criterio.id) {
+            // preferir o avaliadorId por critério, mas aceitar o avaliador no topo caso exista
+            if (c.avaliadorId !== undefined && c.avaliadorId !== null) {
+              evaluatorsWhoRated.add(Number(c.avaliadorId));
+            } else if (ev.avaliadorId !== undefined && ev.avaliadorId !== null) {
+              evaluatorsWhoRated.add(Number(ev.avaliadorId));
+            }
+          }
         }
       }
-  // exigir avaliações de todos os operadores ativos (inclui avaliadores que não são exibidos)
+  // exigir avaliações de TODOS os operadores ATIVOS
   const expectedEvaluatorsCount = allActiveOperators.length;
   if (evaluatorsWhoRated.size >= expectedEvaluatorsCount) completedReceivedCriteria += 1;
     }
@@ -141,12 +235,18 @@ export function EvaluationTracking() {
   for (const op of allActiveOperators) {
     const evaluationsReceivedByOperatorAll = state.avaliacoes.filter(ev => ev.operadorId === op.id && ev.periodo === currentPeriod);
     let completedForOp = 0;
-    for (const criterio of applicableCriterios) {
+      for (const criterio of applicableCriterios) {
       const evaluatorsWhoRated = new Set<number>();
       for (const ev of evaluationsReceivedByOperatorAll) {
         if (!Array.isArray(ev.criterios)) continue;
-        if (ev.criterios.some(c => c.criterioId === criterio.id)) {
-          evaluatorsWhoRated.add(ev.avaliadorId);
+        for (const c of ev.criterios) {
+          if (c.criterioId === criterio.id) {
+            if (c.avaliadorId !== undefined && c.avaliadorId !== null) {
+              evaluatorsWhoRated.add(Number(c.avaliadorId));
+            } else if (ev.avaliadorId !== undefined && ev.avaliadorId !== null) {
+              evaluatorsWhoRated.add(Number(ev.avaliadorId));
+            }
+          }
         }
       }
       // expected evaluators for this operator (using allActiveOperators rules)
@@ -154,7 +254,7 @@ export function EvaluationTracking() {
       const managersAll = allActiveOperators.filter(p => (p.grupo === 6 || p.grupo === 7) && p.id !== op.id);
       const peersAll = allActiveOperators.filter(p => p.grupo !== 6 && p.grupo !== 7 && p.id !== op.id);
       const peopleWhoShouldEvaluateOp = isMgr ? managersAll : [...managersAll, ...peersAll];
-  // exigir avaliações de todos os operadores ativos (inclui avaliadores não exibidos)
+  // exigir avaliações de TODOS os operadores ATIVOS
   const expectedEvaluatorsForOp = allActiveOperators.length;
   if (evaluatorsWhoRated.size >= expectedEvaluatorsForOp) completedForOp += 1;
     }
@@ -163,6 +263,7 @@ export function EvaluationTracking() {
 
   const totalPossible = allActiveOperators.length * applicableCriterios.length;
   const totalPendingEvaluations = Math.max(0, totalPossible - totalCompletedAcrossAll);
+  const showTable = !loading && state.operadores.length > 0 && state.criterios.length > 0;
 
   return (
     <div className="container mx-auto p-6">
@@ -198,12 +299,20 @@ export function EvaluationTracking() {
                         const rec = operatorEvaluationSummary.find(r => r.operator.id === op.id);
                         const completed = rec ? rec.evaluationsReceivedCount : 0;
                         // calcular quantos critérios este operador já avaliou como avaliador
-                        const evalsByOp = state.avaliacoes.filter(ev => ev.avaliadorId === op.id && ev.periodo === currentPeriod);
+                        const evalsByOp = state.avaliacoes.filter(ev => {
+                          if (ev.periodo !== currentPeriod) return false;
+                          if (ev.avaliadorId === op.id) return true;
+                          if (!Array.isArray(ev.criterios)) return false;
+                          return ev.criterios.some((c: any) => Number(c.avaliadorId) === op.id);
+                        });
                         const criteriaEvaluatedByOp = new Set<number>();
                         for (const ev of evalsByOp) {
                           if (!Array.isArray(ev.criterios)) continue;
                           for (const c of ev.criterios) {
-                            if (applicableCriterioIds.has(c.criterioId)) criteriaEvaluatedByOp.add(c.criterioId);
+                            // Conte este criterio apenas se for aplicavel E se foi avaliado por este operador
+                            const criterioAplicavel = applicableCriterioIds.has(c.criterioId);
+                            const criterioPorEsseAvaliador = (c.avaliadorId !== undefined && Number(c.avaliadorId) === op.id) || ev.avaliadorId === op.id;
+                            if (criterioAplicavel && criterioPorEsseAvaliador) criteriaEvaluatedByOp.add(c.criterioId);
                           }
                         }
 
@@ -240,57 +349,75 @@ export function EvaluationTracking() {
                 </Link>
               </div>
             )}
+            {/* botão Recarregar removido conforme solicitado */}
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Operador</TableHead>
-                <TableHead className="text-center">Avaliações Dadas</TableHead>
-                <TableHead className="text-center">Status (Dadas)</TableHead>
-                <TableHead className="text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <span>Avaliações Recebidas</span>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <div className="text-sm text-muted-foreground cursor-pointer px-1 py-0.5 rounded-md"><Info className="h-4 w-4" /></div>
-                      </PopoverTrigger>
-                      <PopoverContent>
-                        <div className="text-sm">
-                          Esse contador só será considerado quando TODOS os operadores ativos tiverem avaliado o critério (ou seja, completa quando atingir {allActiveOperators.length} avaliações para o critério).
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </TableHead>
-                <TableHead className="text-center">Status (Recebidas)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {operatorEvaluationSummary.map(({ 
-                operator, 
-                evaluationsGivenCount, 
-                evaluationsExpectedToGive, 
-                evaluationsReceivedCount, 
-                evaluationsExpectedToReceive, 
-                statusGiven, 
-                variantGiven, 
-                statusReceived, 
-                variantReceived 
-              }) => (
-                <TableRow key={operator.id}>
-                  <TableCell className="font-medium">{operator.nome}</TableCell>
-                  <TableCell className="text-center">{evaluationsGivenCount} / {evaluationsExpectedToGive}</TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant={variantGiven}>{statusGiven}</Badge>
-                  </TableCell>
-                  <TableCell className="text-center">{evaluationsReceivedCount} / {evaluationsExpectedToReceive}</TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant={variantReceived}>{statusReceived}</Badge>
-                  </TableCell>
+          {loading && (
+            <div className="p-6 text-center text-sm text-muted-foreground">Carregando avaliações...</div>
+          )}
+
+          {authError && (
+            <div className="p-6 text-center text-sm text-destructive">
+              {authError} {' '}
+              <Link to="/login" className="underline">Ir para Login</Link>
+            </div>
+          )}
+
+          {!loading && !showTable && (
+            <div className="p-6 text-center text-sm text-muted-foreground">Aguardando operadores e critérios carregarem. Se você limpou a memória local, carregue novamente a página ou faça login para buscar os dados do servidor.</div>
+          )}
+
+          {showTable && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Operador</TableHead>
+                  <TableHead className="text-center">Avaliações Dadas</TableHead>
+                  <TableHead className="text-center">Status (Dadas)</TableHead>
+                  <TableHead className="text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Avaliações Recebidas</span>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <div className="text-sm text-muted-foreground cursor-pointer px-1 py-0.5 rounded-md"><Info className="h-4 w-4" /></div>
+                        </PopoverTrigger>
+                        <PopoverContent>
+                          <div className="text-sm">
+                            Esse contador só será considerado quando TODOS os operadores ativos tiverem avaliado o critério (ou seja, completa quando atingir {allActiveOperators.length} avaliações para o critério).
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-center">Status (Recebidas)</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {operatorEvaluationSummary.map(({ 
+                  operator, 
+                  evaluationsGivenCount, 
+                  evaluationsExpectedToGive, 
+                  evaluationsReceivedCount, 
+                  evaluationsExpectedToReceive, 
+                  statusGiven, 
+                  variantGiven, 
+                  statusReceived, 
+                  variantReceived 
+                }) => (
+                  <TableRow key={operator.id}>
+                    <TableCell className="font-medium">{operator.nome}</TableCell>
+                    <TableCell className="text-center">{evaluationsGivenCount} / {evaluationsExpectedToGive}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={variantGiven}>{statusGiven}</Badge>
+                    </TableCell>
+                    <TableCell className="text-center">{evaluationsReceivedCount} / {evaluationsExpectedToReceive}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={variantReceived}>{statusReceived}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
