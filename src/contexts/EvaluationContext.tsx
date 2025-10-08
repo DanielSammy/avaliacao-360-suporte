@@ -233,8 +233,9 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
   const mys = await (await import('@/services/operatorService')).getMySuiteOperadores();
         // índice por email lowercased -> codigo
         const mysIndex: Record<string, number> = {};
-        (mys || []).forEach((m: any) => {
-          if (m && m.email) mysIndex[String(m.email).toLowerCase()] = Number(m.codigo);
+        (mys || []).forEach((m: unknown) => {
+          const mm = m as Record<string, unknown>;
+          if (mm && mm.email) mysIndex[String(mm.email).toLowerCase()] = Number(mm.codigo ?? mm.id ?? 0);
         });
 
         operadores = operadores.map(op => ({
@@ -298,21 +299,24 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
       try {
         const response = await getCriterios();
         // Garante que idCriterio seja sempre um número para consistência da aplicação
-        const transformedCriterios = response.data.map((criterio: any) => ({
-          ...criterio,
-          id: criterio.id,
-          idCriterio: parseInt(String(criterio.idCriterio), 10),
-          nome: criterio.nome,
-          tipo: criterio.tipo as 'qualitativo' | 'quantitativo',
-          tipoMeta: criterio.tipoMeta as 'maior_melhor' | 'menor_melhor',
-          valorMeta: parseFloat(String(criterio.valorMeta || 0)),
-          ordem: criterio.ordem ?? 0,
-          ativo: !!criterio.ativo,
-          mediaGeral: !!criterio.mediaGeral,
-          totalAvaliacoes: criterio.totalAvaliacoes !== undefined ? parseInt(String(criterio.totalAvaliacoes), 10) : undefined,
-          valorBonus: criterio.valorCriterio ? parseFloat(String(criterio.valorCriterio)) : 0,
-          metaCalculo: criterio.metaCalculo !== undefined ? parseInt(String(criterio.metaCalculo), 10) : undefined,
-        } as Criterio));
+        const transformedCriterios = response.data.map((criterio: unknown) => {
+          const rc = criterio as Record<string, unknown>;
+          return {
+            ...rc,
+            id: rc.id as number,
+            idCriterio: parseInt(String(rc.idCriterio ?? rc['idCriterio'] ?? 0), 10),
+            nome: String(rc.nome ?? ''),
+            tipo: (rc.tipo as 'qualitativo' | 'quantitativo') ?? 'qualitativo',
+            tipoMeta: (rc.tipoMeta as 'maior_melhor' | 'menor_melhor') ?? 'maior_melhor',
+            valorMeta: parseFloat(String(rc.valorMeta ?? 0)),
+            ordem: Number(rc.ordem ?? 0),
+            ativo: !!rc.ativo,
+            mediaGeral: !!rc.mediaGeral,
+            totalAvaliacoes: rc.totalAvaliacoes !== undefined ? parseInt(String(rc.totalAvaliacoes), 10) : undefined,
+            valorBonus: rc.valorCriterio ? parseFloat(String(rc.valorCriterio)) : 0,
+            metaCalculo: rc.metaCalculo !== undefined ? parseInt(String(rc.metaCalculo), 10) : undefined,
+          } as Criterio;
+        });
         dispatch({ type: 'SET_CRITERIOS', payload: transformedCriterios });
       } catch (err) {
         console.error("Failed to fetch criterios:", err);

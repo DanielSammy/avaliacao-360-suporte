@@ -162,19 +162,23 @@ export function CriteriaManagement() {
       // Extrair nome retornado pela API com cuidados de tipagem
       let createdName = newCriterionName;
       if (created) {
-        if ((created as any).data && (created as any).data.nome) createdName = (created as any).data.nome;
-        else if ((created as any).nome) createdName = (created as any).nome;
-        else if ((created as any).data && (created as any).data.name) createdName = (created as any).data.name;
+        const rc = created as unknown as Record<string, unknown>;
+        if (rc.data && typeof rc.data === 'object' && (rc.data as Record<string, unknown>).nome) createdName = String((rc.data as Record<string, unknown>).nome);
+        else if (rc.nome) createdName = String(rc.nome);
+        else if (rc.data && typeof rc.data === 'object' && (rc.data as Record<string, unknown>).name) createdName = String((rc.data as Record<string, unknown>).name);
       }
 
       // Recarregar lista de critérios do backend para garantir dados consistentes
       try {
         const all = await getCriterios();
-        const transformedCriterios = all.data.map((criterio: Criterio) => ({
-          ...criterio,
-          idCriterio: parseInt(String((criterio as any).idCriterio), 10),
-          valorMeta: parseFloat(String((criterio as any).valorMeta)),
-        }));
+        const transformedCriterios = all.data.map((criterio: unknown) => {
+          const rc = criterio as Record<string, unknown>;
+          return {
+            ...(rc as Record<string, unknown>),
+            idCriterio: parseInt(String(rc.idCriterio ?? rc['idCriterio']), 10),
+            valorMeta: parseFloat(String(rc.valorMeta ?? rc['valorMeta'] ?? 0)),
+          } as Criterio;
+        });
         dispatch({ type: 'SET_CRITERIOS', payload: transformedCriterios });
       } catch (reloadErr) {
         // Fallback: se reload falhar, tentar adicionar o objeto retornado pela API

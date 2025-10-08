@@ -77,7 +77,7 @@ export const updateOperadorStatus = async (id: number, ativo: boolean): Promise<
 
 // ===== MySuite integration =====
 // Busca operadores no MySuite (não requer token)
-export const getMySuiteOperadores = async (): Promise<Array<any>> => {
+export const getMySuiteOperadores = async (): Promise<Array<Record<string, unknown>>> => {
   const base = import.meta.env.VITE_API_MYSUITE_URL;
   if (!base) {
     throw new Error('VITE_API_MYSUITE_URL não configurado');
@@ -134,9 +134,7 @@ export const getMySuiteConcluidosPorContato = async (payload: MySuitePerformance
 
   const url = `${normalized}/dashboard/suporte/ticket/concluido/contato`;
 
-  try {
-    if (process.env.NODE_ENV !== 'production') console.log('[MySuite] POST ->', url, 'payload:', payload);
-  } catch (e) {}
+  // debug log removed for production optimization
 
   const response = await fetch(url, {
     method: 'POST',
@@ -154,10 +152,12 @@ export const getMySuiteConcluidosPorContato = async (payload: MySuitePerformance
   const data = await response.json();
   // Espera-se um array de tickets; normalizar apenas codigoOperador
   if (Array.isArray(data)) {
-    return data.map((r: any) => ({
-      codigo: Number(r.codigo ?? r.id ?? 0),
-      codigoOperador: Number(r.codigoOperador ?? r.codigo_operador ?? r.operadorCodigo ?? 0),
-    }));
+    return data.map((r: unknown) => {
+      const rr = r as Record<string, unknown>;
+      const codigo = Number(rr.codigo ?? rr.id ?? 0);
+      const codigoOperador = Number(rr.codigoOperador ?? rr.codigo_operador ?? rr.operadorCodigo ?? 0);
+      return { codigo, codigoOperador };
+    });
   }
 
   return [];
@@ -174,14 +174,7 @@ export const getMySuitePerformanceAvaliacoes = async (payload: MySuitePerformanc
   }
 
   const url = `${normalized}/dashboard/suporte/performace/time/avaliacao`;
-  // Log minimal para auxiliar debug do intervalo de datas (somente em dev)
-  try {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[MySuite] POST ->', url, 'payload:', payload);
-    }
-  } catch (e) {
-    // ignore logging errors
-  }
+  // debug log removed for production optimization
 
   const response = await fetch(url, {
     method: 'POST',
@@ -199,13 +192,15 @@ export const getMySuitePerformanceAvaliacoes = async (payload: MySuitePerformanc
 
   // Normalizar possíveis formatos/nomes vindos do MySuite para facilitar consumo no frontend
   if (Array.isArray(data)) {
-    return data.map((r: any) => {
+    return data.map((r: unknown) => {
+      const rr = r as Record<string, unknown>;
       // tentar extrair operadorCodigo de variações comuns
-      const operadorCodigo = Number(r.operadorCodigo ?? r.operador_codigo ?? r.codigoOperador ?? r.operadorCod ?? r.operadorId ?? NaN);
+      const operadorCodigoRaw = rr.operadorCodigo ?? rr.operador_codigo ?? rr.codigoOperador ?? rr.operadorCod ?? rr.operadorId ?? NaN;
+      const operadorCodigo = Number(operadorCodigoRaw);
 
       // possíveis campos/sintaxes para a média: strings com vírgula, número, ou nomes diferentes
-      const mediaCandidates = [r.mediaAvaliacao, r.media, r.media_avaliacao, r.mediaAvaliacaoMedia, r.mediaAvaliacaoStr, r.mediaPercentual, r.media_percentual];
-      let mediaRaw = undefined as any;
+      const mediaCandidates = [rr.mediaAvaliacao, rr.media, rr.media_avaliacao, rr.mediaAvaliacaoMedia, rr.mediaAvaliacaoStr, rr.mediaPercentual, rr.media_percentual];
+      let mediaRaw: unknown = undefined;
       for (const c of mediaCandidates) {
         if (c !== undefined && c !== null) { mediaRaw = c; break; }
       }
@@ -216,17 +211,19 @@ export const getMySuitePerformanceAvaliacoes = async (payload: MySuitePerformanc
           // substituir vírgula por ponto e converter
           media = parseFloat(mediaRaw.replace(',', '.')) || 0;
         } else if (typeof mediaRaw === 'number') {
-          media = mediaRaw;
+          media = mediaRaw as number;
         } else {
           media = Number(mediaRaw) || 0;
         }
       }
 
+      // reconstruir objeto original com as normalizações
+      const out = { ...(rr as Record<string, unknown>) } as Record<string, unknown>;
       return {
-        ...r,
+        ...out,
         operadorCodigo: Number.isNaN(operadorCodigo) ? undefined : operadorCodigo,
         mediaAvaliacao: media,
-      } as any;
+      } as MySuitePerformanceItem;
     });
   }
 

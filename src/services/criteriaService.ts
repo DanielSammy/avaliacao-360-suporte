@@ -49,17 +49,21 @@ export const createCriterio = async (criterio: Omit<Criterio, 'id' | 'totalAvali
 
 export const updateCriterio = async (id: number, criterio: Partial<Omit<Criterio, 'id' | 'totalAvaliacoes'>>): Promise<{ success: boolean, data: Criterio }> => {
   // Mapear valorBonus (frontend) para valorCriterio (backend string) se presente
-  const payload: any = { ...criterio };
+  const payload: Record<string, unknown> = { ...criterio };
   // converter ativo para int se fornecido
   if (payload.ativo !== undefined) {
     payload.ativo = payload.ativo ? 1 : 0;
   }
 
   // mapear valorBonus para valorCriterio string se presente
-  if (criterio && (criterio as any).valorBonus !== undefined) {
-    const vb = (criterio as any).valorBonus;
-    payload.valorCriterio = (typeof vb === 'number' ? vb : parseFloat(String(vb || 0))).toFixed(2);
-    delete payload.valorBonus;
+  if (criterio) {
+    const rc = criterio as Record<string, unknown>;
+    if (rc.valorBonus !== undefined) {
+      const vb = rc.valorBonus;
+      const vbNum = typeof vb === 'number' ? vb : parseFloat(String(vb || 0));
+      (payload as Record<string, unknown>).valorCriterio = vbNum.toFixed(2);
+      delete (payload as Record<string, unknown>).valorBonus;
+    }
   }
 
   const response = await fetch(`${BASE_URL}${API_ENDPOINTS.CRITERIOS}/${id}`, {

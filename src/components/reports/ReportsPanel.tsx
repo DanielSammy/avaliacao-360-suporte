@@ -355,7 +355,6 @@ export function ReportsPanel() {
                 </thead>
                 <tbody>
                   {dadosTabela.map(({ avaliacao, operador, metasAtingidas, totalMetas, percentualMetas, performance, isCompleted }) => {
-                    console.log(`Operador: ${operador?.nome}, isCompleted: ${isCompleted}`);
                     return (
                     <tr key={avaliacao.id} className="border-b hover:bg-muted/30 transition-colors">
                       <td className="p-4">

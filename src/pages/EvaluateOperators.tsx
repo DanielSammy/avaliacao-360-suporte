@@ -255,9 +255,12 @@ export function EvaluateOperators() {
         return;
       }
 
-      // índice por operadorCodigo
-      const resultsByCodigo: Record<number, any> = {};
-      results.forEach((r: any) => { if (r && typeof r.operadorCodigo === 'number') resultsByCodigo[r.operadorCodigo] = r; });
+  // índice por operadorCodigo
+  const resultsByCodigo: Record<number, import('@/services/operatorService').MySuitePerformanceItem> = {};
+  results.forEach((r: import('@/services/operatorService').MySuitePerformanceItem | unknown) => {
+    const rr = r as import('@/services/operatorService').MySuitePerformanceItem;
+    if (rr && typeof rr.operadorCodigo === 'number') resultsByCodigo[rr.operadorCodigo] = rr;
+  });
 
       // escolher critérios do state que têm metaCalculo === 1 (tickets concluídos), 2 (quantitativo) ou 3 (metas)
       const criteriosToImport = state.criterios.filter(c => (c.metaCalculo === 1 || c.metaCalculo === 2 || c.metaCalculo === 3) && c.ativo);
@@ -271,15 +274,16 @@ export function EvaluateOperators() {
 
       for (const criterio of criteriosToImport) {
         // Se metaCalculo === 1, precisamos consultar outro endpoint que retorna tickets concluídos por contato
-        let avaliacoesParaApi = [] as Array<any>;
+  let avaliacoesParaApi: Array<Record<string, unknown>> = [];
 
         if (criterio.metaCalculo === 1) {
           // buscar tickets concluidos por contato
           const tickets = await getMySuiteConcluidosPorContato(payload);
           // contar por codigoOperador
           const countsByCodigo: Record<number, number> = {};
-          (tickets || []).forEach((t: any) => {
-            const cod = Number(t.codigoOperador || 0);
+          (tickets || []).forEach((t: import('@/services/operatorService').MySuiteConcluidoItem | unknown) => {
+            const tt = t as import('@/services/operatorService').MySuiteConcluidoItem;
+            const cod = Number(tt.codigoOperador || 0);
             if (!cod) return;
             countsByCodigo[cod] = (countsByCodigo[cod] || 0) + 1;
           });
@@ -303,7 +307,6 @@ export function EvaluateOperators() {
                 valorAlcancado: String(percentage.toFixed(2)),
                 metaObjetivo: Math.round(Number(criterio.valorMeta)),
                 metaAlcancada: String(percentage.toFixed(2)),
-                _valorBonusCalculado: String(bonusValue.toFixed(2)),
               };
             });
         } else {
@@ -330,8 +333,6 @@ export function EvaluateOperators() {
                 metaObjetivo: Math.round(Number(criterio.valorMeta)),
                 // metaAlcancada agora é o valor base (string com 2 casas)
                 metaAlcancada: String(baseValue.toFixed(2)),
-                // incluir bônus calculado para uso local/dispatch
-                _valorBonusCalculado: String(bonusValue.toFixed(2)),
               };
             });
         }
@@ -342,39 +343,43 @@ export function EvaluateOperators() {
         const payloadToSend = {
           criterioId: criterio.id,
           avaliadorId: avaliadorId,
-          avaliacoes: avaliacoesParaApi.map(a => {
-            const media = parseFloat(String(a.valorAlcancado).replace(',', '.')) || 0;
+          avaliacoes: avaliacoesParaApi.map((a) => {
+            const operadorId = Number((a as Record<string, unknown>).operadorId);
+            const periodo = String((a as Record<string, unknown>).periodo);
+            const valorObjetivo = String((a as Record<string, unknown>).valorObjetivo ?? '0');
+            const metaObjetivo = Number((a as Record<string, unknown>).metaObjetivo ?? 0);
+            const media = parseFloat(String((a as Record<string, unknown>).valorAlcancado).replace(',', '.')) || 0;
             const potentialBonus = criterio.valorBonus || 0;
             const bonusValue = calcularValorAlcancadoFinal(criterio, media, potentialBonus);
+
             return {
-              operadorId: a.operadorId,
-              periodo: a.periodo,
-              valorObjetivo: a.valorObjetivo,
+              operadorId,
+              periodo,
+              valorObjetivo,
               // enviar o bônus calculado como valorAlcancado (string)
               valorAlcancado: String(bonusValue.toFixed(2)),
-              metaObjetivo: a.metaObjetivo,
+              metaObjetivo,
               // enviar a média como metaAlcancada (string com casas decimais)
               metaAlcancada: String(media.toFixed(2)),
             };
           }),
         };
 
-        // log do payload em dev para ajudar a debugar 400
-        try { if (process.env.NODE_ENV !== 'production') console.log('[Bulk][EvaluateOperators] Enviando payload:', JSON.stringify(payloadToSend)); } catch(e) {}
+  // debug logging removed for optimization
 
         const resp = await createBulkEvaluations(payloadToSend);
         if (resp && resp.success) {
-          const avaliacoesParaDispatch = avaliacoesParaApi.map(a => {
+          const avaliacoesParaDispatch = avaliacoesParaApi.map((a) => {
             const criterioAtual = criterio;
-            const mediaNum = parseFloat(String((a as any).valorAlcancado).replace(',', '.')) || 0;
+            const mediaNum = parseFloat(String((a as Record<string, unknown>).valorAlcancado).replace(',', '.')) || 0;
             const potentialBonus = criterioAtual.valorBonus || 0;
             const bonusCalc = calcularValorAlcancadoFinal(criterioAtual, mediaNum, potentialBonus);
             return {
-              operadorId: a.operadorId,
+              operadorId: Number((a as Record<string, unknown>).operadorId),
               avaliadorId: avaliadorId,
-              periodo: a.periodo,
+              periodo: String((a as Record<string, unknown>).periodo),
               // para o estado local, valorAlcancado deve ser a média (string)
-              valorAlcancado: String((a as any).valorAlcancado),
+              valorAlcancado: String((a as Record<string, unknown>).valorAlcancado),
               // valorBonusAlcancado será o bônus calculado (string)
               valorBonusAlcancado: String(bonusCalc.toFixed(2)),
             };
