@@ -82,18 +82,20 @@ export function EvaluationTracking() {
           evaluatorsWhoRated.add(ev.avaliadorId);
         }
       }
-      if (evaluatorsWhoRated.size >= peopleWhoShouldEvaluateThisOperator.length) completedReceivedCriteria += 1;
+  // exigir avaliações de todos os operadores ativos (inclui avaliadores que não são exibidos)
+  const expectedEvaluatorsCount = allActiveOperators.length;
+  if (evaluatorsWhoRated.size >= expectedEvaluatorsCount) completedReceivedCriteria += 1;
     }
     const evaluationsReceivedCount = completedReceivedCriteria;
 
 
     // --- Status Logic ---
     let statusGiven: 'Concluído' | 'Pendente' | 'Em Andamento';
-    let variantGiven: 'default' | 'secondary' | 'destructive' | 'outline';
+  let variantGiven: 'default' | 'secondary' | 'destructive' | 'outline' | 'outline-success' | 'success';
 
     if (evaluationsGivenCount >= evaluationsExpectedToGive) {
       statusGiven = 'Concluído';
-      variantGiven = 'default';
+  variantGiven = 'success';
     } else if (evaluationsGivenCount > 0) {
       statusGiven = 'Em Andamento';
       variantGiven = 'secondary';
@@ -103,14 +105,14 @@ export function EvaluationTracking() {
     }
 
     let statusReceived: 'Concluído' | 'Pendente' | 'Em Andamento' | 'N/A';
-    let variantReceived: 'default' | 'secondary' | 'destructive' | 'outline';
+  let variantReceived: 'default' | 'secondary' | 'destructive' | 'outline' | 'outline-success' | 'success';
 
     if (!operator.participaAvaliacao) { // This check is a bit redundant now, but safe
       statusReceived = 'N/A';
       variantReceived = 'outline';
     } else if (evaluationsReceivedCount >= evaluationsExpectedToReceive) {
       statusReceived = 'Concluído';
-      variantReceived = 'default';
+  variantReceived = 'success';
     } else if (evaluationsReceivedCount > 0) {
       statusReceived = 'Em Andamento';
       variantReceived = 'secondary';
@@ -152,7 +154,9 @@ export function EvaluationTracking() {
       const managersAll = allActiveOperators.filter(p => (p.grupo === 6 || p.grupo === 7) && p.id !== op.id);
       const peersAll = allActiveOperators.filter(p => p.grupo !== 6 && p.grupo !== 7 && p.id !== op.id);
       const peopleWhoShouldEvaluateOp = isMgr ? managersAll : [...managersAll, ...peersAll];
-      if (evaluatorsWhoRated.size >= peopleWhoShouldEvaluateOp.length) completedForOp += 1;
+  // exigir avaliações de todos os operadores ativos (inclui avaliadores não exibidos)
+  const expectedEvaluatorsForOp = allActiveOperators.length;
+  if (evaluatorsWhoRated.size >= expectedEvaluatorsForOp) completedForOp += 1;
     }
     totalCompletedAcrossAll += completedForOp;
   }
@@ -243,7 +247,21 @@ export function EvaluationTracking() {
                 <TableHead>Operador</TableHead>
                 <TableHead className="text-center">Avaliações Dadas</TableHead>
                 <TableHead className="text-center">Status (Dadas)</TableHead>
-                <TableHead className="text-center">Avaliações Recebidas</TableHead>
+                <TableHead className="text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Avaliações Recebidas</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <div className="text-sm text-muted-foreground cursor-pointer px-1 py-0.5 rounded-md"><Info className="h-4 w-4" /></div>
+                      </PopoverTrigger>
+                      <PopoverContent>
+                        <div className="text-sm">
+                          Esse contador só será considerado quando TODOS os operadores ativos tiverem avaliado o critério (ou seja, completa quando atingir {allActiveOperators.length} avaliações para o critério).
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </TableHead>
                 <TableHead className="text-center">Status (Recebidas)</TableHead>
               </TableRow>
             </TableHeader>
