@@ -231,34 +231,26 @@ export function EvaluationTracking() {
   // Total pendente: calcular sobre TODOS os operadores ativos (inclui aqueles não exibidos)
   // Fórmula: totalPossible = allActiveOperators.length * numeroDeCriterios
   // totalCompleted = soma de criterios completos recebidos por cada operador ativo
+  // Somar exatamente os "avaliou: X" exibidos no popover (cada operador: quantos critérios aplicáveis ele avaliou)
   let totalCompletedAcrossAll = 0;
   for (const op of allActiveOperators) {
-    const evaluationsReceivedByOperatorAll = state.avaliacoes.filter(ev => ev.operadorId === op.id && ev.periodo === currentPeriod);
-    let completedForOp = 0;
-      for (const criterio of applicableCriterios) {
-      const evaluatorsWhoRated = new Set<number>();
-      for (const ev of evaluationsReceivedByOperatorAll) {
-        if (!Array.isArray(ev.criterios)) continue;
-        for (const c of ev.criterios) {
-          if (c.criterioId === criterio.id) {
-            if (c.avaliadorId !== undefined && c.avaliadorId !== null) {
-              evaluatorsWhoRated.add(Number(c.avaliadorId));
-            } else if (ev.avaliadorId !== undefined && ev.avaliadorId !== null) {
-              evaluatorsWhoRated.add(Number(ev.avaliadorId));
-            }
-          }
-        }
+    // critérios que este operador avaliou (como avaliador) no período atual
+    const evalsByOp = state.avaliacoes.filter(ev => {
+      if (ev.periodo !== currentPeriod) return false;
+      if (ev.avaliadorId === op.id) return true;
+      if (!Array.isArray(ev.criterios)) return false;
+      return ev.criterios.some((c: any) => Number(c.avaliadorId) === op.id);
+    });
+    const criteriaEvaluatedByOp = new Set<number>();
+    for (const ev of evalsByOp) {
+      if (!Array.isArray(ev.criterios)) continue;
+      for (const c of ev.criterios) {
+        const criterioAplicavel = applicableCriterioIds.has(c.criterioId);
+        const criterioPorEsseAvaliador = (c.avaliadorId !== undefined && Number(c.avaliadorId) === op.id) || ev.avaliadorId === op.id;
+        if (criterioAplicavel && criterioPorEsseAvaliador) criteriaEvaluatedByOp.add(c.criterioId);
       }
-      // expected evaluators for this operator (using allActiveOperators rules)
-      const isMgr = op.grupo === 6 || op.grupo === 7;
-      const managersAll = allActiveOperators.filter(p => (p.grupo === 6 || p.grupo === 7) && p.id !== op.id);
-      const peersAll = allActiveOperators.filter(p => p.grupo !== 6 && p.grupo !== 7 && p.id !== op.id);
-      const peopleWhoShouldEvaluateOp = isMgr ? managersAll : [...managersAll, ...peersAll];
-  // exigir avaliações de TODOS os operadores ATIVOS
-  const expectedEvaluatorsForOp = allActiveOperators.length;
-  if (evaluatorsWhoRated.size >= expectedEvaluatorsForOp) completedForOp += 1;
     }
-    totalCompletedAcrossAll += completedForOp;
+    totalCompletedAcrossAll += criteriaEvaluatedByOp.size;
   }
 
   const totalPossible = allActiveOperators.length * applicableCriterios.length;
