@@ -13,48 +13,77 @@ export function EvaluationTracking() {
   const { state } = useEvaluation();
   const { user } = useAuth();
 
-  const allActiveAndParticipatingOperators = state.operadores.filter(op => op.ativo && op.participaAvaliacao);
+  // operadores ativos (podem avaliar) e operadores exibidos (participam da avaliação, são avaliados)
+  const allActiveOperators = state.operadores.filter(op => op.ativo);
+  const displayedOperators = state.operadores.filter(op => op.ativo && op.participaAvaliacao);
+  // critérios aplicáveis: somente critérios ativos com idCriterio === 2
+  const applicableCriterios = state.criterios.filter(criterio => criterio.ativo && criterio.idCriterio === 2);
+  const applicableCriterioIds = new Set(applicableCriterios.map(c => c.id));
+  const currentPeriod = new Date().getFullYear().toString() + '-' + (new Date().getMonth() + 1).toString().padStart(2, '0');
 
-  const operatorEvaluationSummary = allActiveAndParticipatingOperators.map(operator => {
+  const operatorEvaluationSummary = displayedOperators.map(operator => {
     const isManager = operator.grupo === 6 || operator.grupo === 7;
 
     // --- GIVEN: How many people should this operator evaluate? ---
     let peopleToEvaluate: Operador[];
     if (isManager) {
-      // Managers/Admins evaluate all OTHER participating operators
-      peopleToEvaluate = allActiveAndParticipatingOperators.filter(p => p.id !== operator.id);
+      // Managers/Admins evaluate all OTHER participating operators (displayed)
+      peopleToEvaluate = displayedOperators.filter(p => p.id !== operator.id);
     } else {
-      // Peers evaluate all OTHER participating PEERS
-      peopleToEvaluate = allActiveAndParticipatingOperators.filter(p => p.id !== operator.id && p.grupo !== 6 && p.grupo !== 7);
+      // Peers evaluate all OTHER participating PEERS (displayed peers)
+      peopleToEvaluate = displayedOperators.filter(p => p.id !== operator.id && p.grupo !== 6 && p.grupo !== 7);
     }
-    const evaluationsExpectedToGive = peopleToEvaluate.length;
+    // Expected criteria count (meta) is number of applicable criterios
+    const evaluationsExpectedToGive = applicableCriterios.length;
 
-    // How many have they actually evaluated?
-    const evaluationsGivenByOperator = state.avaliacoes.filter(evalItem => evalItem.avaliadorId === operator.id);
-    const distinctPeopleEvaluated = new Set(evaluationsGivenByOperator.map(e => e.operadorId));
-    const evaluationsGivenCount = distinctPeopleEvaluated.size;
+    // For 'Avaliações Dadas' conte critérios completos onde este operador, como avaliador,
+    // avaliou TODOS os alvos esperados (peopleToEvaluate) para aquele critério no período atual.
+    const evaluationsGivenByOperator = state.avaliacoes.filter(ev => ev.avaliadorId === operator.id && ev.periodo === currentPeriod);
+    let completedGivenCriteria = 0;
+    for (const criterio of applicableCriterios) {
+      const targetsEvaluated = new Set<number>();
+      for (const ev of evaluationsGivenByOperator) {
+        if (!Array.isArray(ev.criterios)) continue;
+        if (ev.criterios.some(c => c.criterioId === criterio.id)) {
+          targetsEvaluated.add(ev.operadorId);
+        }
+      }
+      if (targetsEvaluated.size >= peopleToEvaluate.length) completedGivenCriteria += 1;
+    }
+    const evaluationsGivenCount = completedGivenCriteria;
 
 
     // --- RECEIVED: How many people should evaluate this operator? ---
     let peopleWhoShouldEvaluateThisOperator: Operador[];
 
-    // Everyone is evaluated by managers (except other managers)
-    const managers = allActiveAndParticipatingOperators.filter(p => (p.grupo === 6 || p.grupo === 7) && p.id !== operator.id);
+    // Determine expected evaluators using ALL active operators (they may not be displayed)
+    const managers = allActiveOperators.filter(p => (p.grupo === 6 || p.grupo === 7) && p.id !== operator.id);
 
     if (isManager) {
       // A manager is evaluated by other managers only (if any)
       peopleWhoShouldEvaluateThisOperator = managers;
     } else {
-      // A peer is evaluated by managers and other peers
-      const peers = allActiveAndParticipatingOperators.filter(p => p.grupo !== 6 && p.grupo !== 7 && p.id !== operator.id);
+      // A peer is evaluated by managers and other peers (including peers who don't participate as evaluated)
+      const peers = allActiveOperators.filter(p => p.grupo !== 6 && p.grupo !== 7 && p.id !== operator.id);
       peopleWhoShouldEvaluateThisOperator = [...managers, ...peers];
     }
-    const evaluationsExpectedToReceive = peopleWhoShouldEvaluateThisOperator.length;
+    const evaluationsExpectedToReceive = applicableCriterios.length;
 
-    // How many have actually evaluated them?
-    const evaluationsReceivedByOperator = state.avaliacoes.filter(evalItem => evalItem.operadorId === operator.id);
-    const distinctEvaluators = new Set(evaluationsReceivedByOperator.map(e => e.avaliadorId));
-    const evaluationsReceivedCount = distinctEvaluators.size;
+    // For 'Avaliações Recebidas' conte critérios completos onde, para este operador avaliado,
+    // já existem avaliações de TODOS os avaliadores esperados para aquele critério no período atual.
+    const evaluationsReceivedByOperator = state.avaliacoes.filter(ev => ev.operadorId === operator.id && ev.periodo === currentPeriod);
+    let completedReceivedCriteria = 0;
+    for (const criterio of applicableCriterios) {
+      const evaluatorsWhoRated = new Set<number>();
+      for (const ev of evaluationsReceivedByOperator) {
+        if (!Array.isArray(ev.criterios)) continue;
+        if (ev.criterios.some(c => c.criterioId === criterio.id)) {
+          evaluatorsWhoRated.add(ev.avaliadorId);
+        }
+      }
+      if (evaluatorsWhoRated.size >= peopleWhoShouldEvaluateThisOperator.length) completedReceivedCriteria += 1;
+    }
+    const evaluationsReceivedCount = completedReceivedCriteria;
 
 
     // --- Status Logic ---
@@ -102,10 +131,33 @@ export function EvaluationTracking() {
     };
   });
 
-  const totalPendingEvaluations = operatorEvaluationSummary.reduce((total, summary) => {
-    const pendingGiven = Math.max(0, (summary.evaluationsExpectedToGive || 0) - (summary.evaluationsGivenCount || 0));
-    return total + pendingGiven;
-  }, 0);
+  // Total pendente: calcular sobre TODOS os operadores ativos (inclui aqueles não exibidos)
+  // Fórmula: totalPossible = allActiveOperators.length * numeroDeCriterios
+  // totalCompleted = soma de criterios completos recebidos por cada operador ativo
+  let totalCompletedAcrossAll = 0;
+  for (const op of allActiveOperators) {
+    const evaluationsReceivedByOperatorAll = state.avaliacoes.filter(ev => ev.operadorId === op.id && ev.periodo === currentPeriod);
+    let completedForOp = 0;
+    for (const criterio of applicableCriterios) {
+      const evaluatorsWhoRated = new Set<number>();
+      for (const ev of evaluationsReceivedByOperatorAll) {
+        if (!Array.isArray(ev.criterios)) continue;
+        if (ev.criterios.some(c => c.criterioId === criterio.id)) {
+          evaluatorsWhoRated.add(ev.avaliadorId);
+        }
+      }
+      // expected evaluators for this operator (using allActiveOperators rules)
+      const isMgr = op.grupo === 6 || op.grupo === 7;
+      const managersAll = allActiveOperators.filter(p => (p.grupo === 6 || p.grupo === 7) && p.id !== op.id);
+      const peersAll = allActiveOperators.filter(p => p.grupo !== 6 && p.grupo !== 7 && p.id !== op.id);
+      const peopleWhoShouldEvaluateOp = isMgr ? managersAll : [...managersAll, ...peersAll];
+      if (evaluatorsWhoRated.size >= peopleWhoShouldEvaluateOp.length) completedForOp += 1;
+    }
+    totalCompletedAcrossAll += completedForOp;
+  }
+
+  const totalPossible = allActiveOperators.length * applicableCriterios.length;
+  const totalPendingEvaluations = Math.max(0, totalPossible - totalCompletedAcrossAll);
 
   return (
     <div className="container mx-auto p-6">
@@ -115,8 +167,11 @@ export function EvaluationTracking() {
         </CardHeader>
         <CardContent>
           <div className="mb-4 text-lg font-semibold flex items-center justify-between">
-            <div>
-              Total de Avaliações Pendentes: <span className={totalPendingEvaluations === 0 ? 'text-green-600' : 'text-red-600'}>{totalPendingEvaluations}</span>
+            <div className="flex items-center gap-2">
+              <div>
+                Total de Avaliações Pendentes: <span className={totalPendingEvaluations === 0 ? 'text-green-600' : 'text-red-600'}>{totalPendingEvaluations}</span>
+              </div>
+              <div title={`Avaliadores considerados: ${allActiveOperators.length}. Operadores exibidos (avaliados): ${displayedOperators.length}.\nTotal possível: ${totalPossible}. Total completado: ${totalCompletedAcrossAll}.\nObservação: operadores que são ativos mas não participam como avaliados são contados como avaliadores.`} className="text-sm text-muted-foreground cursor-help">(i)</div>
             </div>
             {(user && (user.grupo === 6 || user.grupo === 7)) && (
               <div>
