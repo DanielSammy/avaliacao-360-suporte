@@ -1,4 +1,8 @@
 import React from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useEvaluation } from '../contexts/EvaluationContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -7,6 +11,7 @@ import { Operador } from '../types/evaluation';
 
 export function EvaluationTracking() {
   const { state } = useEvaluation();
+  const { user } = useAuth();
 
   const allActiveAndParticipatingOperators = state.operadores.filter(op => op.ativo && op.participaAvaliacao);
 
@@ -109,8 +114,20 @@ export function EvaluationTracking() {
           <CardTitle className="text-2xl font-bold">Acompanhamento de Avaliações 360</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 text-lg font-semibold">
-            Total de Avaliações Pendentes: <span className={totalPendingEvaluations === 0 ? 'text-green-600' : 'text-red-600'}>{totalPendingEvaluations}</span>
+          <div className="mb-4 text-lg font-semibold flex items-center justify-between">
+            <div>
+              Total de Avaliações Pendentes: <span className={totalPendingEvaluations === 0 ? 'text-green-600' : 'text-red-600'}>{totalPendingEvaluations}</span>
+            </div>
+            {(user && (user.grupo === 6 || user.grupo === 7)) && (
+              <div>
+                <Link to="/">
+                  <Button variant="outline">
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Voltar
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
           <Table>
             <TableHeader>
