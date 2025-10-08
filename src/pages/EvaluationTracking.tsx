@@ -1,12 +1,13 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Info } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEvaluation } from '../contexts/EvaluationContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Operador } from '../types/evaluation';
 
 export function EvaluationTracking() {
@@ -167,11 +168,63 @@ export function EvaluationTracking() {
         </CardHeader>
         <CardContent>
           <div className="mb-4 text-lg font-semibold flex items-center justify-between">
-            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
               <div>
                 Total de Avaliações Pendentes: <span className={totalPendingEvaluations === 0 ? 'text-green-600' : 'text-red-600'}>{totalPendingEvaluations}</span>
               </div>
-              <div title={`Avaliadores considerados: ${allActiveOperators.length}. Operadores exibidos (avaliados): ${displayedOperators.length}.\nTotal possível: ${totalPossible}. Total completado: ${totalCompletedAcrossAll}.\nObservação: operadores que são ativos mas não participam como avaliados são contados como avaliadores.`} className="text-sm text-muted-foreground cursor-help">(i)</div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <div className="text-sm text-muted-foreground cursor-pointer px-2 py-1 rounded-md border flex items-center">
+                    <Info className="h-4 w-4" />
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent>
+                  <div className="space-y-2">
+                    <div className="font-semibold">Resumo de Cálculo</div>
+                    <div>Avaliadores considerados: <strong>{allActiveOperators.length}</strong></div>
+                    <div>Operadores exibidos (avaliados): <strong>{displayedOperators.length}</strong></div>
+                    <div>Total possível (avaliadores × critérios): <strong>{totalPossible}</strong></div>
+                    <div>Total completado: <strong>{totalCompletedAcrossAll}</strong></div>
+
+                    {/* (Secao pessoal removida conforme solicitado) */}
+
+                    <div className="pt-2 font-semibold">Detalhe por operador (completos / {applicableCriterios.length})</div>
+                    <div className="max-h-40 overflow-auto">
+                      {allActiveOperators.map(op => {
+                        const rec = operatorEvaluationSummary.find(r => r.operator.id === op.id);
+                        const completed = rec ? rec.evaluationsReceivedCount : 0;
+                        // calcular quantos critérios este operador já avaliou como avaliador
+                        const evalsByOp = state.avaliacoes.filter(ev => ev.avaliadorId === op.id && ev.periodo === currentPeriod);
+                        const criteriaEvaluatedByOp = new Set<number>();
+                        for (const ev of evalsByOp) {
+                          if (!Array.isArray(ev.criterios)) continue;
+                          for (const c of ev.criterios) {
+                            if (applicableCriterioIds.has(c.criterioId)) criteriaEvaluatedByOp.add(c.criterioId);
+                          }
+                        }
+
+                        const evaluatedCount = criteriaEvaluatedByOp.size;
+                        const totalC = applicableCriterios.length;
+                        const isNone = evaluatedCount === 0;
+                        const isComplete = evaluatedCount >= totalC && totalC > 0;
+                        const isInProgress = !isNone && !isComplete;
+
+                        const nameClass = isNone ? 'text-red-600 font-semibold' : isComplete ? 'text-green-600 font-semibold' : 'text-sky-600 font-semibold';
+                        const badgeClass = isNone ? 'text-red-600 font-semibold' : isComplete ? 'text-green-600 font-semibold' : 'text-sky-600 font-semibold';
+
+                        return (
+                          <div key={op.id} className="text-sm flex justify-between items-center">
+                            <span className={`truncate max-w-[160px] ${nameClass}`}>{op.nome}</span>
+                            <div className="flex gap-4 items-center">
+                              <span className={badgeClass}>avaliou: {evaluatedCount} / {totalC}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
             {(user && (user.grupo === 6 || user.grupo === 7)) && (
               <div>
