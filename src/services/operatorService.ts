@@ -42,14 +42,33 @@ export const createOperador = async (operador: Omit<Operador, 'id' | 'dataInclus
 };
 
 export const updateOperador = async (operador: Operador): Promise<Operador> => {
-  const { id, dataInclusao, ...operadorToUpdate } = operador; // Destructure to omit id and dataInclusao
+  const { id } = operador;
+
+  // Montar payload explícito com os campos aceitos pelo backend
+  const payload: {
+    nome: string;
+    login: string;
+    ativo: boolean;
+    grupo: number;
+    participaAvaliacao: boolean;
+    nivel?: string | null;
+  } = {
+    nome: String(operador.nome ?? ''),
+    login: String(operador.login ?? ''),
+    ativo: Boolean(operador.ativo),
+    grupo: Number(operador.grupo ?? 0),
+    participaAvaliacao: Boolean(operador.participaAvaliacao ?? false),
+    nivel: operador.nivel ?? null,
+  };
+
   const response = await fetch(`${BASE_URL}${API_ENDPOINTS.OPERADORES}/${id}`, {
     method: 'PUT',
     headers: getHeaders(),
-    body: JSON.stringify(operadorToUpdate), // Send the new object
+    body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+    const text = await response.text().catch(() => '<no body>');
+    throw new Error(`HTTP error! status: ${response.status} body: ${text}`);
   }
   return response.json();
 };
