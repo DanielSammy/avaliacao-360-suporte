@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useEvaluation } from '../contexts/EvaluationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -111,12 +111,68 @@ export function EvaluateOperators() {
     }
   }, [avaliadorId, currentPeriod, findNextCriterion, toast, allEvaluatedIds, filteredCriterios]);
 
+  // Pre-check seguro: verifica em lote quais critérios já estão avaliados e seleciona
+  // o primeiro não avaliado sem chamar checkAndSetCriterion recursivamente (evita loops).
+  const precheckDoneRef = useRef(false);
   useEffect(() => {
-    if (state.criterios.length > 0 && avaliadorId) {
-      const firstUnevaluated = findNextCriterion();
-      void checkAndSetCriterion(firstUnevaluated);
+    if (precheckDoneRef.current) return;
+    if (!avaliadorId || filteredCriterios.length === 0) {
+      setIsLoadingCriterion(false);
+      return;
     }
-  }, [state.criterios, avaliadorId, findNextCriterion, checkAndSetCriterion]);
+
+    precheckDoneRef.current = true;
+
+    const preCheckAll = async () => {
+      setIsLoadingCriterion(true);
+      try {
+        const results = await Promise.allSettled(
+          filteredCriterios.map(async (c) => {
+            try {
+              const resp = await checkCriterionEvaluated(currentPeriod, avaliadorId, c.id);
+              return resp.avaliado ? c.id : null;
+            } catch (e) {
+              return null;
+            }
+          })
+        );
+
+        const evaluatedFromApi = new Set<number>();
+        for (const r of results) {
+          if (r.status === 'fulfilled' && r.value) evaluatedFromApi.add(r.value as number);
+        }
+
+        // unir com avaliações já existentes no estado global
+        const unionIds = new Set<number>([...evaluatedCriteriaIds]);
+        for (const id of evaluatedFromApi) unionIds.add(id);
+
+        if (unionIds.size > 0) {
+          setSessionEvaluatedIds(prev => {
+            const s = new Set(prev);
+            for (const id of unionIds) s.add(id);
+            return s;
+          });
+        }
+
+        // selecionar primeiro critério não avaliado
+        const firstNotEvaluated = filteredCriterios.find(c => !unionIds.has(c.id));
+        if (firstNotEvaluated) {
+          setSelectedCriterionId(firstNotEvaluated.id.toString());
+          setEvaluationValues({});
+          setIsLoadingCriterion(false);
+        } else {
+          // todos avaliados
+          setIsLoadingCriterion(false);
+          if (filteredCriterios.length > 0) setIsAllEvaluatedDialogOpen(true);
+        }
+      } catch (err) {
+        toast({ title: 'Erro', description: 'Falha ao verificar critérios avaliados.', variant: 'destructive' });
+        setIsLoadingCriterion(false);
+      }
+    };
+
+    void preCheckAll();
+  }, [avaliadorId, filteredCriterios, currentPeriod, evaluatedCriteriaIds, toast]);
 
 
   const selectedCriterion = useMemo(() => {
