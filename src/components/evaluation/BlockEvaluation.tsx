@@ -15,9 +15,62 @@ export function BlockEvaluation({ title, criterios, criteriosAvaliacao, totalVal
 
   const getCriterioAvaliacao = (criterioId: number) => criteriosAvaliacao.find(ca => ca.criterioId === criterioId);
 
-  const getStatusBadge = (atingiu: boolean) => {
+  const getColorForPercentage = (p: number) => {
+    if (isNaN(p)) return 'text-muted-foreground';
+    if (p < 50) return 'text-red-600'; // fallback
+    if (p < 80) return 'text-amber-600';
+    return 'text-green-600';
+  };
+
+  const getColorForCriterion = (criterio: Criterio, rawValue?: string | number | null) => {
+    const raw = rawValue ?? null;
+    const value = raw !== null && raw !== undefined ? parseFloat(String(raw).replace(',', '.')) || 0 : NaN;
+    const target = criterio.valorMeta || 0;
+    if (isNaN(value) || target === 0) return 'text-muted-foreground';
+
+    // determinar se atingiu
+    let atingiu = false;
+    let pctAgainstMeta = 0;
+    if (criterio.tipoMeta === 'menor_melhor') {
+      // menor é melhor: atingir se value <= target
+      atingiu = value <= target;
+      pctAgainstMeta = value > 0 ? (target / value) * 100 : 0; // quanto mais alto, pior; usamos inverso como 'proporcao'
+    } else {
+      // maior é melhor
+      atingiu = value >= target;
+      pctAgainstMeta = (value / target) * 100;
+    }
+
+    if (atingiu) return 'text-green-600';
+    // margem: se >= 90% considerar amarelo
+    if (pctAgainstMeta >= 90) return 'text-amber-600';
+    return 'text-red-600';
+  };
+
+  const getStatusBadge = (criterio: Criterio, criterioAvaliacao?: CriterioAvaliacao) => {
+    // Badge binário: Atingida (verde) ou Não Atingida (vermelho)
+    let atingiu = false;
+    if (criterioAvaliacao?.metaAtingida !== undefined && criterioAvaliacao?.metaAtingida !== null) {
+      atingiu = !!criterioAvaliacao.metaAtingida;
+    } else {
+      const metaAlcancadaRaw = criterioAvaliacao?.metaAlcancada ?? criterioAvaliacao?.valorAlcancado ?? null;
+      const metaAlcancada = metaAlcancadaRaw !== null && metaAlcancadaRaw !== undefined
+        ? parseFloat(String(metaAlcancadaRaw).replace(',', '.')) || 0
+        : NaN;
+      const target = criterio.valorMeta || 0;
+      if (!isNaN(metaAlcancada) && target > 0) {
+        if (criterio.tipoMeta === 'menor_melhor') {
+          // menor é melhor: considera atingida se metaAlcancada <= target
+          atingiu = metaAlcancada <= target;
+        } else {
+          // maior é melhor: considera atingida se metaAlcancada >= target
+          atingiu = metaAlcancada >= target;
+        }
+      }
+    }
+
     return (
-      <Badge variant={atingiu ? 'default' : 'destructive'} className="font-medium">
+      <Badge variant={atingiu ? 'success' : 'destructive'} className="font-medium">
         {atingiu ? 'Atingida' : 'Não Atingida'}
       </Badge>
     );
@@ -65,8 +118,8 @@ export function BlockEvaluation({ title, criterios, criteriosAvaliacao, totalVal
             <span className="text-lg font-semibold">Valor Total do Bloco: {formatarMoeda(totalValue)}</span>
             {isAvaliacao360 && (
               <div className="text-sm font-normal">
-                <span>Atingido: {formatarMoeda(calculatedValues.achievedValue)}</span>
-                <span className="ml-2 font-semibold">({calculatedValues.percentage.toFixed(2)}%)</span>
+                  <span>Atingido: {formatarMoeda(calculatedValues.achievedValue)}</span>
+                  <span className={`ml-2 font-semibold ${getColorForPercentage(calculatedValues.percentage)}`}>{`(${calculatedValues.percentage.toFixed(2)}%)`}</span>
               </div>
             )}
           </div>
@@ -94,13 +147,22 @@ export function BlockEvaluation({ title, criterios, criteriosAvaliacao, totalVal
                         <div className="font-medium">{criterio.nome}</div>
                       </td>
                       <td className="p-4 text-center">
-                        <span className="font-medium">
-                          {formatarValor(criterio, criterioAvaliacao?.metaAlcancada)}
-                        </span>
+                        {criterio.tipo === 'qualitativo' ? (
+                          // exibir percentual colorido para qualitativos com base na meta do critério
+                          (() => {
+                            const raw = criterioAvaliacao?.metaAlcancada;
+                            const num = raw ? parseFloat(String(raw).replace(',', '.')) || 0 : NaN;
+                            const cls = getColorForCriterion(criterio, raw);
+                            const text = isNaN(num) ? 'N/A' : `${num.toFixed(1)}%`;
+                            return <span className={`font-medium ${cls}`}>{text}</span>;
+                          })()
+                        ) : (
+                          <span className="font-medium">{formatarValor(criterio, criterioAvaliacao?.metaAlcancada)}</span>
+                        )}
                       </td>
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          {getStatusBadge(criterioAvaliacao?.metaAtingida || false)}
+                          {getStatusBadge(criterio, criterioAvaliacao)}
                         </div>
                       </td>
                     </tr>
