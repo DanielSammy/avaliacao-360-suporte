@@ -46,6 +46,16 @@ export function EvaluateOperators() {
     });
   }, [state.criterios, user?.grupo]);
 
+  // helper: mapear idCriterio para string legível
+  const tipoCriterioLabel = useCallback((idCriterio: number) => {
+    switch (idCriterio) {
+      case 1: return 'GERENCIA';
+      case 2: return 'AVALIACAO 360';
+      case 3: return 'AVALIACAO METAS';
+      default: return 'OUTRO';
+    }
+  }, []);
+
   
 
   const evaluatedCriteriaIds = useMemo(() => {
@@ -481,7 +491,12 @@ export function EvaluateOperators() {
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogAction onClick={() => navigate('/')}>Voltar para o Início</AlertDialogAction>
+                    {(user && (user.grupo === 6 || user.grupo === 7)) ? (
+                      <AlertDialogAction onClick={() => navigate('/')}>Voltar para o Início</AlertDialogAction>
+                    ) : (
+                      // para usuários sem permissão apenas fecha o diálogo
+                      <AlertDialogAction onClick={() => setIsAllEvaluatedDialogOpen(false)}>Fechar</AlertDialogAction>
+                    )}
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
@@ -510,10 +525,11 @@ export function EvaluateOperators() {
               <SelectContent>
                 {filteredCriterios.map(criterio => {
                   const isEvaluated = allEvaluatedIds.has(criterio.id);
+                  const tipoLabel = tipoCriterioLabel(criterio.idCriterio);
                   return (
                     <SelectItem key={criterio.id} value={criterio.id.toString()} disabled={isEvaluated}>
                       <div className="flex items-center justify-between w-full">
-                        <span>{criterio.nome}</span>
+                        <span>{`${criterio.nome} - ( ${tipoLabel} )`}</span>
                         {isEvaluated && <CheckCircle2 className="h-5 w-5 text-green-500" />}
                       </div>
                     </SelectItem>

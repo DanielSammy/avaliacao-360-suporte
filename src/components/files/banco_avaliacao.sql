@@ -420,12 +420,12 @@ UNLOCK TABLES;
 
 LOCK TABLES `criterios` WRITE;
 /*!40000 ALTER TABLE `criterios` DISABLE KEYS */;
-INSERT INTO `criterios` VALUES (1,3,'Ticket concluído no primeiro contato dentro de 1 hora (Gerência)','qualitativo','maior_melhor',1,1,10,0,70.00,1),
-(2,3,'Preenchimento incorreto de Ticktes (Gerência)','quantitativo','menor_melhor',2,1,5,0,0.00,4),
-(3,3,'Satisfação/Avaliação de Clientes (Gerência)','qualitativo','maior_melhor',3,1,3,0,0.00,3),
-(4,3,'Solicitação de apoio Indevido (Gerência)','quantitativo','menor_melhor',4,1,5,0,0.00,5),
-(5,3,'Reabertura de Tiket (Gerência)','qualitativo','menor_melhor',5,1,15,0,0.00,0),
-(6,3,'Quantidade de Concluídos no mês (Gerência)','quantitativo','maior_melhor',6,1,145,1,0.00,2),
+INSERT INTO `criterios` VALUES (1,3,'Ticket concluído no primeiro contato dentro de 1 hora ','qualitativo','maior_melhor',1,1,10,0,70.00,1),
+(2,3,'Preenchimento incorreto de Ticktes ','quantitativo','menor_melhor',2,1,5,0,0.00,4),
+(3,3,'Satisfação/Avaliação de Clientes ','qualitativo','maior_melhor',3,1,3,0,0.00,3),
+(4,3,'Solicitação de apoio Indevido ','quantitativo','menor_melhor',4,1,5,0,0.00,5),
+(5,3,'Reabertura de Tiket ','qualitativo','menor_melhor',5,1,15,0,0.00,0),
+(6,3,'Quantidade de Concluídos no mês ','quantitativo','maior_melhor',6,1,145,1,0.00,2),
 (7,2,'Entrega soluções precisas e eficazes para as demandas apresentadas pelos clientes.','qualitativo','maior_melhor',8,1,85,0,0.00,0),
 (8,2,'Comunica-se com clareza e objetividade, garantindo compreensão de colaboradores e clientes.','qualitativo','maior_melhor',9,1,85,0,0.00,0),
 (9,2,'Lida com clientes difíceis e situações de estresse de forma profissional.','qualitativo','maior_melhor',10,1,85,0,0.00,0),
@@ -437,7 +437,8 @@ INSERT INTO `criterios` VALUES (1,3,'Ticket concluído no primeiro contato dentr
 (15,2,'Busca aprendizado contínuo, evolui profissionalmente e propõe soluções inovadoras.','qualitativo','maior_melhor',16,1,85,0,0.00,0),
 (16,2,'Compreende processos dos clientes de ponta a ponta e resolve problemas sem acionar colegas indevidamente.','qualitativo','maior_melhor',17,1,85,0,0.00,0),
 (17,2,'Evita distrações no expediente, limitando uso pessoal de celular, redes sociais e entretenimento.','qualitativo','maior_melhor',18,1,85,0,0.00,0),
-(18,2,'Colabora ativamente para construir soluções e compartilhar conhecimento.','qualitativo','maior_melhor',19,1,85,0,0.00,0);
+(18,2,'Colabora ativamente para construir soluções e compartilhar conhecimento.','qualitativo','maior_melhor',19,1,85,0,0.00,0),
+(19,1,'Cumpre as normas de entidade e os compromissos de trabalho, não solicitou folga/banco de horas parciais ou totais por mais de 2 vezes no mesmo mês','qualitativo','maior_melhor',20,1,75,0,0.00,0);
 /*!40000 ALTER TABLE `criterios` ENABLE KEYS */;
 UNLOCK TABLES;
 
