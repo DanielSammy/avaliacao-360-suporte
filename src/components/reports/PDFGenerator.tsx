@@ -100,6 +100,9 @@ import React from 'react';
             const compactColWidths = [totalTableWidth - 80, 40, 40];
 
             let isFirstBlock = true;
+            // acumuladores globais para resumo final (usar cálculos locais, não confiar apenas em avaliacao.*)
+            let globalValorPossivel = 0;
+            let globalTotalAlcancado = 0;
             for (const idBlocoStr of Object.keys(blocosMap)) {
               const idBloco = parseInt(idBlocoStr, 10);
               const criteriosDoBloco = blocosMap[idBloco];
@@ -126,17 +129,57 @@ import React from 'react';
                 return Number(c.valorBonus ?? 0);
               };
 
-              // Para os blocos de Tipo 1 e 2, o 'valor possível' é o valor total do bloco (configurado em TipoCriterio)
+              // valorPossivel por bloco
               let valorPossivel = criteriosDoBloco.reduce((acc, c) => acc + getValorCriterio(c), 0);
               if ((idBloco === 1 || idBloco === 2) && tipoValorMap[idBloco] !== undefined) {
                 valorPossivel = tipoValorMap[idBloco];
               }
-              const totalAlcancadoBlock = criteriosDoBloco.reduce((acc, c) => {
+
+              // mapear percentuais por criterio (0-100)
+              const percentMap: Record<number, number> = {};
+              criteriosDoBloco.forEach(c => {
                 const ca = avaliacao.criterios.find(x => x.criterioId === c.id);
-                return acc + (ca?.valorBonusAlcancado || 0);
-              }, 0);
+                const valorAlc = ca ? parseFloat(String(ca.valorAlcancado).replace(',', '.')) || 0 : 0;
+                let rowPercent = NaN;
+                if (c.tipo === 'qualitativo') {
+                  // metaAlcancada pode vir no criterioAvaliacao
+                  const metaAlc = ca?.metaAlcancada ?? '';
+                  rowPercent = metaAlc ? parseFloat(String(metaAlc).replace(',', '.')) || NaN : NaN;
+                } else {
+                  const target = c.valorMeta || 0;
+                  if (!isNaN(valorAlc) && target > 0) {
+                    if (c.tipoMeta === 'menor_melhor') rowPercent = (target / valorAlc) * 100;
+                    else rowPercent = (valorAlc / target) * 100;
+                  }
+                }
+                percentMap[c.id] = rowPercent;
+              });
+
+              // calcular totalAlcancadoBlock com regras específicas:
+              // - para blocos 1 e 2: usar média dos percentuais * valorPossivel
+              // - para outros blocos: somar os valores alcançados (valorBonusAlcancado)
+              let totalAlcancadoBlock = 0;
+              let performanceBlock = 0;
+              if (idBloco === 1 || idBloco === 2) {
+                // média dos percentuais (ignorar NaN)
+                const vals = Object.values(percentMap).filter(p => !isNaN(p));
+                const avgPercent = vals.length > 0 ? (vals.reduce((s, v) => s + v, 0) / vals.length) : 0;
+                totalAlcancadoBlock = (avgPercent / 100) * valorPossivel;
+                // performanceBlock como percentagem média
+                performanceBlock = avgPercent;
+              } else {
+                totalAlcancadoBlock = criteriosDoBloco.reduce((acc, c) => {
+                  const ca = avaliacao.criterios.find(x => x.criterioId === c.id);
+                  return acc + (ca?.valorBonusAlcancado || 0);
+                }, 0);
+                performanceBlock = valorPossivel > 0 ? (totalAlcancadoBlock / valorPossivel) * 100 : 0;
+              }
+
               const qtdAvaliacoes = criteriosDoBloco.reduce((acc, c) => acc + (avaliacao.criterios.find(x => x.criterioId === c.id) ? 1 : 0), 0);
-              const performanceBlock = valorPossivel > 0 ? (totalAlcancadoBlock / valorPossivel) * 100 : 0;
+
+              // acumular globais para resumo final
+              globalValorPossivel += valorPossivel;
+              globalTotalAlcancado += totalAlcancadoBlock;
 
               pdf.text(blocoTitulo.toUpperCase(), margin, yPosition);
               yPosition += 8;
@@ -302,14 +345,15 @@ import React from 'react';
 
             const metasAtingidas = avaliacao.criterios.filter(ca => ca.metaAtingida).length;
             const totalMetas = criterios.filter(c => c.ativo).length;
-            const percentualPerformance = avaliacao.valorTotalMeta > 0
-              ? (avaliacao.valorTotalAlcancado / avaliacao.valorTotalMeta) * 100
+            // O resumo final usa os acumuladores locais (soma dos totais alcançados por bloco)
+            const percentualPerformance = globalValorPossivel > 0
+              ? (globalTotalAlcancado / globalValorPossivel) * 100
               : 0;
 
-            pdf.text(`Valor Total Possível: ${formatarMoeda(avaliacao.valorTotalMeta)}`, margin, yPosition);
+            pdf.text(`Valor Total Possível: ${formatarMoeda(globalValorPossivel)}`, margin, yPosition);
             yPosition += 6;
             checkPageBreak();
-            pdf.text(`Valor Total Alcançado: ${formatarMoeda(avaliacao.valorTotalAlcancado)}`, margin, yPosition);
+            pdf.text(`Valor Total Alcançado: ${formatarMoeda(globalTotalAlcancado)}`, margin, yPosition);
             yPosition += 6;
             checkPageBreak();
             pdf.text(`Performance Geral: ${percentualPerformance.toFixed(1)}%`, margin, yPosition);
