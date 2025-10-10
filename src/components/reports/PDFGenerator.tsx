@@ -127,8 +127,26 @@ import React from 'react';
                 const criterioAvaliacao = avaliacao.criterios.find(ca => ca.criterioId === criterio.id);
                 const valorAlcancado = criterioAvaliacao ? parseFloat(String(criterioAvaliacao.valorAlcancado).replace(',', '.')) || 0 : 0;
                 const valorBonusAlcancado = criterioAvaliacao?.valorBonusAlcancado || 0;
-                const metaAlcancada = criterioAvaliacao?.metaAlcancada || '';
+                const metaAlcancadaRaw = criterioAvaliacao?.metaAlcancada ?? '';
+                const metaAlcancada = metaAlcancadaRaw;
                 const atingiu = metaAtingida(criterio, valorAlcancado);
+
+                // calcular percentual por linha (compatível com a UI)
+                let rowPercent = NaN;
+                if (criterio.tipo === 'qualitativo') {
+                  const n = metaAlcancadaRaw ? parseFloat(String(metaAlcancadaRaw).replace(',', '.')) || NaN : NaN;
+                  rowPercent = n;
+                } else {
+                  const n = criterioAvaliacao ? parseFloat(String(criterioAvaliacao.valorAlcancado).replace(',', '.')) || NaN : NaN;
+                  const target = criterio.valorMeta || 0;
+                  if (!isNaN(n) && target > 0) {
+                    if (criterio.tipoMeta === 'menor_melhor') {
+                      rowPercent = (target / n) * 100;
+                    } else {
+                      rowPercent = (n / target) * 100;
+                    }
+                  }
+                }
 
                 xPos = margin;
 
@@ -137,11 +155,14 @@ import React from 'react';
                   pdf.rect(margin, yPosition, pageWidth - 2 * margin, 8, 'F');
                 }
 
+                const isGerenciaOr360 = (criterio.idCriterio === 1 || criterio.idCriterio === 2);
+                const statusLabel = isGerenciaOr360 ? getLabelForPercentage(rowPercent) : (atingiu ? 'Atingida' : 'Não Atingida');
+
                 const rowData = [
                   criterio.nome,
                   criterio.tipo === 'qualitativo' ? `${criterio.valorMeta}%` : criterio.valorMeta.toString(),
-                  criterio.tipo === 'qualitativo' ? `${metaAlcancada}%` : parseInt(metaAlcancada).toString(),
-                  atingiu ? 'Atingida' : 'Não Atingida',
+                  criterio.tipo === 'qualitativo' ? (metaAlcancada ? `${metaAlcancada}%` : 'N/A') : (criterioAvaliacao ? String(parseInt(String(criterioAvaliacao.metaAlcancada || criterioAvaliacao.valorAlcancado || 0), 10)) : '0'),
+                  statusLabel,
                   formatarMoeda(criterio.valorBonus),
                   formatarMoeda(valorBonusAlcancado)
                 ];
@@ -152,11 +173,38 @@ import React from 'react';
 
                 rowData.forEach((data, colIdx) => {
                   const textY = yPosition + 6;
+                  // aplicar cor para a coluna 'Alcançado' (qualitativos) e para 'Status' usando rowPercent
+                  if (colIdx === 2) {
+                    // para a coluna 'Alcançado':
+                    // - se bloco for Gerência/360 usamos as faixas (rowPercent)
+                    // - se não for, usamos binário (atingiu -> verde / !atingiu -> vermelho)
+                    if (isGerenciaOr360 && criterio.tipo === 'qualitativo') {
+                      const rgb = getColorRgbForPercentage(rowPercent);
+                      pdf.setTextColor(rgb[0], rgb[1], rgb[2]);
+                    } else {
+                      // binário com base em 'atingiu'
+                      if (atingiu) pdf.setTextColor(16, 185, 129); else pdf.setTextColor(220, 38, 38);
+                    }
+                  }
+                  if (colIdx === 3) {
+                    // para Gerência/360 usar faixas; caso contrário usar verde/vermelho binário
+                    if (isGerenciaOr360) {
+                      const rgb = getColorRgbForPercentage(rowPercent);
+                      pdf.setTextColor(rgb[0], rgb[1], rgb[2]);
+                    } else {
+                      // binário: verde se atingiu, vermelho se não
+                      if (atingiu) pdf.setTextColor(16, 185, 129); else pdf.setTextColor(220, 38, 38);
+                    }
+                  }
+
                   if (colIdx === 0) {
                     pdf.text(firstColTextLines, xPos + 2, textY);
                   } else {
                     pdf.text(data, xPos + 2, textY);
                   }
+
+                  // reset cor para preto depois da célula
+                  pdf.setTextColor(0, 0, 0);
                   xPos += colWidths[colIdx];
                 });
 
@@ -216,6 +264,23 @@ import React from 'react';
             console.error('Erro ao gerar PDF:', error);
             toast({ title: 'Erro ao gerar PDF', description: 'Ocorreu um erro ao gerar o relatório. Tente novamente.', variant: 'destructive' });
           }
+        };
+
+        const getColorRgbForPercentage = (p: number) => {
+          // 0-25 vermelho, 26-50 laranja, 51-75 amarelo, 76-100 verde
+          if (isNaN(p)) return [100, 100, 100];
+          if (p <= 25) return [220, 38, 38]; // red-600
+          if (p <= 50) return [249, 115, 22]; // orange-500-ish
+          if (p <= 75) return [250, 204, 21]; // yellow-400-ish
+          return [16, 185, 129]; // green-500-ish
+        };
+
+        const getLabelForPercentage = (p: number) => {
+          if (isNaN(p)) return 'N/A';
+          if (p <= 25) return 'Insatisfatório';
+          if (p <= 50) return 'Regular';
+          if (p <= 75) return 'Bom';
+          return 'Ótimo';
         };
 
         return (
