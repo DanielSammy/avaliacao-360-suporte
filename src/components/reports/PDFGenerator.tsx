@@ -72,25 +72,35 @@ import React from 'react';
               blocosMap[c.idCriterio].push(c);
             });
 
-            // Carregar nomes dos tipos de critério (para títulos dos blocos)
+            // Carregar nomes dos tipos de critério (para títulos dos blocos) e valores totais por bloco
             const tipoCriterioMap: Record<number, string> = {};
+            const tipoValorMap: Record<number, number> = {};
             try {
               // import dinamico para evitar aumentar bundle no componente (apenas runtime)
               const { getTipoCriterios } = await import('@/services/criteriaService');
               const tipos = await getTipoCriterios();
-              tipos.forEach((t: { id: number; descricao: string }) => { tipoCriterioMap[t.id] = t.descricao; });
+              tipos.forEach((t: { id: number; descricao: string; valorNvl1?: number; valorNvl2?: number; valorNvl3?: number; valorSpa?: number }) => {
+                tipoCriterioMap[t.id] = t.descricao;
+                // definir valor total do bloco conforme convenção do sistema
+                let total = 0;
+                if (t.id === 1) total = Number(t.valorNvl1 ?? 0);
+                else if (t.id === 2) total = Number(t.valorNvl2 ?? 0);
+                else if (t.id === 3) total = Number(t.valorNvl3 ?? 0);
+                tipoValorMap[t.id] = total;
+              });
             } catch (err) {
               // Silencioso: se falhar, usaremos os nomes padrão 'Bloco X'
-              console.warn('Não foi possível carregar tipos de critério para títulos dos blocos:', err);
+              console.warn('Não foi possível carregar tipos de critério para títulos/dimensão dos blocos:', err);
             }
 
-            const tableHeaders = ['Critério', 'Meta', 'Alcançado', 'Status', 'Valor Meta', 'Valor Alcançado'];
+            const tableHeaders = ['Critério', 'Meta', 'Alcançado', 'Status', 'Valor (R$)', 'Valor Alcançado'];
             const colWidths = [100, 30, 30, 30, 40, 40];
 
             let isFirstBlock = true;
             for (const idBlocoStr of Object.keys(blocosMap)) {
               const idBloco = parseInt(idBlocoStr, 10);
               const criteriosDoBloco = blocosMap[idBloco];
+
 
               if (!isFirstBlock) {
                 pdf.addPage();
@@ -101,6 +111,30 @@ import React from 'react';
               pdf.setFontSize(11);
               pdf.setFont('helvetica', 'bold');
               const blocoTitulo = tipoCriterioMap[idBloco] || `Bloco ${idBloco}`;
+              // calcular resumo do bloco
+              const getValorCriterio = (c: Criterio): number => {
+                // preferir o valor bruto `valorCriterio` quando presente (pode ser string ou number)
+                const r = c as unknown as Record<string, unknown>;
+                const raw = r['valorCriterio'];
+                if (raw !== undefined && raw !== null) {
+                  if (typeof raw === 'string') return parseFloat(raw.replace(',', '.')) || 0;
+                  if (typeof raw === 'number') return raw;
+                }
+                return Number(c.valorBonus ?? 0);
+              };
+
+              // Para os blocos de Tipo 1 e 2, o 'valor possível' é o valor total do bloco (configurado em TipoCriterio)
+              let valorPossivel = criteriosDoBloco.reduce((acc, c) => acc + getValorCriterio(c), 0);
+              if ((idBloco === 1 || idBloco === 2) && tipoValorMap[idBloco] !== undefined) {
+                valorPossivel = tipoValorMap[idBloco];
+              }
+              const totalAlcancadoBlock = criteriosDoBloco.reduce((acc, c) => {
+                const ca = avaliacao.criterios.find(x => x.criterioId === c.id);
+                return acc + (ca?.valorBonusAlcancado || 0);
+              }, 0);
+              const qtdAvaliacoes = criteriosDoBloco.reduce((acc, c) => acc + (avaliacao.criterios.find(x => x.criterioId === c.id) ? 1 : 0), 0);
+              const performanceBlock = valorPossivel > 0 ? (totalAlcancadoBlock / valorPossivel) * 100 : 0;
+
               pdf.text(blocoTitulo.toUpperCase(), margin, yPosition);
               yPosition += 8;
               checkPageBreak();
@@ -158,12 +192,14 @@ import React from 'react';
                 const isGerenciaOr360 = (criterio.idCriterio === 1 || criterio.idCriterio === 2);
                 const statusLabel = isGerenciaOr360 ? getLabelForPercentage(rowPercent) : (atingiu ? 'Atingida' : 'Não Atingida');
 
+                const valorMetaMonetario = getValorCriterio(criterio);
+
                 const rowData = [
                   criterio.nome,
                   criterio.tipo === 'qualitativo' ? `${criterio.valorMeta}%` : criterio.valorMeta.toString(),
                   criterio.tipo === 'qualitativo' ? (metaAlcancada ? `${metaAlcancada}%` : 'N/A') : (criterioAvaliacao ? String(parseInt(String(criterioAvaliacao.metaAlcancada || criterioAvaliacao.valorAlcancado || 0), 10)) : '0'),
                   statusLabel,
-                  formatarMoeda(criterio.valorBonus),
+                  formatarMoeda(valorMetaMonetario),
                   formatarMoeda(valorBonusAlcancado)
                 ];
 
@@ -211,6 +247,19 @@ import React from 'react';
                 yPosition += newRowHeight;
                 checkPageBreak();
               });
+
+              // após a tabela do bloco, desenhar resumo do bloco alinhado à direita
+              yPosition += 6;
+              checkPageBreak();
+              pdf.setFont('helvetica', 'normal');
+              pdf.setFontSize(9);
+              pdf.text(`Valor possível: ${formatarMoeda(valorPossivel)}`, pageWidth - margin, yPosition, { align: 'right' });
+              yPosition += 6;
+              pdf.text(`Total alcançado: ${formatarMoeda(totalAlcancadoBlock)} (${performanceBlock.toFixed(1)}%)`, pageWidth - margin, yPosition, { align: 'right' });
+              yPosition += 6;
+              pdf.text(`Qtd avaliações: ${qtdAvaliacoes}`, pageWidth - margin, yPosition, { align: 'right' });
+              yPosition += 8;
+              checkPageBreak();
 
               isFirstBlock = false;
             }

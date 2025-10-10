@@ -87,6 +87,8 @@ export function EvaluationPanel() {
         ordem: originalCriterio ? originalCriterio.ordem : 0,
         ativo: originalCriterio ? originalCriterio.ativo : true,
         totalAvaliacoes: 0,
+        // preservar valorCriterio original quando disponível para repassar ao PDF
+        valorCriterio: originalCriterio ? originalCriterio.valorCriterio : undefined,
         valorBonus: parseFloat(c.valorMeta),
         mediaGeral: false,
         metaCalculo: originalCriterio ? originalCriterio.metaCalculo : undefined,
@@ -105,6 +107,8 @@ export function EvaluationPanel() {
         tipo: c.criterioTipo as 'qualitativo' | 'quantitativo',
         tipoMeta: c.criterioTipoMeta as 'maior_melhor' | 'menor_melhor',
         valorMeta: c.metaObjetivo || 0,
+        // incluir valorCriterio para consistência (pode ser usado pelo PDF)
+        valorCriterio: originalCriterio ? originalCriterio.valorCriterio : undefined,
         valorBonus: parseFloat(c.valorMeta) || 0,
         ordem: originalCriterio ? originalCriterio.ordem : 0,
         ativo: originalCriterio ? originalCriterio.ativo : true,

@@ -23,6 +23,8 @@ export interface Criterio {
   ativo: boolean;
   totalAvaliacoes?: number; // pode vir ausente quando for 0
   valorBonus: number;
+  // preserva o valor bruto vindo do backend (campo `valorCriterio`) quando presente
+  valorCriterio?: string | number;
   mediaGeral: boolean;
   metaCalculo?: number;
 }

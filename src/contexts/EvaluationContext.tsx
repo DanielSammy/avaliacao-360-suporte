@@ -301,6 +301,15 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
         // Garante que idCriterio seja sempre um número para consistência da aplicação
         const transformedCriterios = response.data.map((criterio: unknown) => {
           const rc = criterio as Record<string, unknown>;
+          // preferir valorCriterio (string do backend), depois valorBonus (se o backend já enviar), depois valorMeta como fallback
+          const rawValorCriterio = rc.valorCriterio ?? rc['valorCriterio'];
+          const rawValorBonus = rc.valorBonus ?? rc['valorBonus'];
+          const resolvedValorBonus = rawValorCriterio !== undefined && rawValorCriterio !== null
+            ? parseFloat(String(rawValorCriterio))
+            : (rawValorBonus !== undefined && rawValorBonus !== null
+              ? parseFloat(String(rawValorBonus))
+              : parseFloat(String(rc.valorMeta ?? 0)));
+
           return {
             ...rc,
             id: rc.id as number,
@@ -313,7 +322,9 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
             ativo: !!rc.ativo,
             mediaGeral: !!rc.mediaGeral,
             totalAvaliacoes: rc.totalAvaliacoes !== undefined ? parseInt(String(rc.totalAvaliacoes), 10) : undefined,
-            valorBonus: rc.valorCriterio ? parseFloat(String(rc.valorCriterio)) : 0,
+            // preserve the raw backend value (string or number) for traceability
+            valorCriterio: rawValorCriterio !== undefined && rawValorCriterio !== null ? rawValorCriterio : undefined,
+            valorBonus: resolvedValorBonus,
             metaCalculo: rc.metaCalculo !== undefined ? parseInt(String(rc.metaCalculo), 10) : undefined,
           } as Criterio;
         });

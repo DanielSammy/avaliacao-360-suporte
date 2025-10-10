@@ -31,9 +31,23 @@ export function calcularBonusAlcancado(criterio: Criterio, valorAlcancado: numbe
   const v = typeof valorAlcancado === 'string' ? parseFloat(valorAlcancado.replace(',', '.')) || 0 : valorAlcancado || 0;
   const target = criterio.valorMeta;
   const bonus = criterio.valorBonus;
+  // Se for TipoCriterio 3: o valor do critério (valorCriterio) define o bônus base — usamos preferencialmente valorCriterio
+  const valorCriterioRaw = (criterio as unknown as Record<string, unknown>)['valorCriterio'];
+  const valorCriterioNum = valorCriterioRaw !== undefined && valorCriterioRaw !== null
+    ? (typeof valorCriterioRaw === 'string' ? parseFloat(String(valorCriterioRaw).replace(',', '.')) || 0 : Number(valorCriterioRaw))
+    : NaN;
 
   if (criterio.tipoMeta === 'maior_melhor') {
     const atingiuMeta = v >= target;
+    if (criterio.idCriterio === 3) {
+      // Regra especial para tipoCriterio 3: usar valorCriterio como base
+      if (!isNaN(valorCriterioNum)) {
+        if (atingiuMeta) return valorCriterioNum;
+        if (target <= 0) return 0;
+        const proporcao = Math.min(v / target, 1);
+        return Math.max(0, valorCriterioNum * proporcao);
+      }
+    }
     if (atingiuMeta) {
       return bonus;
     }
@@ -51,6 +65,10 @@ export function calcularBonusAlcancado(criterio: Criterio, valorAlcancado: numbe
     
     // Cálculo principal: (1 - (alcançado / meta)) * bônus
     const proportion = 1 - (v / target);
+    // Para tipoCriterio 3, usar valorCriterio como base do proporcional (quando disponível)
+    if (criterio.idCriterio === 3 && !isNaN(valorCriterioNum)) {
+      return Math.max(0, valorCriterioNum * proportion);
+    }
     return Math.max(0, bonus * proportion);
   }
 }
@@ -108,6 +126,12 @@ export function calcularTotaisAvaliacao(
 ): { valorTotalMeta: number; valorTotalAlcancado: number } {
   const valorTotalMeta = criterios.reduce((total, criterio) => {
     if (criterio.ativo) {
+      // se for tipoCriterio 3 e tiver valorCriterio, usar esse como valor da meta possível
+      const raw = (criterio as unknown as Record<string, unknown>)['valorCriterio'];
+      const rawNum = raw !== undefined && raw !== null ? (typeof raw === 'string' ? parseFloat(String(raw).replace(',', '.')) || 0 : Number(raw)) : NaN;
+      if (criterio.idCriterio === 3 && !isNaN(rawNum)) {
+        return total + rawNum;
+      }
       return total + criterio.valorBonus;
     }
     return total;
