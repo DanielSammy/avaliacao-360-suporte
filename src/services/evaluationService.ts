@@ -1,4 +1,5 @@
 import { BASE_URL, API_ENDPOINTS, getAuthToken } from '../config/apiConfig';
+import { Avaliacao } from '@/types/evaluation';
 
 // Request for the new bulk endpoint
 export interface CreateBulkEvaluationsRequest {
@@ -124,7 +125,7 @@ export const checkCriterionEvaluated = async (periodo: string, avaliadorId: numb
 };
 
 // Busca avaliações (opcionalmente por período). Retorna um array de Avaliacao-like (normaliza datas)
-export const getAvaliacoes = async (periodo?: string): Promise<any[]> => {
+export const getAvaliacoes = async (periodo?: string): Promise<Avaliacao[]> => {
   const url = new URL(`${BASE_URL}${API_ENDPOINTS.AVALIACOES}`, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
   if (periodo) url.searchParams.append('periodo', periodo);
 
@@ -140,8 +141,8 @@ export const getAvaliacoes = async (periodo?: string): Promise<any[]> => {
   }
 
   // Espera-se que o backend retorne um array de avaliações ou um objeto { success, data }
-  if (Array.isArray(responseData)) return responseData;
-  if (responseData && Array.isArray(responseData.data)) return responseData.data;
+  if (Array.isArray(responseData)) return responseData as Avaliacao[];
+  if (responseData && Array.isArray(responseData.data)) return responseData.data as Avaliacao[];
 
   return [];
 };

@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { Operador } from '../types/evaluation';
+import { Operador, Avaliacao, CriterioAvaliacao } from '../types/evaluation';
 import { getCurrentPeriod } from '@/lib/period';
 
 export function EvaluationTracking() {
@@ -74,11 +74,11 @@ export function EvaluationTracking() {
 
       // avaliacoes
       const data = await getAvaliacoes(currentPeriod);
-      const normalized = (data || []).map((d: any) => ({
+      const normalized = (data || []).map((d: Avaliacao) => ({
         ...d,
         dataCriacao: d.dataCriacao ? new Date(d.dataCriacao) : new Date(),
         dataUltimaEdicao: d.dataUltimaEdicao ? new Date(d.dataUltimaEdicao) : new Date(),
-      }));
+      } as Avaliacao));
       if (mounted) dispatch({ type: 'SET_AVALIACOES', payload: normalized });
     } catch (err) {
       console.error('Failed to fetch all data for EvaluationTracking:', err);
@@ -122,7 +122,7 @@ export function EvaluationTracking() {
       if (ev.periodo !== currentPeriod) return false;
       if (ev.avaliadorId === operator.id) return true;
       if (!Array.isArray(ev.criterios)) return false;
-      return ev.criterios.some((c: any) => Number(c.avaliadorId) === operator.id);
+  return ev.criterios.some((c: CriterioAvaliacao) => Number(c.avaliadorId) === operator.id);
     });
     let completedGivenCriteria = 0;
     for (const criterio of applicableCriterios) {
@@ -239,7 +239,7 @@ export function EvaluationTracking() {
       if (ev.periodo !== currentPeriod) return false;
       if (ev.avaliadorId === op.id) return true;
       if (!Array.isArray(ev.criterios)) return false;
-      return ev.criterios.some((c: any) => Number(c.avaliadorId) === op.id);
+  return ev.criterios.some((c: CriterioAvaliacao) => Number(c.avaliadorId) === op.id);
     });
     const criteriaEvaluatedByOp = new Set<number>();
     for (const ev of evalsByOp) {
@@ -295,7 +295,7 @@ export function EvaluationTracking() {
                           if (ev.periodo !== currentPeriod) return false;
                           if (ev.avaliadorId === op.id) return true;
                           if (!Array.isArray(ev.criterios)) return false;
-                          return ev.criterios.some((c: any) => Number(c.avaliadorId) === op.id);
+                          return ev.criterios.some((c: CriterioAvaliacao) => Number(c.avaliadorId) === op.id);
                         });
                         const criteriaEvaluatedByOp = new Set<number>();
                         for (const ev of evalsByOp) {

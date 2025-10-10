@@ -127,7 +127,12 @@ export function BlockEvaluation({ title, criterios, criteriosAvaliacao, totalVal
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full table-fixed">
+            <colgroup>
+              <col style={{ width: '60%' }} />
+              <col style={{ width: '20%' }} />
+              <col style={{ width: '20%' }} />
+            </colgroup>
             <thead className="bg-muted/50">
               <tr>
                 <th className="text-left p-4 font-semibold">Critério</th>
@@ -144,7 +149,7 @@ export function BlockEvaluation({ title, criterios, criteriosAvaliacao, totalVal
                   return (
                     <tr key={criterio.id} className="border-b hover:bg-muted/30 transition-colors">
                       <td className="p-4">
-                        <div className="font-medium">{criterio.nome}</div>
+                        <div className="font-medium whitespace-normal" title={criterio.nome}>{criterio.nome}</div>
                       </td>
                       <td className="p-4 text-center">
                         {criterio.tipo === 'qualitativo' ? (
