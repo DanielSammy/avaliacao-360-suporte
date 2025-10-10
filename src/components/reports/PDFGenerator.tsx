@@ -95,6 +95,9 @@ import React from 'react';
 
             const tableHeaders = ['Critério', 'Meta', 'Alcançado', 'Status', 'Valor (R$)', 'Valor Alcançado'];
             const colWidths = [100, 30, 30, 30, 40, 40];
+            const totalTableWidth = pageWidth - 2 * margin;
+            const compactHeaders = ['Critério', 'Alcançado', 'Status'];
+            const compactColWidths = [totalTableWidth - 80, 40, 40];
 
             let isFirstBlock = true;
             for (const idBlocoStr of Object.keys(blocosMap)) {
@@ -139,16 +142,20 @@ import React from 'react';
               yPosition += 8;
               checkPageBreak();
 
-              // Cabeçalho da tabela do bloco
+              // Cabeçalho da tabela do bloco (compacta para blocos 1 e 2)
+              const isCompact = (idBloco === 1 || idBloco === 2);
+              const headersToUse = isCompact ? compactHeaders : tableHeaders;
+              const widthsToUse = isCompact ? compactColWidths : colWidths;
               let xPos = margin;
               pdf.setFont('helvetica', 'bold');
               pdf.setFontSize(9);
-              tableHeaders.forEach((header, idx) => {
+              headersToUse.forEach((header, idx) => {
                 pdf.setFillColor(59, 130, 246);
-                pdf.rect(xPos, yPosition, colWidths[idx], 8, 'F');
+                const w = widthsToUse[idx] ?? 40;
+                pdf.rect(xPos, yPosition, w, 8, 'F');
                 pdf.setTextColor(255, 255, 255);
                 pdf.text(header, xPos + 2, yPosition + 6);
-                xPos += colWidths[idx];
+                xPos += w;
               });
               yPosition += 8;
               checkPageBreak();
@@ -162,14 +169,12 @@ import React from 'react';
                 const valorAlcancado = criterioAvaliacao ? parseFloat(String(criterioAvaliacao.valorAlcancado).replace(',', '.')) || 0 : 0;
                 const valorBonusAlcancado = criterioAvaliacao?.valorBonusAlcancado || 0;
                 const metaAlcancadaRaw = criterioAvaliacao?.metaAlcancada ?? '';
-                const metaAlcancada = metaAlcancadaRaw;
                 const atingiu = metaAtingida(criterio, valorAlcancado);
 
                 // calcular percentual por linha (compatível com a UI)
                 let rowPercent = NaN;
                 if (criterio.tipo === 'qualitativo') {
-                  const n = metaAlcancadaRaw ? parseFloat(String(metaAlcancadaRaw).replace(',', '.')) || NaN : NaN;
-                  rowPercent = n;
+                  rowPercent = metaAlcancadaRaw ? parseFloat(String(metaAlcancadaRaw).replace(',', '.')) || NaN : NaN;
                 } else {
                   const n = criterioAvaliacao ? parseFloat(String(criterioAvaliacao.valorAlcancado).replace(',', '.')) || NaN : NaN;
                   const target = criterio.valorMeta || 0;
@@ -183,65 +188,84 @@ import React from 'react';
                 }
 
                 xPos = margin;
-
                 if (idx % 2 !== 0) {
+                  const rowW = widthsToUse.reduce((s, w) => s + w, 0);
                   pdf.setFillColor(245, 245, 245);
-                  pdf.rect(margin, yPosition, pageWidth - 2 * margin, 8, 'F');
+                  pdf.rect(margin, yPosition, rowW, 8, 'F');
                 }
 
                 const isGerenciaOr360 = (criterio.idCriterio === 1 || criterio.idCriterio === 2);
                 const statusLabel = isGerenciaOr360 ? getLabelForPercentage(rowPercent) : (atingiu ? 'Atingida' : 'Não Atingida');
-
                 const valorMetaMonetario = getValorCriterio(criterio);
 
-                const rowData = [
+                const fullRowData = [
                   criterio.nome,
                   criterio.tipo === 'qualitativo' ? `${criterio.valorMeta}%` : criterio.valorMeta.toString(),
-                  criterio.tipo === 'qualitativo' ? (metaAlcancada ? `${metaAlcancada}%` : 'N/A') : (criterioAvaliacao ? String(parseInt(String(criterioAvaliacao.metaAlcancada || criterioAvaliacao.valorAlcancado || 0), 10)) : '0'),
+                  criterio.tipo === 'qualitativo' ? (metaAlcancadaRaw ? `${metaAlcancadaRaw}%` : 'N/A') : (criterioAvaliacao ? String(parseInt(String(criterioAvaliacao.metaAlcancada || criterioAvaliacao.valorAlcancado || 0), 10)) : '0'),
                   statusLabel,
                   formatarMoeda(valorMetaMonetario),
                   formatarMoeda(valorBonusAlcancado)
                 ];
 
+                const compactRowData = [
+                  criterio.nome,
+                  criterio.tipo === 'qualitativo' ? (metaAlcancadaRaw ? `${metaAlcancadaRaw}%` : 'N/A') : (criterioAvaliacao ? String(parseInt(String(criterioAvaliacao.metaAlcancada || criterioAvaliacao.valorAlcancado || 0), 10)) : '0'),
+                  statusLabel
+                ];
+
+                const rowDataToUse = isCompact ? compactRowData : fullRowData;
                 const rowHeight = 8;
-                const firstColTextLines = pdf.splitTextToSize(rowData[0], colWidths[0] - 4);
+                const firstColTextLines = pdf.splitTextToSize(rowDataToUse[0], (widthsToUse[0] ?? 100) - 4);
                 const newRowHeight = rowHeight * firstColTextLines.length;
 
-                rowData.forEach((data, colIdx) => {
+                rowDataToUse.forEach((data, colIdx) => {
                   const textY = yPosition + 6;
-                  // aplicar cor para a coluna 'Alcançado' (qualitativos) e para 'Status' usando rowPercent
-                  if (colIdx === 2) {
-                    // para a coluna 'Alcançado':
-                    // - se bloco for Gerência/360 usamos as faixas (rowPercent)
-                    // - se não for, usamos binário (atingiu -> verde / !atingiu -> vermelho)
-                    if (isGerenciaOr360 && criterio.tipo === 'qualitativo') {
-                      const rgb = getColorRgbForPercentage(rowPercent);
-                      pdf.setTextColor(rgb[0], rgb[1], rgb[2]);
-                    } else {
-                      // binário com base em 'atingiu'
-                      if (atingiu) pdf.setTextColor(16, 185, 129); else pdf.setTextColor(220, 38, 38);
+                  // aplicar cor para a coluna 'Alcançado' e 'Status' usando rowPercent
+                  if (isCompact) {
+                    if (colIdx === 1) {
+                      if (isGerenciaOr360 && criterio.tipo === 'qualitativo') {
+                        const rgb = getColorRgbForPercentage(rowPercent);
+                        pdf.setTextColor(rgb[0], rgb[1], rgb[2]);
+                      } else {
+                        if (atingiu) pdf.setTextColor(16, 185, 129); else pdf.setTextColor(220, 38, 38);
+                      }
                     }
-                  }
-                  if (colIdx === 3) {
-                    // para Gerência/360 usar faixas; caso contrário usar verde/vermelho binário
-                    if (isGerenciaOr360) {
-                      const rgb = getColorRgbForPercentage(rowPercent);
-                      pdf.setTextColor(rgb[0], rgb[1], rgb[2]);
-                    } else {
-                      // binário: verde se atingiu, vermelho se não
-                      if (atingiu) pdf.setTextColor(16, 185, 129); else pdf.setTextColor(220, 38, 38);
+                    if (colIdx === 2) {
+                      if (isGerenciaOr360) {
+                        const rgb = getColorRgbForPercentage(rowPercent);
+                        pdf.setTextColor(rgb[0], rgb[1], rgb[2]);
+                      } else {
+                        if (atingiu) pdf.setTextColor(16, 185, 129); else pdf.setTextColor(220, 38, 38);
+                      }
+                    }
+                  } else {
+                    if (colIdx === 2) {
+                      if (isGerenciaOr360 && criterio.tipo === 'qualitativo') {
+                        const rgb = getColorRgbForPercentage(rowPercent);
+                        pdf.setTextColor(rgb[0], rgb[1], rgb[2]);
+                      } else {
+                        if (atingiu) pdf.setTextColor(16, 185, 129); else pdf.setTextColor(220, 38, 38);
+                      }
+                    }
+                    if (colIdx === 3) {
+                      if (isGerenciaOr360) {
+                        const rgb = getColorRgbForPercentage(rowPercent);
+                        pdf.setTextColor(rgb[0], rgb[1], rgb[2]);
+                      } else {
+                        if (atingiu) pdf.setTextColor(16, 185, 129); else pdf.setTextColor(220, 38, 38);
+                      }
                     }
                   }
 
                   if (colIdx === 0) {
                     pdf.text(firstColTextLines, xPos + 2, textY);
                   } else {
-                    pdf.text(data, xPos + 2, textY);
+                    pdf.text(String(data), xPos + 2, textY);
                   }
 
                   // reset cor para preto depois da célula
                   pdf.setTextColor(0, 0, 0);
-                  xPos += colWidths[colIdx];
+                  xPos += widthsToUse[colIdx] ?? 40;
                 });
 
                 yPosition += newRowHeight;
