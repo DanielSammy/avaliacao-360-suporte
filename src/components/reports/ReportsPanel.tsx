@@ -446,33 +446,43 @@ export function ReportsPanel() {
                                   const smtpUser = localStorage.getItem('smtpUser') || undefined;
                                   const smtpPassword = localStorage.getItem('smtpPassword') || undefined;
 
-                                  const form = new FormData();
-                                  form.append('to', String((operador as any)?.email ?? operador?.login ?? ''));
-                                  form.append('subject', `Avaliação do operador ${operador?.nome}`);
-                                  form.append('content', `Olá ${operador?.nome},\n\nVocê está recebendo por e-mail sua avaliação referente ao período ${avaliacao.periodo}. Em anexo segue o relatório em PDF.\n\nAtenciosamente,\nEquipe Space Sistemas`);
-                                  form.append('isHtml', 'true');
-                                  if (smtpHost) form.append('smtpHost', smtpHost);
-                                  if (smtpPort) form.append('smtpPort', String(smtpPort));
-                                  if (smtpUser) form.append('smtpUser', smtpUser);
-                                  if (smtpPassword) form.append('smtpPassword', smtpPassword);
-                                  // anexo: campo 'attachments' (backend deve aceitar multipart attachments)
-                                  form.append('attachments', blob, fileName);
-
                                   const token = getAuthToken();
                                   const headers: Record<string, string> = {};
                                   if (token) headers['Authorization'] = `Bearer ${token}`;
 
                                   const { BASE_URL, API_ENDPOINTS } = await import('@/config/apiConfig');
-                                  const resp2 = await fetch(`${BASE_URL}${API_ENDPOINTS.EMAIL_SEND}`, {
-                                    method: 'POST',
-                                    headers,
-                                    body: form
-                                  });
+                                  // O backend espera JSON no formato EmailRequest com attachments base64
+                                  try {
+                                    const form = new FormData();
+                                    form.append('smtpUser', smtpUser || '');
+                                    form.append('subject', `Avaliação do operador ${operador?.nome}`);
+                                    form.append('smtpPassword', smtpPassword || '');
+                                    form.append('isHtml', 'true');
+                                    if (smtpPort) form.append('smtpPort', String(smtpPort));
+                                    form.append('content', `Olá ${operador?.nome},\n\nVocê está recebendo por e-mail sua avaliação referente ao período ${avaliacao.periodo}. Em anexo segue o relatório em PDF.\n\nAtenciosamente,\nEquipe Space Sistemas`);
+                                    form.append('to', String((operador as any)?.email ?? operador?.login ?? ''));
+                                    form.append('smtpHost', smtpHost || '');
+                                    // anexo usando o mesmo nome de campo do seu curl
+                                    form.append('attachments', blob, fileName);
 
-                                  if (resp2.ok) {
-                                    toast({ title: 'Enviado', description: 'Relatório enviado por e-mail com sucesso.' });
-                                  } else {
-                                    toast({ title: 'Erro', description: 'Servidor não aceitou a solicitação de envio. Veja console para detalhes.', variant: 'default' });
+                                    const token = getAuthToken();
+                                    const headers: Record<string, string> = {};
+                                    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                                    const resp = await fetch(`${BASE_URL}${API_ENDPOINTS.EMAIL_SEND}`, {
+                                      method: 'POST',
+                                      headers,
+                                      body: form
+                                    });
+
+                                    if (resp.ok) {
+                                      toast({ title: 'Enviado', description: 'Relatório enviado por e-mail com sucesso.' });
+                                    } else {
+                                      const text = await resp.text().catch(() => '<no body>');
+                                      toast({ title: 'Erro', description: `Servidor rejeitou o envio: ${resp.status} - ${text}`, variant: 'destructive' });
+                                    }
+                                  } catch (err) {
+                                    toast({ title: 'Erro', description: 'Falha ao enviar email com anexo.', variant: 'destructive' });
                                   }
                                 } catch (e) {
                                   toast({ title: 'Erro', description: 'Falha ao gerar ou enviar o PDF. Baixe o PDF manualmente.', variant: 'destructive' });
