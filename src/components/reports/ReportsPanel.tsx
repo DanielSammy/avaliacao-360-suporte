@@ -1,10 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useEvaluation } from '@/contexts/EvaluationContext';
+import { useToast } from '@/hooks/use-toast';
+import { getOperadores } from '@/services/operatorService';
+import { Operador } from '@/types/evaluation';
 import { PDFGenerator } from './PDFGenerator';
 import { CalculationReportGenerator } from './CalculationReportGenerator';
 import { formatarMoeda, formatarPeriodo, formatarPercentual } from '@/utils/calculations';
@@ -12,8 +15,20 @@ import { BarChart3, TrendingUp, Users, Award, Calendar, FileText } from 'lucide-
 
 export function ReportsPanel() {
   const { state } = useEvaluation();
+  const { toast } = useToast();
   const [periodoSelecionado, setPeriodoSelecionado] = useState<string>('todos');
   const [operadorSelecionado, setOperadorSelecionado] = useState<number | 'todos'>('todos');
+  const [apiOperadores, setApiOperadores] = useState<Operador[]>([]);
+
+  // Helper robusto para converter valores numéricos vindos da API
+  const parseNumeric = (v?: string | number | null): number => {
+    if (v === null || v === undefined) return 0;
+    if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+    // tratar strings: normalizar vírgula para ponto e remover espaços
+    const s = String(v).trim().replace(/\s+/g, '').replace(',', '.').replace(/[^0-9.\-]/g, '');
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : 0;
+  };
 
   // Gerar lista de períodos disponíveis
   const periodosDisponiveis = useMemo(() => {
@@ -43,8 +58,8 @@ export function ReportsPanel() {
       };
     }
 
-    const totalBonusPago = avaliacoesFiltradas.reduce((total, av) => total + av.valorTotalAlcancado, 0);
-    const mediaBonusAlcancado = totalBonusPago / avaliacoesFiltradas.length;
+  const totalBonusPago = avaliacoesFiltradas.reduce((total, av) => total + parseNumeric(av.valorTotalAlcancado), 0);
+  const mediaBonusAlcancado = avaliacoesFiltradas.length > 0 ? totalBonusPago / avaliacoesFiltradas.length : 0;
 
     // Calcular percentual de metas atingidas
     let totalMetas = 0;
@@ -76,7 +91,7 @@ export function ReportsPanel() {
       }
 
       const stats = operadorStats.get(av.operadorId);
-      stats.totalBonus += av.valorTotalAlcancado;
+  stats.totalBonus += parseNumeric(av.valorTotalAlcancado);
       stats.totalAvaliacoes++;
       stats.metasAtingidas += av.criterios.filter(c => c.metaAtingida).length;
       stats.totalMetas += av.criterios.length;
@@ -107,7 +122,7 @@ export function ReportsPanel() {
       }
 
       const stats = periodoStats.get(av.periodo);
-      stats.totalBonus += av.valorTotalAlcancado;
+  stats.totalBonus += parseNumeric(av.valorTotalAlcancado);
       stats.totalAvaliacoes++;
       stats.metasAtingidas += av.criterios.filter(c => c.metaAtingida).length;
       stats.totalMetas += av.criterios.length;
@@ -144,9 +159,9 @@ export function ReportsPanel() {
       const metasAtingidas = avaliacao.criterios.filter(c => c.metaAtingida).length;
       const totalMetas = avaliacao.criterios.length;
       const percentualMetas = totalMetas > 0 ? (metasAtingidas / totalMetas) * 100 : 0;
-      const performance = avaliacao.valorTotalMeta > 0
-        ? (avaliacao.valorTotalAlcancado / avaliacao.valorTotalMeta) * 100
-        : 0;
+      const valorTotalAlc = parseNumeric(avaliacao.valorTotalAlcancado);
+      const valorTotalMeta = parseNumeric(avaliacao.valorTotalMeta);
+      const performance = valorTotalMeta > 0 ? (valorTotalAlc / valorTotalMeta) * 100 : 0;
 
       const evaluationsReceived = state.avaliacoes.filter(evalItem => evalItem.operadorId === avaliacao.operadorId);
       const evaluationsExpectedToReceive = totalOperatorsCount > 1 ? totalOperatorsCount - 1 : 0;
@@ -161,7 +176,7 @@ export function ReportsPanel() {
         performance,
         isCompleted
       };
-    }).sort((a, b) => b.avaliacao.valorTotalAlcancado - a.avaliacao.valorTotalAlcancado);
+  }).sort((a, b) => parseNumeric(b.avaliacao.valorTotalAlcancado) - parseNumeric(a.avaliacao.valorTotalAlcancado));
   }, [avaliacoesFiltradas, state.operadores, state.avaliacoes]);
 
   return (
@@ -216,7 +231,7 @@ export function ReportsPanel() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos os Operadores</SelectItem>
-                  {state.operadores.filter(op => op.ativo).map(operador => (
+                  {(apiOperadores.length > 0 ? apiOperadores : state.operadores).filter(op => op.ativo).map(operador => (
                     <SelectItem key={operador.id} value={operador.id.toString()}>
                       {operador.nome}
                     </SelectItem>
@@ -348,7 +363,6 @@ export function ReportsPanel() {
                     <th className="text-left p-4 font-semibold">Operador</th>
                     <th className="text-center p-4 font-semibold">Período</th>
                     <th className="text-center p-4 font-semibold">Performance</th>
-                    <th className="text-center p-4 font-semibold">Metas</th>
                     <th className="text-center p-4 font-semibold">Bônus</th>
                     <th className="text-center p-4 font-semibold">Ações</th>
                   </tr>
@@ -374,28 +388,42 @@ export function ReportsPanel() {
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className="font-medium">{metasAtingidas}/{totalMetas}</span>
-                          <Badge 
-                            variant={percentualMetas >= 80 ? "default" : percentualMetas >= 60 ? "secondary" : "destructive"}
-                            className="text-xs"
-                          >
-                            {formatarPercentual(percentualMetas)}
-                          </Badge>
-                        </div>
-                      </td>
                       <td className="p-4 text-center font-bold text-success">
                         {formatarMoeda(avaliacao.valorTotalAlcancado)}
                       </td>
                       <td className="p-4 text-center">
-                        {operador && isCompleted && (
-                          <PDFGenerator
-                            avaliacao={avaliacao}
-                            operador={operador}
-                            criterios={state.criterios}
-                          />
-                        )}
+                        <div className="flex items-center justify-center gap-2">
+                          {/* Botão para gerar/baixar PDF */}
+                          {operador && (
+                            <PDFGenerator
+                              avaliacao={avaliacao}
+                              operador={operador}
+                              criterios={state.criterios}
+                            />
+                          )}
+                          {/* Botão enviar por email: tenta chamar /reports/send, senão apenas baixa o PDF via PDFGenerator */}
+                          <button
+                            className="px-3 py-1 rounded bg-primary text-white text-sm"
+                            onClick={async () => {
+                              try {
+                                const payload = { operadorId: operador?.id, operadorEmail: operador?.login, avaliacaoId: avaliacao.id };
+                                const resp = await fetch('/reports/send', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify(payload)
+                                });
+                                if (resp.ok) {
+                                  toast({ title: 'Enviado', description: 'Relatório enviado por e-mail com sucesso.' });
+                                } else {
+                                  toast({ title: 'Não disponível', description: 'Envio por e-mail não disponível no servidor. Baixe o PDF manualmente.', variant: 'default' });
+                                }
+                              } catch (e) {
+                                console.error('Erro enviando relatório:', e);
+                                toast({ title: 'Erro', description: 'Falha ao tentar enviar por e-mail. Baixe o PDF manualmente.', variant: 'destructive' });
+                              }
+                            }}
+                          >Enviar por e-mail</button>
+                        </div>
                       </td>
                     </tr>
                   )})}
