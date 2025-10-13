@@ -119,8 +119,17 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
         ...state,
         criterios: state.criterios.filter(cr => cr.id !== action.payload)
       };
-    case 'SET_AVALIACOES':
-      return { ...state, avaliacoes: action.payload };
+    case 'SET_AVALIACOES': {
+      // Normaliza possíveis strings de data vindas do backend para objetos Date
+      const payload = Array.isArray(action.payload) ? action.payload : [];
+      const normalized = payload.map((av: any) => ({
+        ...av,
+        dataCriacao: av.dataCriacao ? new Date(av.dataCriacao) : new Date(),
+        dataUltimaEdicao: av.dataUltimaEdicao ? new Date(av.dataUltimaEdicao) : new Date(),
+        criterios: Array.isArray(av.criterios) ? av.criterios.map((c: any) => ({ ...c })) : [],
+      })) as Avaliacao[];
+      return { ...state, avaliacoes: normalized };
+    }
     case 'ADD_AVALIACAO':
       return {
         ...state,
