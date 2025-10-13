@@ -8,6 +8,7 @@ import { useEvaluation } from '@/contexts/EvaluationContext';
 import { useToast } from '@/hooks/use-toast';
 import { getOperadores } from '@/services/operatorService';
 import { Operador } from '@/types/evaluation';
+import { getAuthToken } from '@/config/apiConfig';
 import { PDFGenerator } from './PDFGenerator';
 import { CalculationReportGenerator } from './CalculationReportGenerator';
 import { formatarMoeda, formatarPeriodo, formatarPercentual } from '@/utils/calculations';
@@ -406,19 +407,53 @@ export function ReportsPanel() {
                             className="px-3 py-1 rounded bg-primary text-white text-sm"
                             onClick={async () => {
                               try {
-                                const payload = { operadorId: operador?.id, operadorEmail: operador?.login, avaliacaoId: avaliacao.id };
-                                const resp = await fetch('/reports/send', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify(payload)
-                                });
-                                if (resp.ok) {
-                                  toast({ title: 'Enviado', description: 'Relatório enviado por e-mail com sucesso.' });
-                                } else {
-                                  toast({ title: 'Não disponível', description: 'Envio por e-mail não disponível no servidor. Baixe o PDF manualmente.', variant: 'default' });
+                                // Gerar PDF em base64
+                                try {
+                                  const { generatePdfBase64 } = await import('./PDFGenerator');
+                                  const { fileName, base64 } = await generatePdfBase64(avaliacao, operador as any, state.criterios);
+
+                                  // montar objeto EmailRequest conforme especificado
+                                  const smtpHost = localStorage.getItem('smtpHost') || undefined;
+                                  const smtpPort = localStorage.getItem('smtpPort') ? Number(localStorage.getItem('smtpPort')) : undefined;
+                                  const smtpUser = localStorage.getItem('smtpUser') || undefined;
+                                  const smtpPassword = localStorage.getItem('smtpPassword') || undefined;
+
+                                  const emailPayload = {
+                                    to: String((operador as any)?.email ?? operador?.login ?? ''),
+                                    subject: `Avaliação do operador ${operador?.nome}`,
+                                    content: `Olá ${operador?.nome},\n\nVocê está recebendo por e-mail sua avaliação referente ao período ${avaliacao.periodo}. Em anexo segue o relatório em PDF.\n\nAtenciosamente,\nEquipe Space Sistemas`,
+                                    isHtml: true,
+                                    smtpHost,
+                                    smtpPort,
+                                    smtpUser,
+                                    smtpPassword,
+                                    attachments: [
+                                      { filename: fileName, content: base64 }
+                                    ]
+                                  };
+
+                                  const token = getAuthToken();
+                                  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                                  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                                  const { BASE_URL, API_ENDPOINTS } = await import('@/config/apiConfig');
+                                  const resp2 = await fetch(`${BASE_URL}${API_ENDPOINTS.EMAIL_SEND}`, {
+                                    method: 'POST',
+                                    headers,
+                                    body: JSON.stringify(emailPayload)
+                                  });
+
+                                  const respText = await resp2.text().catch(() => '<no body>');
+
+                                  if (resp2.ok) {
+                                    toast({ title: 'Enviado', description: 'Relatório enviado por e-mail com sucesso.' });
+                                  } else {
+                                    toast({ title: 'Erro', description: 'Servidor não aceitou a solicitação de envio. Veja console para detalhes.', variant: 'default' });
+                                  }
+                                } catch (e) {
+                                  toast({ title: 'Erro', description: 'Falha ao gerar ou enviar o PDF. Baixe o PDF manualmente.', variant: 'destructive' });
                                 }
                               } catch (e) {
-                                console.error('Erro enviando relatório:', e);
                                 toast({ title: 'Erro', description: 'Falha ao tentar enviar por e-mail. Baixe o PDF manualmente.', variant: 'destructive' });
                               }
                             }}

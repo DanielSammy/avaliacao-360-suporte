@@ -1,10 +1,10 @@
 import React from 'react';
-      import { Button } from '@/components/ui/button';
-      import { jsPDF } from 'jspdf';
-      import { Avaliacao, Operador, Criterio } from '@/types/evaluation';
-      import { formatarMoeda, formatarPeriodo, metaAtingida } from '@/utils/calculations';
-      import { FileDown } from 'lucide-react';
-      import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { jsPDF } from 'jspdf';
+import { Avaliacao, Operador, Criterio } from '@/types/evaluation';
+import { formatarMoeda, formatarPeriodo, metaAtingida } from '@/utils/calculations';
+import { FileDown } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
       interface PDFGeneratorProps {
         avaliacao: Avaliacao;
@@ -12,14 +12,26 @@ import React from 'react';
         criterios: Criterio[];
       }
 
-      export function PDFGenerator({ avaliacao, operador, criterios }: PDFGeneratorProps) {
-        const { toast } = useToast();
+      const getColorRgbForPercentage = (p: number) => {
+        // 0-25 vermelho, 26-50 laranja, 51-75 amarelo, 76-100 verde
+        if (isNaN(p)) return [100, 100, 100];
+        if (p <= 25) return [220, 38, 38]; // red-600
+        if (p <= 50) return [249, 115, 22]; // orange-500-ish
+        if (p <= 75) return [250, 204, 21]; // yellow-400-ish
+        return [16, 185, 129]; // green-500-ish
+      };
 
-        const generatePDF = async () => {
-          try {
-            toast({ title: 'Gerando PDF', description: 'Preparando relatório...' });
+      const getLabelForPercentage = (p: number) => {
+        if (isNaN(p)) return 'N/A';
+        if (p <= 25) return 'Insatisfatório';
+        if (p <= 50) return 'Regular';
+        if (p <= 75) return 'Bom';
+        return 'Ótimo';
+      };
 
-            const pdf = new jsPDF('l', 'mm', 'a4');
+      // Helper que constrói o jsPDF e retorna a instância. Reutilizável para salvar ou retornar como blob/base64.
+      async function buildPdf(avaliacao: Avaliacao, operador: Operador, criterios: Criterio[]) {
+        const pdf = new jsPDF('l', 'mm', 'a4');
             const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
             const margin = 15;
@@ -371,18 +383,44 @@ import React from 'react';
               pdf.text('Sistema Avalia+ - Relatório gerado automaticamente', margin, pageHeight - 10);
             }
 
-            // Salvar PDF
             const fileName = `avaliacao_${operador.nome.replace(/\s+/g, '_')}_${avaliacao.periodo}.pdf`;
+        return { pdf, fileName };
+      }
+
+      // Exported helper: gera PDF e retorna base64 (sem prefix) e filename
+      export async function generatePdfBase64(avaliacao: Avaliacao, operador: Operador, criterios: Criterio[]) {
+        const { pdf, fileName } = await buildPdf(avaliacao, operador, criterios);
+        const arrayBuffer = pdf.output('arraybuffer') as ArrayBuffer;
+        // converter ArrayBuffer para base64
+        const base64 = arrayBufferToBase64(arrayBuffer);
+        return { fileName, base64 };
+      }
+
+      // utilitário
+      function arrayBufferToBase64(buffer: ArrayBuffer) {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+      }
+
+      export function PDFGenerator({ avaliacao, operador, criterios }: PDFGeneratorProps) {
+        const { toast } = useToast();
+
+        const generatePDF = async () => {
+          try {
+            toast({ title: 'Gerando PDF', description: 'Preparando relatório...' });
+            const { pdf, fileName } = await buildPdf(avaliacao, operador, criterios);
             pdf.save(fileName);
-
             toast({ title: 'PDF gerado com sucesso', description: `Relatório salvo como ${fileName}`, variant: 'default' });
-
           } catch (error) {
             console.error('Erro ao gerar PDF:', error);
             toast({ title: 'Erro ao gerar PDF', description: 'Ocorreu um erro ao gerar o relatório. Tente novamente.', variant: 'destructive' });
           }
         };
-
         const getColorRgbForPercentage = (p: number) => {
           // 0-25 vermelho, 26-50 laranja, 51-75 amarelo, 76-100 verde
           if (isNaN(p)) return [100, 100, 100];

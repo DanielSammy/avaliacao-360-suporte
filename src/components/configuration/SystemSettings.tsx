@@ -6,6 +6,7 @@ import { useEvaluation } from '@/contexts/EvaluationContext';
 import { DEFAULT_OPERADORES, DEFAULT_CRITERIOS } from '@/data/defaultData';
 import { Download, Upload, RotateCcw, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getAuthToken } from '@/config/apiConfig';
 import { 
   serializeData, 
   deserializeData, 
@@ -174,6 +175,20 @@ export function SystemSettings() {
     });
   };
 
+  // SMTP settings (persist in localStorage)
+  const [smtpHost, setSmtpHost] = useState<string>(() => localStorage.getItem('smtpHost') || '');
+  const [smtpPort, setSmtpPort] = useState<string>(() => localStorage.getItem('smtpPort') || '');
+  const [smtpUser, setSmtpUser] = useState<string>(() => localStorage.getItem('smtpUser') || '');
+  const [smtpPassword, setSmtpPassword] = useState<string>(() => localStorage.getItem('smtpPassword') || '');
+
+  const saveSmtpConfig = () => {
+    localStorage.setItem('smtpHost', smtpHost);
+    localStorage.setItem('smtpPort', smtpPort);
+    localStorage.setItem('smtpUser', smtpUser);
+    localStorage.setItem('smtpPassword', smtpPassword);
+    toast({ title: 'Configurações salvas', description: 'Configurações SMTP salvas localmente.', variant: 'default' });
+  };
+
   return (
     <div className="space-y-6">
       <Card className="shadow-medium">
@@ -322,6 +337,80 @@ export function SystemSettings() {
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <p>Sistema Avalia+ - Desenvolvido para gestão de performance de operadores</p>
             <p>Última atualização: {state.configuracao.ultimaAtualizacao.toLocaleDateString('pt-BR')}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-medium">
+        <CardHeader>
+          <CardTitle>Configuração de SMTP</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">SMTP Host</label>
+              <input value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} className="w-full p-2 border rounded" />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">SMTP Port</label>
+              <input value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} className="w-full p-2 border rounded" />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">SMTP User</label>
+              <input value={smtpUser} onChange={(e) => setSmtpUser(e.target.value)} className="w-full p-2 border rounded" />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">SMTP Password</label>
+              <input value={smtpPassword} onChange={(e) => setSmtpPassword(e.target.value)} type="password" className="w-full p-2 border rounded" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <Button onClick={saveSmtpConfig}>Salvar Configuração SMTP</Button>
+          </div>
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium mb-2 block">Email de teste</label>
+              <input id="testEmail" placeholder="destinatario@exemplo.com" className="w-full p-2 border rounded" />
+            </div>
+            <div className="flex items-end">
+              <Button onClick={async () => {
+                const input = (document.getElementById('testEmail') as HTMLInputElement | null);
+                const to = input?.value?.trim();
+                if (!to) {
+                  toast({ title: 'Erro', description: 'Insira um email válido para teste.', variant: 'destructive' });
+                  return;
+                }
+
+                // montar payload de teste
+                const emailPayload = {
+                  to,
+                  subject: `Teste de envio - Avalia+`,
+                  content: `Este é um email de teste enviado a partir do sistema Avalia+.`,
+                  isHtml: true,
+                  smtpHost: smtpHost || undefined,
+                  smtpPort: smtpPort ? Number(smtpPort) : undefined,
+                  smtpUser: smtpUser || undefined,
+                  smtpPassword: smtpPassword || undefined,
+                };
+
+                try {
+                  const token = getAuthToken();
+                  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                  const { BASE_URL, API_ENDPOINTS } = await import('@/config/apiConfig');
+                  const resp = await fetch(`${BASE_URL}${API_ENDPOINTS.EMAIL_SEND}`, { method: 'POST', headers, body: JSON.stringify(emailPayload) });
+                  const text = await resp.text().catch(() => '<no body>');
+                  if (resp.ok) {
+                    toast({ title: 'Enviado', description: 'Email de teste enviado com sucesso.' });
+                  } else {
+                    toast({ title: 'Erro', description: 'Envio de teste falhou. Veja console para mais detalhes.', variant: 'destructive' });
+                  }
+                } catch (e) {
+                  toast({ title: 'Erro', description: 'Falha ao enviar email de teste.', variant: 'destructive' });
+                }
+              }}>Testar Envio</Button>
+            </div>
           </div>
         </CardContent>
       </Card>

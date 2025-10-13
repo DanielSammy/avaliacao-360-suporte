@@ -5,7 +5,8 @@ export const API_ENDPOINTS = {
   AVALIACOES: '/avaliacoes',
   RELATORIOS_DASHBOARD: '/relatorios/dashboard',
   AVALIACOES_CRITERIO_AVALIADO: '/avaliacoes/criterio/avaliado',
-  TIPOCRITERIO: '/tipocriterio'
+  TIPOCRITERIO: '/tipocriterio',
+  EMAIL_SEND: '/api/email/send'
   // Add other endpoints here as needed
 };
 
