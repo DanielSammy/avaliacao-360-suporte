@@ -131,12 +131,17 @@ export function EvaluationTracking() {
         if (!Array.isArray(ev.criterios)) continue;
         for (const c of ev.criterios) {
           if (c.criterioId === criterio.id) {
-            // cada criterio traz o avaliadorId agora; para 'dados' precisamos do operador alvo
-            targetsEvaluated.add(ev.operadorId);
+            // cada criterio pode trazer o avaliadorId; para contar 'dado' precisamos garantir
+            // que este critério específico foi avaliado por 'operator'
+            const criterioAvaliadorId = c.avaliadorId !== undefined && c.avaliadorId !== null ? Number(c.avaliadorId) : (ev.avaliadorId !== undefined && ev.avaliadorId !== null ? Number(ev.avaliadorId) : null);
+            if (criterioAvaliadorId === operator.id) {
+              targetsEvaluated.add(ev.operadorId);
+            }
           }
         }
       }
-      if (targetsEvaluated.size >= peopleToEvaluate.length) completedGivenCriteria += 1;
+  // Só considera o critério completo se houver alvos esperados (evita contar como completo quando peopleToEvaluate.length === 0)
+  if (peopleToEvaluate.length > 0 && targetsEvaluated.size >= peopleToEvaluate.length) completedGivenCriteria += 1;
     }
     const evaluationsGivenCount = completedGivenCriteria;
 
