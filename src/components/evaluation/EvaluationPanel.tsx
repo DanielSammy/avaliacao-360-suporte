@@ -44,23 +44,26 @@ export function EvaluationPanel() {
   }, []);
 
   useEffect(() => {
-    if (operadorSelecionado && periodoAtual) {
+    const fetchDashboard = async () => {
+      if (!operadorSelecionado || !periodoAtual) {
+        setDashboardData(null);
+        return;
+      }
       setLoading(true);
-      getEvaluationDashboard(operadorSelecionado, periodoAtual)
-        .then(data => {
-          setDashboardData(data);
-        })
-        .catch(error => {
-          console.error("Failed to fetch evaluation dashboard:", error);
-          setDashboardData(null);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    } else {
-      setDashboardData(null);
-    }
-  }, [operadorSelecionado, periodoAtual]);
+      try {
+        const data = await getEvaluationDashboard(operadorSelecionado, periodoAtual);
+        setDashboardData(data);
+      } catch (error) {
+        console.error("Failed to fetch evaluation dashboard:", error);
+        setDashboardData(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Se `state.avaliacoes` mudou, refetch explícito — útil para garantir atualização após dispatch
+    fetchDashboard();
+  }, [operadorSelecionado, periodoAtual, state.avaliacoes]);
 
   const operadorAtual = useMemo(() => 
     state.operadores.find(op => op.id === operadorSelecionado), 

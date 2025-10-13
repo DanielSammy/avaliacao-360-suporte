@@ -49,13 +49,23 @@ const ProtectedRoute = ({ children, allowedGroups }: { children: React.ReactNode
   );
 };
 
-const App = () => (
+import { useRealtime } from './hooks/use-realtime';
+
+// Componente leve para inicializar o realtime hook dentro do Router
+const RealtimeInitializer = () => {
+  useRealtime();
+  return null;
+};
+
+const App = () => {
+  return (
   <QueryClientProvider client={queryClient}>
     <EvaluationProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
         <HashRouter>
+          <RealtimeInitializer />
           <Routes>
             <Route
               path="/login"
@@ -120,7 +130,8 @@ const App = () => (
       </TooltipProvider>
     </EvaluationProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 // Component to handle redirection based on authentication status and user group
 const AuthRedirect = ({ children }: { children: JSX.Element }) => {
