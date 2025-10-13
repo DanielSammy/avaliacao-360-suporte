@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
 import { Operador, Criterio, Avaliacao, ConfiguracaoSistema, CriterioAvaliacao } from '../types/evaluation';
 import { getOperadores, createOperador, updateOperador, deleteOperador } from '../services/operatorService';
+import { getAvaliacoes } from '@/services/evaluationService';
 import { getCriterios } from '../services/criteriaService';
 import { useAuth } from './AuthContext';
 import { metaAtingida } from '../utils/calculations';
@@ -220,6 +221,7 @@ const EvaluationContext = createContext<{
   state: EvaluationState;
   dispatch: React.Dispatch<EvaluationAction>;
   fetchOperadores: () => Promise<void>;
+  fetchAvaliacoes: (periodo?: string) => Promise<void>;
   addOperator: (operator: Operador) => Promise<void>;
   updateOperator: (operator: Operador) => Promise<void>;
   deleteOperator: (id: number) => Promise<void>;
@@ -260,6 +262,18 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error("Failed to fetch operators:", err);
       dispatch({ type: 'FETCH_OPERADORES_FAILURE', payload: 'Failed to load operators.' });
+    }
+  }, [dispatch]);
+
+  const fetchAvaliacoes = useCallback(async (periodo?: string) => {
+    try {
+      const avaliacoes = await getAvaliacoes(periodo);
+      // dispatch to normalize dates and store
+      dispatch({ type: 'SET_AVALIACOES', payload: avaliacoes });
+    } catch (err) {
+      console.error('Failed to fetch avaliacoes:', err);
+      // don't throw, but set error state
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to load avaliacoes.' });
     }
   }, [dispatch]);
 
@@ -349,6 +363,8 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
     if (user) {
       fetchOperadores();
       fetchCriterios();
+      // carregar avaliações iniciais (todos períodos)
+      fetchAvaliacoes();
     } else {
       // Limpa os operadores e criterios se o usuário não estiver logado
       dispatch({ type: 'FETCH_OPERADORES_SUCCESS', payload: [] }); // Use FETCH_OPERADORES_SUCCESS
@@ -361,7 +377,7 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
   }, [state.totalTeamTickets]);
 
   return (
-    <EvaluationContext.Provider value={{ state, dispatch, fetchOperadores, addOperator, updateOperator, deleteOperator }}>
+    <EvaluationContext.Provider value={{ state, dispatch, fetchOperadores, fetchAvaliacoes, addOperator, updateOperator, deleteOperator }}>
       {children}
     </EvaluationContext.Provider>
   );

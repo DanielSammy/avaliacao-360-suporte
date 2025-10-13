@@ -396,6 +396,14 @@ import { useToast } from '@/hooks/use-toast';
         return { fileName, base64 };
       }
 
+      // Export helper to get PDF as Blob (for multipart/form-data uploads)
+      export async function generatePdfBlob(avaliacao: Avaliacao, operador: Operador, criterios: Criterio[]) {
+        const { pdf, fileName } = await buildPdf(avaliacao, operador, criterios);
+        const arrayBuffer = pdf.output('arraybuffer') as ArrayBuffer;
+        const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+        return { fileName, blob };
+      }
+
       // utilitário
       function arrayBufferToBase64(buffer: ArrayBuffer) {
         let binary = '';

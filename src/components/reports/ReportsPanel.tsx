@@ -15,11 +15,30 @@ import { formatarMoeda, formatarPeriodo, formatarPercentual } from '@/utils/calc
 import { BarChart3, TrendingUp, Users, Award, Calendar, FileText } from 'lucide-react';
 
 export function ReportsPanel() {
-  const { state } = useEvaluation();
+  const { state, fetchOperadores, fetchAvaliacoes } = useEvaluation();
   const { toast } = useToast();
   const [periodoSelecionado, setPeriodoSelecionado] = useState<string>('todos');
   const [operadorSelecionado, setOperadorSelecionado] = useState<number | 'todos'>('todos');
-  const [apiOperadores, setApiOperadores] = useState<Operador[]>([]);
+  useEffect(() => {
+    // Garantir que o estado global de operadores seja preenchido após reload da página
+    // (o EvaluatePanel/EvaluateOperators também confia em state.operadores)
+    void fetchOperadores().catch(() => {
+      toast({ title: 'Erro', description: 'Falha ao carregar operadores (context).', variant: 'destructive' });
+    });
+    // carregar avaliações iniciais para popular períodos
+    void fetchAvaliacoes().catch(() => {
+      toast({ title: 'Erro', description: 'Falha ao carregar avaliações (context).', variant: 'destructive' });
+    });
+  }, []);
+
+  // Quando o período selecionado mudar, refetch das avaliações para garantir que
+  // os períodos e avaliações estejam sincronizados com o backend
+  useEffect(() => {
+    const periodo = periodoSelecionado === 'todos' ? undefined : periodoSelecionado;
+    void fetchAvaliacoes(periodo).catch(() => {
+      toast({ title: 'Erro', description: 'Falha ao carregar avaliações para o período.', variant: 'destructive' });
+    });
+  }, [periodoSelecionado]);
 
   // Helper robusto para converter valores numéricos vindos da API
   const parseNumeric = (v?: string | number | null): number => {
@@ -77,8 +96,10 @@ export function ReportsPanel() {
 
     // Encontrar melhor operador
     const operadorStats = new Map();
+  const operadoresFonte = state.operadores;
+  const operadoresAtivos = operadoresFonte.filter(op => op.ativo && op.participaAvaliacao);
     avaliacoesFiltradas.forEach(av => {
-      const operador = state.operadores.find(op => op.id === av.operadorId);
+      const operador = operadoresFonte.find(op => op.id === av.operadorId);
       if (!operador) return;
 
       if (!operadorStats.has(av.operadorId)) {
@@ -110,7 +131,7 @@ export function ReportsPanel() {
     });
 
     // Encontrar melhor período
-    const periodoStats = new Map();
+  const periodoStats = new Map();
     avaliacoesFiltradas.forEach(av => {
       if (!periodoStats.has(av.periodo)) {
         periodoStats.set(av.periodo, {
@@ -152,11 +173,12 @@ export function ReportsPanel() {
 
   // Dados para tabela de resultados
   const dadosTabela = useMemo(() => {
-    const activeOperators = state.operadores.filter(op => op.ativo);
+  const operadoresFonte = state.operadores;
+  const activeOperators = operadoresFonte.filter(op => op.ativo && op.participaAvaliacao);
     const totalOperatorsCount = activeOperators.length;
 
     return avaliacoesFiltradas.map(avaliacao => {
-      const operador = state.operadores.find(op => op.id === avaliacao.operadorId);
+  const operador = operadoresFonte.find(op => op.id === avaliacao.operadorId);
       const metasAtingidas = avaliacao.criterios.filter(c => c.metaAtingida).length;
       const totalMetas = avaliacao.criterios.length;
       const percentualMetas = totalMetas > 0 ? (metasAtingidas / totalMetas) * 100 : 0;
@@ -179,6 +201,13 @@ export function ReportsPanel() {
       };
   }).sort((a, b) => parseNumeric(b.avaliacao.valorTotalAlcancado) - parseNumeric(a.avaliacao.valorTotalAlcancado));
   }, [avaliacoesFiltradas, state.operadores, state.avaliacoes]);
+
+  // operadores avaliados no período selecionado (para lista de destinatários / filtros)
+  const operadoresAvaliadosNoPeriodo = useMemo(() => {
+    const avals = periodoSelecionado === 'todos' ? state.avaliacoes : state.avaliacoes.filter(av => av.periodo === periodoSelecionado);
+    const ids = new Set(avals.map(a => a.operadorId));
+    return state.operadores.filter(op => ids.has(op.id));
+  }, [state.avaliacoes, state.operadores, periodoSelecionado]);
 
   return (
     <div className="space-y-6">
@@ -232,7 +261,7 @@ export function ReportsPanel() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos os Operadores</SelectItem>
-                  {(apiOperadores.length > 0 ? apiOperadores : state.operadores).filter(op => op.ativo).map(operador => (
+                  {state.operadores.filter(op => op.ativo && op.participaAvaliacao).map(operador => (
                     <SelectItem key={operador.id} value={operador.id.toString()}>
                       {operador.nome}
                     </SelectItem>
@@ -407,43 +436,38 @@ export function ReportsPanel() {
                             className="px-3 py-1 rounded bg-primary text-white text-sm"
                             onClick={async () => {
                               try {
-                                // Gerar PDF em base64
+                                // Gerar PDF como Blob e enviar via multipart/form-data
                                 try {
-                                  const { generatePdfBase64 } = await import('./PDFGenerator');
-                                  const { fileName, base64 } = await generatePdfBase64(avaliacao, operador as any, state.criterios);
+                                  const { generatePdfBlob } = await import('./PDFGenerator');
+                                  const { fileName, blob } = await generatePdfBlob(avaliacao, operador as any, state.criterios);
 
-                                  // montar objeto EmailRequest conforme especificado
                                   const smtpHost = localStorage.getItem('smtpHost') || undefined;
                                   const smtpPort = localStorage.getItem('smtpPort') ? Number(localStorage.getItem('smtpPort')) : undefined;
                                   const smtpUser = localStorage.getItem('smtpUser') || undefined;
                                   const smtpPassword = localStorage.getItem('smtpPassword') || undefined;
 
-                                  const emailPayload = {
-                                    to: String((operador as any)?.email ?? operador?.login ?? ''),
-                                    subject: `Avaliação do operador ${operador?.nome}`,
-                                    content: `Olá ${operador?.nome},\n\nVocê está recebendo por e-mail sua avaliação referente ao período ${avaliacao.periodo}. Em anexo segue o relatório em PDF.\n\nAtenciosamente,\nEquipe Space Sistemas`,
-                                    isHtml: true,
-                                    smtpHost,
-                                    smtpPort,
-                                    smtpUser,
-                                    smtpPassword,
-                                    attachments: [
-                                      { filename: fileName, content: base64 }
-                                    ]
-                                  };
+                                  const form = new FormData();
+                                  form.append('to', String((operador as any)?.email ?? operador?.login ?? ''));
+                                  form.append('subject', `Avaliação do operador ${operador?.nome}`);
+                                  form.append('content', `Olá ${operador?.nome},\n\nVocê está recebendo por e-mail sua avaliação referente ao período ${avaliacao.periodo}. Em anexo segue o relatório em PDF.\n\nAtenciosamente,\nEquipe Space Sistemas`);
+                                  form.append('isHtml', 'true');
+                                  if (smtpHost) form.append('smtpHost', smtpHost);
+                                  if (smtpPort) form.append('smtpPort', String(smtpPort));
+                                  if (smtpUser) form.append('smtpUser', smtpUser);
+                                  if (smtpPassword) form.append('smtpPassword', smtpPassword);
+                                  // anexo: campo 'attachments' (backend deve aceitar multipart attachments)
+                                  form.append('attachments', blob, fileName);
 
                                   const token = getAuthToken();
-                                  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                                  const headers: Record<string, string> = {};
                                   if (token) headers['Authorization'] = `Bearer ${token}`;
 
                                   const { BASE_URL, API_ENDPOINTS } = await import('@/config/apiConfig');
                                   const resp2 = await fetch(`${BASE_URL}${API_ENDPOINTS.EMAIL_SEND}`, {
                                     method: 'POST',
                                     headers,
-                                    body: JSON.stringify(emailPayload)
+                                    body: form
                                   });
-
-                                  const respText = await resp2.text().catch(() => '<no body>');
 
                                   if (resp2.ok) {
                                     toast({ title: 'Enviado', description: 'Relatório enviado por e-mail com sucesso.' });
