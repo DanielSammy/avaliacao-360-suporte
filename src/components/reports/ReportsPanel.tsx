@@ -431,13 +431,33 @@ export function ReportsPanel() {
                                   // buscar dados do dashboard para garantir mesma fonte que EvaluationPanel
                                   const dashboard = await getEvaluationDashboard(avaliacao.operadorId, avaliacao.periodo);
                                   const criteriosResp = dashboard.data.criterios || [];
-                                  const criteriosAvaliacao = criteriosResp.map((c: any) => ({
-                                    criterioId: c.criterioId,
-                                    valorAlcancado: String(parseFloat(c.metaAlcancada) || 0),
-                                    valorBonusAlcancado: parseFloat(c.valorMeta) || 0,
-                                    metaAtingida: c.metaAtingida,
-                                    metaAlcancada: c.metaAlcancada,
-                                  }));
+                                  // Calcular valorBonusAlcancado usando a mesma lógica do EvaluationPanel
+                                  const { calcularBonusAlcancado } = await import('@/utils/calculations');
+                                  const criteriosAvaliacao = criteriosResp.map((c: any) => {
+                                    const valorAlcancadoNum = parseFloat(c.metaAlcancada) || 0;
+                                    // construir um objeto Criterio mínimo para o cálculo (preservar valorCriterio quando possível)
+                                    const original = (state.criterios.find((crit: any) => crit.id === c.criterioId) as any) || {};
+                                    const criterioForCalc = {
+                                      id: c.criterioId,
+                                      idCriterio: original.idCriterio || 0,
+                                      nome: c.criterioNome,
+                                      tipo: c.criterioTipo,
+                                      tipoMeta: c.criterioTipoMeta,
+                                      valorMeta: c.metaObjetivo || 0,
+                                      valorCriterio: original.valorCriterio,
+                                      valorBonus: parseFloat(c.valorMeta) || 0,
+                                    } as any;
+
+                                    const bonusCalculado = calcularBonusAlcancado(criterioForCalc, valorAlcancadoNum);
+
+                                    return {
+                                      criterioId: c.criterioId,
+                                      valorAlcancado: String(valorAlcancadoNum),
+                                      valorBonusAlcancado: bonusCalculado,
+                                      metaAtingida: c.metaAtingida,
+                                      metaAlcancada: c.metaAlcancada,
+                                    };
+                                  });
 
                                   const avaliacaoParaPdf = {
                                     id: 0,
@@ -452,7 +472,24 @@ export function ReportsPanel() {
                                   } as any;
 
                                   const { generatePdfBlob } = await import('./PDFGenerator');
-                                  const { fileName, blob } = await generatePdfBlob(avaliacaoParaPdf, operador as any, state.criterios);
+                                  // passar os critérios enriquecidos (com valorCriterio) para o PDF em vez do state.criterios cru
+                                  const criteriosParaPdf = criteriosResp.map((c: any) => {
+                                    const original = (state.criterios.find((crit: any) => crit.id === c.criterioId) as any) || {};
+                                    return {
+                                      id: c.criterioId,
+                                      idCriterio: original.idCriterio || 0,
+                                      nome: c.criterioNome,
+                                      tipo: c.criterioTipo,
+                                      tipoMeta: c.criterioTipoMeta,
+                                      valorMeta: c.metaObjetivo,
+                                      ordem: original.ordem || 0,
+                                      ativo: original.ativo !== false,
+                                      valorCriterio: original.valorCriterio,
+                                      valorBonus: parseFloat(c.valorMeta) || 0,
+                                    } as any;
+                                  });
+
+                                  const { fileName, blob } = await generatePdfBlob(avaliacaoParaPdf, operador as any, criteriosParaPdf);
                                   // download
                                   const url = URL.createObjectURL(blob);
                                   const a = document.createElement('a');
@@ -477,13 +514,31 @@ export function ReportsPanel() {
                                 // Buscar dados do dashboard para montar a avaliação completa (mesma lógica do EvaluationPanel)
                                 const dashboard = await getEvaluationDashboard(avaliacao.operadorId, avaliacao.periodo);
                                 const criteriosResp = dashboard.data.criterios || [];
-                                const criteriosAvaliacao = criteriosResp.map((c: any) => ({
-                                  criterioId: c.criterioId,
-                                  valorAlcancado: String(parseFloat(c.metaAlcancada) || 0),
-                                  valorBonusAlcancado: parseFloat(c.valorMeta) || 0,
-                                  metaAtingida: c.metaAtingida,
-                                  metaAlcancada: c.metaAlcancada,
-                                }));
+                                // Calcular valorBonusAlcancado usando utilitário de cálculos
+                                const { calcularBonusAlcancado } = await import('@/utils/calculations');
+                                const criteriosAvaliacao = criteriosResp.map((c: any) => {
+                                  const valorAlcancadoNum = parseFloat(c.metaAlcancada) || 0;
+                                  const original = (state.criterios.find((crit: any) => crit.id === c.criterioId) as any) || {};
+                                  const criterioForCalc = {
+                                    id: c.criterioId,
+                                    idCriterio: original.idCriterio || 0,
+                                    nome: c.criterioNome,
+                                    tipo: c.criterioTipo,
+                                    tipoMeta: c.criterioTipoMeta,
+                                    valorMeta: c.metaObjetivo || 0,
+                                    valorCriterio: original.valorCriterio,
+                                    valorBonus: parseFloat(c.valorMeta) || 0,
+                                  } as any;
+                                  const bonusCalculado = calcularBonusAlcancado(criterioForCalc, valorAlcancadoNum);
+
+                                  return {
+                                    criterioId: c.criterioId,
+                                    valorAlcancado: String(valorAlcancadoNum),
+                                    valorBonusAlcancado: bonusCalculado,
+                                    metaAtingida: c.metaAtingida,
+                                    metaAlcancada: c.metaAlcancada,
+                                  };
+                                });
 
                                 const avaliacaoParaPdf = {
                                   id: 0,
@@ -498,7 +553,23 @@ export function ReportsPanel() {
                                 } as any;
 
                                 const { generatePdfBlob } = await import('./PDFGenerator');
-                                const { fileName, blob } = await generatePdfBlob(avaliacaoParaPdf, operador as any, state.criterios);
+                                const criteriosParaPdf = criteriosResp.map((c: any) => {
+                                  const original = (state.criterios.find((crit: any) => crit.id === c.criterioId) as any) || {};
+                                  return {
+                                    id: c.criterioId,
+                                    idCriterio: original.idCriterio || 0,
+                                    nome: c.criterioNome,
+                                    tipo: c.criterioTipo,
+                                    tipoMeta: c.criterioTipoMeta,
+                                    valorMeta: c.metaObjetivo,
+                                    ordem: original.ordem || 0,
+                                    ativo: original.ativo !== false,
+                                    valorCriterio: original.valorCriterio,
+                                    valorBonus: parseFloat(c.valorMeta) || 0,
+                                  } as any;
+                                });
+
+                                const { fileName, blob } = await generatePdfBlob(avaliacaoParaPdf, operador as any, criteriosParaPdf);
 
                                 const smtpHost = localStorage.getItem('smtpHost') || undefined;
                                 const smtpPort = localStorage.getItem('smtpPort') ? Number(localStorage.getItem('smtpPort')) : undefined;
