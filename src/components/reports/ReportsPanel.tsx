@@ -10,6 +10,7 @@ import { getOperadores } from '@/services/operatorService';
 import { Operador } from '@/types/evaluation';
 import { getAuthToken } from '@/config/apiConfig';
 import { PDFGenerator } from './PDFGenerator';
+import { getEvaluationDashboard } from '@/services/evaluationService';
 import { CalculationReportGenerator } from './CalculationReportGenerator';
 import { formatarMoeda, formatarPeriodo, formatarPercentual } from '@/utils/calculations';
 import { BarChart3, TrendingUp, Users, Award, Calendar, FileText } from 'lucide-react';
@@ -56,7 +57,6 @@ export function ReportsPanel() {
     return Array.from(periodos).sort().reverse();
   }, [state.avaliacoes]);
 
-  // Filtrar avaliações
   const avaliacoesFiltradas = useMemo(() => {
     return state.avaliacoes.filter(av => {
       const periodoMatch = periodoSelecionado === 'todos' || av.periodo === periodoSelecionado;
@@ -65,7 +65,6 @@ export function ReportsPanel() {
     });
   }, [state.avaliacoes, periodoSelecionado, operadorSelecionado]);
 
-  // Calcular estatísticas
   const estatisticas = useMemo(() => {
     if (avaliacoesFiltradas.length === 0) {
       return {
@@ -78,8 +77,8 @@ export function ReportsPanel() {
       };
     }
 
-  const totalBonusPago = avaliacoesFiltradas.reduce((total, av) => total + parseNumeric(av.valorTotalAlcancado), 0);
-  const mediaBonusAlcancado = avaliacoesFiltradas.length > 0 ? totalBonusPago / avaliacoesFiltradas.length : 0;
+    const totalBonusPago = avaliacoesFiltradas.reduce((total, av) => total + parseNumeric(av.valorTotalAlcancado), 0);
+    const mediaBonusAlcancado = avaliacoesFiltradas.length > 0 ? totalBonusPago / avaliacoesFiltradas.length : 0;
 
     // Calcular percentual de metas atingidas
     let totalMetas = 0;
@@ -95,9 +94,9 @@ export function ReportsPanel() {
     const percentualMetasAtingidas = totalMetas > 0 ? (metasAtingidas / totalMetas) * 100 : 0;
 
     // Encontrar melhor operador
-    const operadorStats = new Map();
-  const operadoresFonte = state.operadores;
-  const operadoresAtivos = operadoresFonte.filter(op => op.ativo && op.participaAvaliacao);
+    const operadorStats = new Map<number, any>();
+    const operadoresFonte = state.operadores;
+    const operadoresAtivos = operadoresFonte.filter(op => op.ativo && op.participaAvaliacao);
     avaliacoesFiltradas.forEach(av => {
       const operador = operadoresFonte.find(op => op.id === av.operadorId);
       if (!operador) return;
@@ -113,7 +112,7 @@ export function ReportsPanel() {
       }
 
       const stats = operadorStats.get(av.operadorId);
-  stats.totalBonus += parseNumeric(av.valorTotalAlcancado);
+      stats.totalBonus += parseNumeric(av.valorTotalAlcancado);
       stats.totalAvaliacoes++;
       stats.metasAtingidas += av.criterios.filter(c => c.metaAtingida).length;
       stats.totalMetas += av.criterios.length;
@@ -131,7 +130,7 @@ export function ReportsPanel() {
     });
 
     // Encontrar melhor período
-  const periodoStats = new Map();
+    const periodoStats = new Map<string, any>();
     avaliacoesFiltradas.forEach(av => {
       if (!periodoStats.has(av.periodo)) {
         periodoStats.set(av.periodo, {
@@ -144,7 +143,7 @@ export function ReportsPanel() {
       }
 
       const stats = periodoStats.get(av.periodo);
-  stats.totalBonus += parseNumeric(av.valorTotalAlcancado);
+      stats.totalBonus += parseNumeric(av.valorTotalAlcancado);
       stats.totalAvaliacoes++;
       stats.metasAtingidas += av.criterios.filter(c => c.metaAtingida).length;
       stats.totalMetas += av.criterios.length;
@@ -423,72 +422,105 @@ export function ReportsPanel() {
                       </td>
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          {/* Botão para gerar/baixar PDF */}
+                          {/* Botão para gerar/baixar PDF usando dados do dashboard (mesma fonte do EvaluationPanel) */}
                           {operador && (
-                            <PDFGenerator
-                              avaliacao={avaliacao}
-                              operador={operador}
-                              criterios={state.criterios}
-                            />
+                            <button
+                              className="px-3 py-1 rounded bg-muted text-muted-foreground text-sm"
+                              onClick={async () => {
+                                try {
+                                  // buscar dados do dashboard para garantir mesma fonte que EvaluationPanel
+                                  const dashboard = await getEvaluationDashboard(avaliacao.operadorId, avaliacao.periodo);
+                                  const criteriosResp = dashboard.data.criterios || [];
+                                  const criteriosAvaliacao = criteriosResp.map((c: any) => ({
+                                    criterioId: c.criterioId,
+                                    valorAlcancado: String(parseFloat(c.metaAlcancada) || 0),
+                                    valorBonusAlcancado: parseFloat(c.valorMeta) || 0,
+                                    metaAtingida: c.metaAtingida,
+                                    metaAlcancada: c.metaAlcancada,
+                                  }));
+
+                                  const avaliacaoParaPdf = {
+                                    id: 0,
+                                    operadorId: avaliacao.operadorId,
+                                    avaliadorId: 0,
+                                    periodo: avaliacao.periodo,
+                                    criterios: criteriosAvaliacao,
+                                    valorTotalMeta: parseFloat(dashboard.data.valorTotalMeta) || 0,
+                                    valorTotalAlcancado: parseFloat(dashboard.data.valorTotalAlcancado) || 0,
+                                    dataCriacao: new Date(),
+                                    dataUltimaEdicao: new Date(),
+                                  } as any;
+
+                                  const { generatePdfBlob } = await import('./PDFGenerator');
+                                  const { fileName, blob } = await generatePdfBlob(avaliacaoParaPdf, operador as any, state.criterios);
+                                  // download
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = fileName;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  a.remove();
+                                  URL.revokeObjectURL(url);
+                                } catch (err) {
+                                  console.error('Erro ao gerar PDF enriquecido:', err);
+                                  toast({ title: 'Erro', description: 'Falha ao gerar o PDF enriquecido.', variant: 'destructive' });
+                                }
+                              }}
+                            >Gerar PDF</button>
                           )}
                           {/* Botão enviar por email: tenta chamar /reports/send, senão apenas baixa o PDF via PDFGenerator */}
                           <button
                             className="px-3 py-1 rounded bg-primary text-white text-sm"
                             onClick={async () => {
                               try {
-                                // Gerar PDF como Blob e enviar via multipart/form-data
-                                try {
-                                  const { generatePdfBlob } = await import('./PDFGenerator');
-                                  const { fileName, blob } = await generatePdfBlob(avaliacao, operador as any, state.criterios);
+                                // Buscar dados do dashboard para montar a avaliação completa (mesma lógica do EvaluationPanel)
+                                const dashboard = await getEvaluationDashboard(avaliacao.operadorId, avaliacao.periodo);
+                                const criteriosResp = dashboard.data.criterios || [];
+                                const criteriosAvaliacao = criteriosResp.map((c: any) => ({
+                                  criterioId: c.criterioId,
+                                  valorAlcancado: String(parseFloat(c.metaAlcancada) || 0),
+                                  valorBonusAlcancado: parseFloat(c.valorMeta) || 0,
+                                  metaAtingida: c.metaAtingida,
+                                  metaAlcancada: c.metaAlcancada,
+                                }));
 
-                                  const smtpHost = localStorage.getItem('smtpHost') || undefined;
-                                  const smtpPort = localStorage.getItem('smtpPort') ? Number(localStorage.getItem('smtpPort')) : undefined;
-                                  const smtpUser = localStorage.getItem('smtpUser') || undefined;
-                                  const smtpPassword = localStorage.getItem('smtpPassword') || undefined;
+                                const avaliacaoParaPdf = {
+                                  id: 0,
+                                  operadorId: avaliacao.operadorId,
+                                  avaliadorId: 0,
+                                  periodo: avaliacao.periodo,
+                                  criterios: criteriosAvaliacao,
+                                  valorTotalMeta: parseFloat(dashboard.data.valorTotalMeta) || 0,
+                                  valorTotalAlcancado: parseFloat(dashboard.data.valorTotalAlcancado) || 0,
+                                  dataCriacao: new Date(),
+                                  dataUltimaEdicao: new Date(),
+                                } as any;
 
-                                  const token = getAuthToken();
-                                  const headers: Record<string, string> = {};
-                                  if (token) headers['Authorization'] = `Bearer ${token}`;
+                                const { generatePdfBlob } = await import('./PDFGenerator');
+                                const { fileName, blob } = await generatePdfBlob(avaliacaoParaPdf, operador as any, state.criterios);
 
-                                  const { BASE_URL, API_ENDPOINTS } = await import('@/config/apiConfig');
-                                  // O backend espera JSON no formato EmailRequest com attachments base64
-                                  try {
-                                    const form = new FormData();
-                                    form.append('smtpUser', smtpUser || '');
-                                    form.append('subject', `Avaliação do operador ${operador?.nome}`);
-                                    form.append('smtpPassword', smtpPassword || '');
-                                    form.append('isHtml', 'true');
-                                    if (smtpPort) form.append('smtpPort', String(smtpPort));
-                                    form.append('content', `Olá ${operador?.nome},\n\nVocê está recebendo por e-mail sua avaliação referente ao período ${avaliacao.periodo}. Em anexo segue o relatório em PDF.\n\nAtenciosamente,\nEquipe Space Sistemas`);
-                                    form.append('to', String((operador as any)?.email ?? operador?.login ?? ''));
-                                    form.append('smtpHost', smtpHost || '');
-                                    // anexo usando o mesmo nome de campo do seu curl
-                                    form.append('attachments', blob, fileName);
+                                const smtpHost = localStorage.getItem('smtpHost') || undefined;
+                                const smtpPort = localStorage.getItem('smtpPort') ? Number(localStorage.getItem('smtpPort')) : undefined;
+                                const smtpUser = localStorage.getItem('smtpUser') || undefined;
+                                const smtpPassword = localStorage.getItem('smtpPassword') || undefined;
 
-                                    const token = getAuthToken();
-                                    const headers: Record<string, string> = {};
-                                    if (token) headers['Authorization'] = `Bearer ${token}`;
+                                const to = String((operador as any)?.email ?? operador?.login ?? '');
+                                const subject = `Avaliação do operador ${operador?.nome}`;
+                                const content = `Olá ${operador?.nome},\n\nVocê está recebendo por e-mail sua avaliação referente ao período ${avaliacao.periodo}. Em anexo segue o relatório em PDF.\n\nAtenciosamente,\nEquipe Space Sistemas`;
 
-                                    const resp = await fetch(`${BASE_URL}${API_ENDPOINTS.EMAIL_SEND}`, {
-                                      method: 'POST',
-                                      headers,
-                                      body: form
-                                    });
+                                const { sendEmailWithAttachment } = await import('@/services/reportService');
+                                const resp = await sendEmailWithAttachment({ to, subject, content, isHtml: true, smtpHost, smtpPort, smtpUser, smtpPassword }, blob, fileName);
 
-                                    if (resp.ok) {
-                                      toast({ title: 'Enviado', description: 'Relatório enviado por e-mail com sucesso.' });
-                                    } else {
-                                      const text = await resp.text().catch(() => '<no body>');
-                                      toast({ title: 'Erro', description: `Servidor rejeitou o envio: ${resp.status} - ${text}`, variant: 'destructive' });
-                                    }
-                                  } catch (err) {
-                                    toast({ title: 'Erro', description: 'Falha ao enviar email com anexo.', variant: 'destructive' });
-                                  }
-                                } catch (e) {
-                                  toast({ title: 'Erro', description: 'Falha ao gerar ou enviar o PDF. Baixe o PDF manualmente.', variant: 'destructive' });
+                                if (resp.ok) {
+                                  toast({ title: 'Enviado', description: 'Relatório enviado por e-mail com sucesso.' });
+                                } else {
+                                  const text = await resp.text().catch(() => '<no body>');
+                                  toast({ title: 'Erro', description: `Servidor rejeitou o envio: ${resp.status} - ${text}`, variant: 'destructive' });
                                 }
-                              } catch (e) {
-                                toast({ title: 'Erro', description: 'Falha ao tentar enviar por e-mail. Baixe o PDF manualmente.', variant: 'destructive' });
+                              } catch (err) {
+                                console.error('Erro ao enviar relatório por email:', err);
+                                toast({ title: 'Erro', description: 'Falha ao gerar ou enviar o PDF. Baixe o PDF manualmente.', variant: 'destructive' });
                               }
                             }}
                           >Enviar por e-mail</button>
