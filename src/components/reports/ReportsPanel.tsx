@@ -7,12 +7,13 @@ import { Button } from '@/components/ui/button';
 import { useEvaluation } from '@/contexts/EvaluationContext';
 import { useToast } from '@/hooks/use-toast';
 import { getOperadores } from '@/services/operatorService';
+import { getTipoCriterios } from '@/services/criteriaService';
 import { Operador } from '@/types/evaluation';
 import { getAuthToken } from '@/config/apiConfig';
 import { PDFGenerator } from './PDFGenerator';
 import { getEvaluationDashboard } from '@/services/evaluationService';
 import { CalculationReportGenerator } from './CalculationReportGenerator';
-import { formatarMoeda, formatarPeriodo, formatarPercentual } from '@/utils/calculations';
+import { formatarMoeda, formatarPeriodo, formatarPercentual, calcularBonusAlcancado } from '@/utils/calculations';
 import { BarChart3, TrendingUp, Users, Award, Calendar, FileText } from 'lucide-react';
 
 export function ReportsPanel() {
@@ -57,13 +58,191 @@ export function ReportsPanel() {
     return Array.from(periodos).sort().reverse();
   }, [state.avaliacoes]);
 
+  // Buscar tipos de critério para calcular valores possíveis por bloco (usado no resumo)
+  const [tipoValorMap, setTipoValorMap] = React.useState<Record<number, number>>({});
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const tipos = await getTipoCriterios();
+        if (!mounted) return;
+        const map: Record<number, number> = {};
+        tipos.forEach((t: any) => {
+          let total = 0;
+          if (t.id === 1) total = Number(t.valorNvl1 ?? 0);
+          else if (t.id === 2) total = Number(t.valorNvl2 ?? 0);
+          else if (t.id === 3) total = Number(t.valorNvl3 ?? 0);
+          map[t.id] = total;
+        });
+        setTipoValorMap(map);
+      } catch (err) {
+        console.warn('Não foi possível carregar tipos de critério (ReportsPanel):', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  // Cache local de dashboards (por operador_periodo) — pre-carregado abaixo
+  const [dashboardsMap, setDashboardsMap] = React.useState<Record<string, any>>({});
+
+  // Helper: construir chave para o cache
+  const dashboardKey = (operadorId: number | string, periodo: string) => `${String(operadorId)}_${periodo}`;
+
+  // Constrói um objeto Avaliacao a partir do response do dashboard (mesma lógica usada ao gerar o PDF)
+  const buildAvaliacaoFromDashboard = (dashboard: any) => {
+    const criteriosResp = dashboard?.data?.criterios || [];
+    const criteriosAvaliacao = criteriosResp.map((c: any) => {
+      const original = (state.criterios.find((crit: any) => crit.id === c.criterioId) as any) || {};
+      const valorAlcancadoNum = parseFloat(c.metaAlcancada) || 0;
+      const criterioForCalc = {
+        id: c.criterioId,
+        idCriterio: original.idCriterio || 0,
+        nome: c.criterioNome,
+        tipo: c.criterioTipo,
+        tipoMeta: c.criterioTipoMeta,
+        valorMeta: c.metaObjetivo || 0,
+        valorCriterio: original.valorCriterio,
+        valorBonus: parseFloat(c.valorMeta) || 0,
+      } as any;
+      const bonusCalculado = calcularBonusAlcancado(criterioForCalc, valorAlcancadoNum);
+      return {
+        criterioId: c.criterioId,
+        valorAlcancado: String(valorAlcancadoNum),
+        valorBonusAlcancado: bonusCalculado,
+        metaAtingida: c.metaAtingida,
+        metaAlcancada: c.metaAlcancada,
+      };
+    });
+
+    return {
+      id: 0,
+      operadorId: dashboard.data.operadorId || dashboard.data.operador || 0,
+      avaliadorId: 0,
+      periodo: dashboard.data.periodo,
+      criterios: criteriosAvaliacao,
+      valorTotalMeta: parseFloat(dashboard.data.valorTotalMeta) || 0,
+      valorTotalAlcancado: parseFloat(dashboard.data.valorTotalAlcancado) || 0,
+      dataCriacao: new Date(),
+      dataUltimaEdicao: new Date(),
+    } as any;
+  };
+
+  // Helper que replica o cálculo do resumo do PDF para uma avaliação específica
+  const calcularResumoAvaliacao = (avaliacao: any) => {
+    // se tivermos o dashboard cacheado, usar esse objeto (que é o mesmo passado pro PDF)
+    const key = dashboardKey(avaliacao.operadorId, avaliacao.periodo);
+    const dashboard = dashboardsMap[key];
+    const avaliacaoUsar = dashboard ? buildAvaliacaoFromDashboard(dashboard) : avaliacao;
+    // construir blocos a partir dos critérios globais (state.criterios)
+  const criteriosAtivos = state.criterios.filter((c: any) => c.ativo).sort((a: any, b: any) => (a.idCriterio - b.idCriterio) || (a.ordem - b.ordem));
+    const blocosMap: Record<number, any[]> = {};
+    criteriosAtivos.forEach((c: any) => {
+      if (!blocosMap[c.idCriterio]) blocosMap[c.idCriterio] = [];
+      blocosMap[c.idCriterio].push(c);
+    });
+
+    let globalValorPossivel = 0;
+    let globalTotalAlcancado = 0;
+
+    const getValorCriterio = (c: any): number => {
+      const raw = (c as any).valorCriterio;
+      if (raw !== undefined && raw !== null) {
+        if (typeof raw === 'string') return parseFloat(String(raw).replace(',', '.')) || 0;
+        if (typeof raw === 'number') return raw;
+      }
+      return Number(c.valorBonus ?? 0);
+    };
+
+    for (const idBlocoStr of Object.keys(blocosMap)) {
+      const idBloco = parseInt(idBlocoStr, 10);
+      const criteriosDoBloco = blocosMap[idBloco];
+
+      let valorPossivel = criteriosDoBloco.reduce((acc: number, c: any) => acc + getValorCriterio(c), 0);
+      if ((idBloco === 1 || idBloco === 2) && tipoValorMap[idBloco] !== undefined) {
+        valorPossivel = tipoValorMap[idBloco];
+      }
+
+      // mapear percentuais por criterio (0-100)
+      const percentMap: Record<number, number> = {};
+      criteriosDoBloco.forEach((c: any) => {
+        const ca = avaliacaoUsar.criterios.find((x: any) => x.criterioId === c.id);
+        const valorAlc = ca ? parseFloat(String(ca.valorAlcancado).replace(',', '.')) || 0 : 0;
+        let rowPercent = NaN;
+        if (c.tipo === 'qualitativo') {
+          const metaAlc = ca?.metaAlcancada ?? '';
+          rowPercent = metaAlc ? parseFloat(String(metaAlc).replace(',', '.')) || NaN : NaN;
+        } else {
+          const target = c.valorMeta || 0;
+          if (!isNaN(valorAlc) && target > 0) {
+            if (c.tipoMeta === 'menor_melhor') rowPercent = (target / valorAlc) * 100;
+            else rowPercent = (valorAlc / target) * 100;
+          }
+        }
+        percentMap[c.id] = rowPercent;
+      });
+
+      // calcular totalAlcancadoBlock
+      let totalAlcancadoBlock = 0;
+      if (idBloco === 1 || idBloco === 2) {
+        const vals = Object.values(percentMap).filter(p => !isNaN(p)) as number[];
+        const avgPercent = vals.length > 0 ? (vals.reduce((s, v) => s + v, 0) / vals.length) : 0;
+        totalAlcancadoBlock = (avgPercent / 100) * valorPossivel;
+      } else {
+        totalAlcancadoBlock = criteriosDoBloco.reduce((acc: number, c: any) => {
+                const ca = avaliacaoUsar.criterios.find((x: any) => x.criterioId === c.id);
+          return acc + (ca?.valorBonusAlcancado || 0);
+        }, 0);
+      }
+
+      globalValorPossivel += valorPossivel;
+      globalTotalAlcancado += totalAlcancadoBlock;
+    }
+
+    const percentualPerformance = globalValorPossivel > 0 ? (globalTotalAlcancado / globalValorPossivel) * 100 : 0;
+    return { globalValorPossivel, globalTotalAlcancado, percentualPerformance };
+  };
+
+  // (O efeito de pré-carregamento de dashboards foi movido para depois da declaração de `avaliacoesFiltradas`)
+
   const avaliacoesFiltradas = useMemo(() => {
     return state.avaliacoes.filter(av => {
       const periodoMatch = periodoSelecionado === 'todos' || av.periodo === periodoSelecionado;
-      const operadorMatch = operadorSelecionado === 'todos' || av.operadorId === operadorSelecionado;
+      const operadorMatch = operadorSelecionado === 'todos' || String(av.operadorId) === String(operadorSelecionado);
       return periodoMatch && operadorMatch;
     });
   }, [state.avaliacoes, periodoSelecionado, operadorSelecionado]);
+
+  // Pré-carregar dashboards para as avaliações visíveis (cache) sempre que avaliacoesFiltradas mudar
+  useEffect(() => {
+    let mounted = true;
+    const missing: Array<Promise<void>> = [];
+    const newMap = { ...dashboardsMap };
+    avaliacoesFiltradas.forEach(av => {
+      const key = dashboardKey(av.operadorId, av.periodo);
+      if (!newMap[key]) {
+        const p = getEvaluationDashboard(av.operadorId, av.periodo)
+          .then(d => {
+            if (!mounted) return;
+            newMap[key] = d;
+          })
+          .catch(err => {
+            // não bloquear; manter sem cache
+            console.warn('Falha ao carregar dashboard para cache:', av.operadorId, av.periodo, err);
+          });
+        missing.push(p.then(() => undefined));
+      }
+    });
+
+    if (missing.length > 0) {
+      void Promise.all(missing).then(() => {
+        if (!mounted) return;
+        setDashboardsMap(newMap);
+      });
+    }
+
+    return () => { mounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [avaliacoesFiltradas]);
 
   const estatisticas = useMemo(() => {
     if (avaliacoesFiltradas.length === 0) {
@@ -177,7 +356,7 @@ export function ReportsPanel() {
     const totalOperatorsCount = activeOperators.length;
 
     return avaliacoesFiltradas.map(avaliacao => {
-  const operador = operadoresFonte.find(op => op.id === avaliacao.operadorId);
+  const operador = operadoresFonte.find(op => String(op.id) === String(avaliacao.operadorId));
       const metasAtingidas = avaliacao.criterios.filter(c => c.metaAtingida).length;
       const totalMetas = avaliacao.criterios.length;
       const percentualMetas = totalMetas > 0 ? (metasAtingidas / totalMetas) * 100 : 0;
@@ -185,7 +364,7 @@ export function ReportsPanel() {
       const valorTotalMeta = parseNumeric(avaliacao.valorTotalMeta);
       const performance = valorTotalMeta > 0 ? (valorTotalAlc / valorTotalMeta) * 100 : 0;
 
-      const evaluationsReceived = state.avaliacoes.filter(evalItem => evalItem.operadorId === avaliacao.operadorId);
+  const evaluationsReceived = state.avaliacoes.filter(evalItem => String(evalItem.operadorId) === String(avaliacao.operadorId));
       const evaluationsExpectedToReceive = totalOperatorsCount > 1 ? totalOperatorsCount - 1 : 0;
       const isCompleted = evaluationsReceived.length === evaluationsExpectedToReceive;
 
@@ -391,8 +570,8 @@ export function ReportsPanel() {
                   <tr>
                     <th className="text-left p-4 font-semibold">Operador</th>
                     <th className="text-center p-4 font-semibold">Período</th>
-                    <th className="text-center p-4 font-semibold">Performance</th>
-                    <th className="text-center p-4 font-semibold">Bônus</th>
+                    <th className="text-center p-4 font-semibold">Performance Geral</th>
+                    <th className="text-center p-4 font-semibold">Valor Total Alcançado</th>
                     <th className="text-center p-4 font-semibold">Ações</th>
                   </tr>
                 </thead>
@@ -406,20 +585,27 @@ export function ReportsPanel() {
                       <td className="p-4 text-center">
                         {formatarPeriodo(avaliacao.periodo)}
                       </td>
-                      <td className="p-4 text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className="font-medium">{formatarPercentual(performance)}</span>
-                          <div className="w-20 bg-muted rounded-full h-2">
-                            <div 
-                              className="bg-primary h-2 rounded-full" 
-                              style={{ width: `${Math.min(performance, 100)}%` }}
-                            />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-4 text-center font-bold text-success">
-                        {formatarMoeda(avaliacao.valorTotalAlcancado)}
-                      </td>
+                      {(() => {
+                        const resumo = calcularResumoAvaliacao(avaliacao);
+                        return (
+                          <>
+                            <td className="p-4 text-center">
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="font-medium">{formatarPercentual(resumo.percentualPerformance)}</span>
+                                <div className="w-20 bg-muted rounded-full h-2">
+                                  <div 
+                                    className="bg-primary h-2 rounded-full" 
+                                    style={{ width: `${Math.min(resumo.percentualPerformance, 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4 text-center font-bold text-success">
+                              {formatarMoeda(resumo.globalTotalAlcancado)}
+                            </td>
+                          </>
+                        );
+                      })()}
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           {/* Botão para gerar/baixar PDF usando dados do dashboard (mesma fonte do EvaluationPanel) */}
