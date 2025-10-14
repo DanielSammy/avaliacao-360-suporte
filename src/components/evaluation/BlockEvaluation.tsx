@@ -95,16 +95,43 @@ export function BlockEvaluation({ title, criterios, criteriosAvaliacao, totalVal
     const activeCriteria = criterios.filter(c => c.ativo);
     if (activeCriteria.length === 0) return { achievedValue: 0, percentage: 0 };
 
-    const sumValorAlcancado = activeCriteria.reduce((acc, criterio) => {
-      const ca = criteriosAvaliacao.find(ca => ca.criterioId === criterio.id);
-      const v = ca ? parseFloat(String(ca.valorAlcancado).replace(',', '.')) || 0 : 0;
-      return acc + v;
+    // determinar tipo de bloco pelo primeiro critério
+    const blocoId = criterios[0]?.idCriterio;
+
+    // mapear percentuais por critério (compatível com o PDF)
+    const percentList: number[] = [];
+    activeCriteria.forEach(c => {
+      const ca = criteriosAvaliacao.find(x => x.criterioId === c.id);
+      const valorAlc = ca ? parseFloat(String(ca.valorAlcancado).replace(',', '.')) || 0 : 0;
+      let rowPercent = NaN;
+      if (c.tipo === 'qualitativo') {
+        const metaAlc = ca?.metaAlcancada ?? '';
+        rowPercent = metaAlc ? parseFloat(String(metaAlc).replace(',', '.')) || NaN : NaN;
+      } else {
+        const target = c.valorMeta || 0;
+        if (!isNaN(valorAlc) && target > 0) {
+          if (c.tipoMeta === 'menor_melhor') rowPercent = (target / valorAlc) * 100;
+          else rowPercent = (valorAlc / target) * 100;
+        }
+      }
+      if (!isNaN(rowPercent)) percentList.push(rowPercent);
+    });
+
+    // Para blocos 1 e 2: média dos percentuais * totalValue
+    if (blocoId === 1 || blocoId === 2) {
+      const avgPercent = percentList.length > 0 ? (percentList.reduce((s, v) => s + v, 0) / percentList.length) : 0;
+      const achievedValue = (avgPercent / 100) * totalValue;
+      const percentage = avgPercent;
+      return { achievedValue, percentage };
+    }
+
+    // Para outros blocos: somar valorBonusAlcancado
+    const totalAlcancadoBlock = activeCriteria.reduce((acc, c) => {
+      const ca = criteriosAvaliacao.find(x => x.criterioId === c.id);
+      return acc + (ca?.valorBonusAlcancado || 0);
     }, 0);
-
-    const avgValorAlcancado = sumValorAlcancado / activeCriteria.length;
-    const achievedValue = (avgValorAlcancado / 100) * totalValue;
+    const achievedValue = totalAlcancadoBlock;
     const percentage = totalValue > 0 ? (achievedValue / totalValue) * 100 : 0;
-
     return { achievedValue, percentage };
   }, [criterios, criteriosAvaliacao, totalValue]);
 
