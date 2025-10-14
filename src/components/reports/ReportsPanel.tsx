@@ -355,8 +355,14 @@ export function ReportsPanel() {
   const activeOperators = operadoresFonte.filter(op => op.ativo && op.participaAvaliacao);
     const totalOperatorsCount = activeOperators.length;
 
-    return avaliacoesFiltradas.map(avaliacao => {
-  const operador = operadoresFonte.find(op => String(op.id) === String(avaliacao.operadorId));
+      return avaliacoesFiltradas
+        .filter(avaliacao => {
+          const operador = operadoresFonte.find(op => String(op.id) === String(avaliacao.operadorId));
+          // Excluir operadores que não participam da avaliação
+          return operador && operador.ativo && operador.participaAvaliacao;
+        })
+        .map(avaliacao => {
+    const operador = operadoresFonte.find(op => String(op.id) === String(avaliacao.operadorId));
       const metasAtingidas = avaliacao.criterios.filter(c => c.metaAtingida).length;
       const totalMetas = avaliacao.criterios.length;
       const percentualMetas = totalMetas > 0 ? (metasAtingidas / totalMetas) * 100 : 0;
@@ -384,7 +390,7 @@ export function ReportsPanel() {
   const operadoresAvaliadosNoPeriodo = useMemo(() => {
     const avals = periodoSelecionado === 'todos' ? state.avaliacoes : state.avaliacoes.filter(av => av.periodo === periodoSelecionado);
     const ids = new Set(avals.map(a => a.operadorId));
-    return state.operadores.filter(op => ids.has(op.id));
+    return state.operadores.filter(op => ids.has(op.id) && op.ativo && op.participaAvaliacao);
   }, [state.avaliacoes, state.operadores, periodoSelecionado]);
 
   return (
