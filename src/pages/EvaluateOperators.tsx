@@ -503,16 +503,21 @@ export function EvaluateOperators() {
 
       <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-2xl font-bold">Avaliar por Critério</CardTitle>
-          {(user && (user.grupo === 6 || user.grupo === 7)) && (
-            <Link to="/">
-              <Button variant="outline">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar
-              </Button>
-            </Link>
-          )}
-        </CardHeader>
+            <CardTitle className="text-2xl font-bold">Avaliar por Critério</CardTitle>
+            {(user && (user.grupo === 6 || user.grupo === 7)) && (
+              <div className="flex items-center gap-2">
+                <Link to="/">
+                  <Button variant="outline" size="sm">
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Voltar
+                  </Button>
+                </Link>
+                <Button onClick={handleImportMySuiteAndSave} disabled={isSubmitting} variant="default" size="sm">
+                  Importar Mysuite
+                </Button>
+              </div>
+            )}
+          </CardHeader>
         <CardContent>
           <div className="mb-6">
             <label htmlFor="criterion-select" className="block text-sm font-medium text-gray-700 mb-2">
@@ -594,9 +599,7 @@ export function EvaluateOperators() {
                 >
                   {isSubmitting ? 'Salvando...' : 'Salvar e Ir para Próximo Critério'}
                 </Button>
-                {(user && (user.grupo === 6 || user.grupo === 7)) && (
-                  <Button onClick={handleImportMySuiteAndSave} className="w-full" disabled={isSubmitting || isCurrentCriterionEvaluated} variant="default">Importar Dados do Mysuite</Button>
-                )}
+                {/* Import Mysuite moved to header for easier access */}
               </div>
             </div>
           )}
