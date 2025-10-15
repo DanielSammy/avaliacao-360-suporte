@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -13,11 +13,12 @@ import { getAuthToken } from '@/config/apiConfig';
 import { PDFGenerator } from './PDFGenerator';
 import { getEvaluationDashboard } from '@/services/evaluationService';
 import { CalculationReportGenerator } from './CalculationReportGenerator';
-import { formatarMoeda, formatarPeriodo, formatarPercentual, calcularBonusAlcancado } from '@/utils/calculations';
+import { formatarMoeda, formatarPeriodo, formatarPercentual, calcularBonusAlcancado, calcularResultadoBloco, calcularResultadoFinal } from '@/utils/calculations';
 import { BarChart3, TrendingUp, Users, Award, Calendar, FileText } from 'lucide-react';
 
 export function ReportsPanel() {
   const { state, fetchOperadores, fetchAvaliacoes } = useEvaluation();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [periodoSelecionado, setPeriodoSelecionado] = useState<string>('todos');
   const [operadorSelecionado, setOperadorSelecionado] = useState<number | 'todos'>('todos');
@@ -402,11 +403,52 @@ export function ReportsPanel() {
             </div>
             <div className="flex items-center gap-2">
                 <CalculationReportGenerator />
-                <Link to="/ranking">
-                    <Button>
-                        <Award className="mr-2 h-4 w-4" /> Ver Ranking Geral
-                    </Button>
-                </Link>
+                {/* Botão que calcula ranking a partir dos dados atuais e navega para /ranking com state */}
+                <Button onClick={() => {
+                  // calcular ranking reutilizando lógica similar à página /ranking
+                  const todosCriteriosAtivos = state.criterios.filter((c: any) => c.ativo);
+                  const blocos = todosCriteriosAtivos.reduce((acc: any, criterio: any) => {
+                    const idBloco = criterio.idCriterio;
+                    if (!acc[idBloco]) acc[idBloco] = [];
+                    acc[idBloco].push(criterio);
+                    return acc;
+                  }, {});
+
+                  const ranking = state.operadores
+                    .filter((op: any) => op.ativo && op.participaAvaliacao)
+                    .map((operador: any) => {
+                      // usar avaliacoesFiltradas para respeitar período/operador filtrados na tela
+                      // e, quando disponível no cache, usar a versão do dashboard (igual ao PDF)
+                      const avaliacoesRaw = avaliacoesFiltradas.filter((av: any) => String(av.operadorId) === String(operador.id));
+                      const avaliacoesDoOperador = avaliacoesRaw.map((av: any) => {
+                        const key = dashboardKey(av.operadorId, av.periodo);
+                        const dash = dashboardsMap[key];
+                        return dash ? buildAvaliacaoFromDashboard(dash) : av;
+                      });
+                      if (avaliacoesDoOperador.length === 0) {
+                        return { operador, pontuacaoFinal: 0, totalAvaliacoes: 0, averageValorAlcancado: 0 };
+                      }
+
+                      const pontuacaoDosBlocos = Object.keys(blocos).map(idBlocoStr => {
+                        const idBloco = parseInt(idBlocoStr);
+                        const criteriosDoBloco = blocos[idBloco];
+                        const performanceDoBloco = calcularResultadoBloco(idBloco, todosCriteriosAtivos, avaliacoesDoOperador, state.operadores);
+                        const bonusPotencialDoBloco = criteriosDoBloco.reduce((sum: number, c: any) => sum + (c.valorBonus ?? 0), 0);
+                        return (performanceDoBloco / 100) * bonusPotencialDoBloco;
+                      });
+
+                      const pontuacaoFinal = pontuacaoDosBlocos.reduce((sum: number, bonus: number) => sum + bonus, 0);
+                      const allAchievedScores = todosCriteriosAtivos.map(c => calcularResultadoFinal(c, avaliacoesDoOperador, state.operadores));
+                      const averageValorAlcancado = allAchievedScores.length > 0 ? allAchievedScores.reduce((a: number, b: number) => a + b, 0) / allAchievedScores.length : 0;
+
+                      return { operador, pontuacaoFinal, totalAvaliacoes: avaliacoesDoOperador.length, averageValorAlcancado };
+                    })
+                    .sort((a: any, b: any) => b.pontuacaoFinal - a.pontuacaoFinal);
+
+                  navigate('/ranking', { state: { precomputedRanking: ranking } });
+                }}>
+                  <Award className="mr-2 h-4 w-4" /> Ver Ranking Geral
+                </Button>
             </div>
       </div>
 

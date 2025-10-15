@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { Award, ChevronLeft } from 'lucide-react';
 import { useEvaluation } from '@/contexts/EvaluationContext';
+import { useLocation } from 'react-router-dom';
 import { formatarMoeda, calcularResultadoFinal, calcularResultadoBloco } from '@/utils/calculations';
 import { Operador, Criterio } from '@/types/evaluation';
 
@@ -17,8 +18,11 @@ interface RankingData {
 
 const RankingPage = () => {
   const { state } = useEvaluation();
+  const location = useLocation();
+  const precomputedRanking = (location.state as any)?.precomputedRanking as RankingData[] | undefined;
 
   const ranking = useMemo((): RankingData[] => {
+    if (precomputedRanking) return precomputedRanking;
     const todosCriteriosAtivos = state.criterios.filter(c => c.ativo);
 
     const blocos = todosCriteriosAtivos.reduce((acc, criterio) => {
@@ -68,7 +72,7 @@ const RankingPage = () => {
         };
       })
       .sort((a, b) => b.pontuacaoFinal - a.pontuacaoFinal);
-  }, [state.avaliacoes, state.operadores, state.criterios]);
+  }, [state.avaliacoes, state.operadores, state.criterios, precomputedRanking]);
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-4xl">
