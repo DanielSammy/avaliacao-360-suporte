@@ -17,6 +17,7 @@ import { formatarMoeda, formatarPeriodo, formatarPercentual, calcularBonusAlcanc
 import { BarChart3, TrendingUp, Users, Award, Calendar, FileText } from 'lucide-react';
 
 export function ReportsPanel() {
+  const SHOW_RANKING_BUTTON = false; // toggle para exibir/ocultar botão de Ranking
   const { state, fetchOperadores, fetchAvaliacoes } = useEvaluation();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -408,6 +409,7 @@ export function ReportsPanel() {
             <div className="flex items-center gap-2">
                 <CalculationReportGenerator />
                 {/* Botão que calcula ranking a partir dos dados atuais e navega para /ranking com state */}
+                {SHOW_RANKING_BUTTON && (
                 <Button onClick={() => {
                   // calcular ranking reutilizando lógica similar à página /ranking
                   const todosCriteriosAtivos = state.criterios.filter((c: any) => c.ativo);
@@ -453,6 +455,7 @@ export function ReportsPanel() {
                 }}>
                   <Award className="mr-2 h-4 w-4" /> Ver Ranking Geral
                 </Button>
+                )}
             </div>
       </div>
 

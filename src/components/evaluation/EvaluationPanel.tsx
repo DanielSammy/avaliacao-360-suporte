@@ -17,6 +17,7 @@ import { calcularBonusAlcancado } from '@/utils/calculations';
 import { BlockEvaluation } from './BlockEvaluation';
 
 export function EvaluationPanel() {
+  const SHOW_RANKING_BUTTON = false;
   const { state, dispatch } = useEvaluation();
   const { user } = useAuth();
   const [operadorSelecionado, setOperadorSelecionado] = useState<number | null>(null);
@@ -195,12 +196,14 @@ export function EvaluationPanel() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold text-primary">Dashboard de Apuração</h2>
+        {SHOW_RANKING_BUTTON && (
         <Link to="/ranking">
           <Button variant="outline">
             <BarChart3 className="h-4 w-4 mr-2" />
             Ranking de Operadores
           </Button>
         </Link>
+        )}
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
