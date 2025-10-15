@@ -7,6 +7,7 @@ import { DEFAULT_OPERADORES, DEFAULT_CRITERIOS } from '@/data/defaultData';
 import { Download, Upload, RotateCcw, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getAuthToken } from '@/config/apiConfig';
+import emailConfig from '@/config/emailConfig';
 import { 
   serializeData, 
   deserializeData, 
@@ -176,10 +177,10 @@ export function SystemSettings() {
   };
 
   // SMTP settings (persist in localStorage)
-  const [smtpHost, setSmtpHost] = useState<string>(() => localStorage.getItem('smtpHost') || '');
-  const [smtpPort, setSmtpPort] = useState<string>(() => localStorage.getItem('smtpPort') || '');
-  const [smtpUser, setSmtpUser] = useState<string>(() => localStorage.getItem('smtpUser') || '');
-  const [smtpPassword, setSmtpPassword] = useState<string>(() => localStorage.getItem('smtpPassword') || '');
+  const [smtpHost, setSmtpHost] = useState<string>(() => localStorage.getItem('smtpHost') || emailConfig.smtpHost || '');
+  const [smtpPort, setSmtpPort] = useState<string>(() => localStorage.getItem('smtpPort') || (emailConfig.smtpPort ? String(emailConfig.smtpPort) : ''));
+  const [smtpUser, setSmtpUser] = useState<string>(() => localStorage.getItem('smtpUser') || emailConfig.smtpUser || '');
+  const [smtpPassword, setSmtpPassword] = useState<string>(() => localStorage.getItem('smtpPassword') || emailConfig.smtpPassword || '');
 
   const saveSmtpConfig = () => {
     localStorage.setItem('smtpHost', smtpHost);
