@@ -116,34 +116,25 @@ export function EvaluationTracking() {
     // Expected criteria count (meta) is number of applicable criterios
     const evaluationsExpectedToGive = applicableCriterios.length;
 
-    // For 'Avaliações Dadas' conte critérios completos onde este operador, como avaliador,
-    // avaliou TODOS os alvos esperados (peopleToEvaluate) para aquele critério no período atual.
+    // For 'Avaliações Dadas' conte os critérios para os quais este operador já registrou
+    // ao menos uma avaliação (mesma métrica exibida no popover "avaliou: X").
     const evaluationsGivenByOperator = state.avaliacoes.filter(ev => {
       if (ev.periodo !== currentPeriod) return false;
       if (ev.avaliadorId === operator.id) return true;
       if (!Array.isArray(ev.criterios)) return false;
-  return ev.criterios.some((c: CriterioAvaliacao) => Number(c.avaliadorId) === operator.id);
+      return ev.criterios.some((c: CriterioAvaliacao) => Number(c.avaliadorId) === operator.id);
     });
-    let completedGivenCriteria = 0;
-    for (const criterio of applicableCriterios) {
-      const targetsEvaluated = new Set<number>();
-      for (const ev of evaluationsGivenByOperator) {
-        if (!Array.isArray(ev.criterios)) continue;
-        for (const c of ev.criterios) {
-          if (c.criterioId === criterio.id) {
-            // cada criterio pode trazer o avaliadorId; para contar 'dado' precisamos garantir
-            // que este critério específico foi avaliado por 'operator'
-            const criterioAvaliadorId = c.avaliadorId !== undefined && c.avaliadorId !== null ? Number(c.avaliadorId) : (ev.avaliadorId !== undefined && ev.avaliadorId !== null ? Number(ev.avaliadorId) : null);
-            if (criterioAvaliadorId === operator.id) {
-              targetsEvaluated.add(ev.operadorId);
-            }
-          }
-        }
+
+    const criteriaEvaluatedByOperator = new Set<number>();
+    for (const ev of evaluationsGivenByOperator) {
+      if (!Array.isArray(ev.criterios)) continue;
+      for (const c of ev.criterios) {
+        const criterioAplicavel = applicableCriterioIds.has(c.criterioId);
+        const criterioPorEsseAvaliador = (c.avaliadorId !== undefined && Number(c.avaliadorId) === operator.id) || ev.avaliadorId === operator.id;
+        if (criterioAplicavel && criterioPorEsseAvaliador) criteriaEvaluatedByOperator.add(c.criterioId);
       }
-  // Só considera o critério completo se houver alvos esperados (evita contar como completo quando peopleToEvaluate.length === 0)
-  if (peopleToEvaluate.length > 0 && targetsEvaluated.size >= peopleToEvaluate.length) completedGivenCriteria += 1;
     }
-    const evaluationsGivenCount = completedGivenCriteria;
+    const evaluationsGivenCount = criteriaEvaluatedByOperator.size;
 
 
     // --- RECEIVED: How many people should evaluate this operator? ---
@@ -181,7 +172,7 @@ export function EvaluationTracking() {
           }
         }
       }
-  // exigir avaliações de TODOS os operadores ATIVOS
+  // exigir avaliações de TODOS os operadores ativos (inclui quem participa e quem não participa)
   const expectedEvaluatorsCount = allActiveOperators.length;
   if (evaluatorsWhoRated.size >= expectedEvaluatorsCount) completedReceivedCriteria += 1;
     }
