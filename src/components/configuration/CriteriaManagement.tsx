@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useEvaluation } from '@/contexts/EvaluationContext';
+import getCurrentPeriod from '@/lib/period';
 import { Criterio, TipoCriterio } from '@/types/evaluation';
 import { formatarMoeda } from '@/utils/calculations';
 import { Target, Save, Trash2, TrendingUp, TrendingDown, Download } from 'lucide-react';
@@ -32,6 +33,8 @@ import { Label } from "@/components/ui/label";
 
 export function CriteriaManagement() {
   const { state, dispatch } = useEvaluation();
+  const currentPeriod = getCurrentPeriod();
+  const isConfigReadOnly = state.avaliacoes.some(av => av.periodo === currentPeriod);
   const [editedCriteria, setEditedCriteria] = useState<{ [key: number]: Partial<Criterio> }>({});
   
   const [isAddCriterionDialogOpen, setIsAddCriterionDialogOpen] = useState(false);
@@ -341,36 +344,37 @@ export function CriteriaManagement() {
                           </td>
                               <td className="p-4 text-center">
                                 {Number(currentCriterio.idCriterio) === 3 ? (
-                                  <Input
-                                    type="number"
-                                    value={currentCriterio.valorBonus ?? 0}
-                                    onChange={(e) => {
-                                      const v = parseFloat(e.target.value) || 0;
-                                      handleInputChange(criterio.id, 'valorBonus', v);
-                                    }}
-                                    className="w-28 text-center mx-auto"
-                                    step="0.01"
-                                    min="0"
-                                  />
-                                ) : (
-                                  <span className="text-muted-foreground">-</span>
-                                )}
+                                      <Input
+                                        type="number"
+                                        value={currentCriterio.valorBonus ?? 0}
+                                        onChange={(e) => {
+                                          const v = parseFloat(e.target.value) || 0;
+                                          handleInputChange(criterio.id, 'valorBonus', v);
+                                        }}
+                                        className="w-28 text-center mx-auto"
+                                        step="0.01"
+                                        min="0"
+                                        disabled={isConfigReadOnly}
+                                      />
+                                    ) : (
+                                      <span className="text-muted-foreground">-</span>
+                                    )}
                               </td>
                           <td className="p-4 text-center">
                               <div className="flex gap-2 justify-center">
                                 {/* Botão de excluir (desabilitado por padrão). Para habilitar, remova o comentário abaixo. */}
                                 {/* <Button variant="destructive" size="sm" onClick={() => setCriterionToDelete(criterio.id)}><Trash2 className="h-3 w-3" /></Button> */}
                                 {editedCriteria[criterio.id] && (
-                                  <Button size="sm" onClick={() => saveCriterio(criterio.id)}><Save className="h-3 w-3" /></Button>
-                                )}
+                                    <Button size="sm" onClick={() => saveCriterio(criterio.id)} disabled={isConfigReadOnly}><Save className="h-3 w-3" /></Button>
+                                  )}
                               </div>
                           </td>
                           <td className="p-4 text-center">
-                            <Switch checked={currentCriterio.ativo} onCheckedChange={(c) => handleInputChange(criterio.id, 'ativo', c)} />
+                            <Switch checked={currentCriterio.ativo} onCheckedChange={(c) => handleInputChange(criterio.id, 'ativo', c)} disabled={isConfigReadOnly} />
                           </td>
                           <td className="p-4 text-center">
                             <Select value={String(currentCriterio.idCriterio)} onValueChange={(v) => handleInputChange(criterio.id, 'idCriterio', Number(v))}>
-                              <SelectTrigger className="w-32 mx-auto text-xs">
+                              <SelectTrigger className="w-32 mx-auto text-xs" disabled={isConfigReadOnly}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -382,7 +386,7 @@ export function CriteriaManagement() {
                           </td>
                           <td className="p-4 text-center">
                             <Select value={currentCriterio.tipo} onValueChange={(v: 'qualitativo' | 'quantitativo') => handleInputChange(criterio.id, 'tipo', v)}>
-                              <SelectTrigger className="w-32 mx-auto text-xs"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="w-32 mx-auto text-xs" disabled={isConfigReadOnly}><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="qualitativo">Qualitativo</SelectItem>
                                 <SelectItem value="quantitativo">Quantitativo</SelectItem>
@@ -396,7 +400,7 @@ export function CriteriaManagement() {
                                 handleInputChange(criterio.id, 'tipoMeta', value)
                               }
                             >
-                              <SelectTrigger className="w-40 mx-auto text-xs">
+                              <SelectTrigger className="w-40 mx-auto text-xs" disabled={isConfigReadOnly}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -467,6 +471,7 @@ export function CriteriaManagement() {
                                   step="1"
                                   min="0"
                                   max="100"
+                                  disabled={isConfigReadOnly}
                                 />
                               );
                             })()}
@@ -485,7 +490,7 @@ export function CriteriaManagement() {
             <CardTitle>Adicionar Novo Critério</CardTitle>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => setIsAddCriterionDialogOpen(true)} className="w-full md:w-auto">Adicionar Novo Critério</Button>
+            <Button onClick={() => setIsAddCriterionDialogOpen(true)} className="w-full md:w-auto" disabled={isConfigReadOnly}>Adicionar Novo Critério</Button>
           </CardContent>
         </Card>
 

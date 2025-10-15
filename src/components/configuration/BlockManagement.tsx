@@ -6,11 +6,17 @@ import { getTipoCriterios, updateTipoCriterio } from '@/services/criteriaService
 import { TipoCriterio } from '@/types/evaluation';
 import { useToast } from '@/hooks/use-toast';
 import { Save } from 'lucide-react';
+import { useEvaluation } from '@/contexts/EvaluationContext';
+import getCurrentPeriod from '@/lib/period';
 
 export function BlockManagement() {
   const [tiposCriterio, setTiposCriterio] = useState<TipoCriterio[]>([]);
   const [editedTipos, setEditedTipos] = useState<{ [key: number]: Partial<TipoCriterio> }>({});
   const { toast } = useToast();
+  const { state } = useEvaluation();
+
+  const currentPeriod = getCurrentPeriod();
+  const isConfigReadOnly = state.avaliacoes.some(av => av.periodo === currentPeriod);
 
   useEffect(() => {
     const fetchTiposCriterio = async () => {
@@ -100,6 +106,7 @@ export function BlockManagement() {
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => handleInputChange(tipo.id, 'valorNvl1', e.target.value)}
                         className="w-24 text-center mx-auto"
+                        disabled={isConfigReadOnly}
                       />
                     </td>
                     <td className="p-4">
@@ -110,6 +117,7 @@ export function BlockManagement() {
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => handleInputChange(tipo.id, 'valorNvl2', e.target.value)}
                         className="w-24 text-center mx-auto"
+                        disabled={isConfigReadOnly}
                       />
                     </td>
                     <td className="p-4">
@@ -120,6 +128,7 @@ export function BlockManagement() {
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => handleInputChange(tipo.id, 'valorNvl3', e.target.value)}
                         className="w-24 text-center mx-auto"
+                        disabled={isConfigReadOnly}
                       />
                     </td>
                     <td className="p-4">
@@ -130,11 +139,12 @@ export function BlockManagement() {
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => handleInputChange(tipo.id, 'valorSpa', e.target.value)}
                         className="w-24 text-center mx-auto"
+                        disabled={isConfigReadOnly}
                       />
                     </td>
                     <td className="p-4 text-center">
                       {editedTipos[tipo.id] && (
-                        <Button size="sm" onClick={() => saveTipoCriterio(tipo.id)}>
+                        <Button size="sm" onClick={() => saveTipoCriterio(tipo.id)} disabled={isConfigReadOnly}>
                           <Save className="h-3 w-3" />
                         </Button>
                       )}

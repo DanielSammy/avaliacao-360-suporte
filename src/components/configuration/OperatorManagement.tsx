@@ -13,6 +13,7 @@ import { gerarId } from '@/utils/calculations'; // This might not be needed if A
 import { UserPlus, Edit, Trash2, Users, Calendar, Mail, Star, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import getCurrentPeriod from '@/lib/period';
 import {
   getOperadores,
   createOperador,
@@ -24,6 +25,10 @@ import {
 export function OperatorManagement() {
   const { state, dispatch, fetchOperadores } = useEvaluation();
   const { toast } = useToast();
+
+  // Se existir qualquer avaliação no mês atual, bloquear edição de cadastros
+  const currentPeriod = getCurrentPeriod();
+  const isConfigReadOnly = state.avaliacoes.some(av => av.periodo === currentPeriod);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false); // New state for edit dialog
@@ -258,7 +263,7 @@ export function OperatorManagement() {
               setIsAddDialogOpen(open);
             }}>
               <DialogTrigger asChild>
-                <Button>
+                  <Button disabled={isConfigReadOnly}>
                   <UserPlus className="h-4 w-4 mr-2" />
                   Adicionar Operador
                 </Button>
@@ -274,6 +279,7 @@ export function OperatorManagement() {
                       value={newOperatorName}
                       onChange={(e) => setNewOperatorName(e.target.value)}
                       placeholder="Digite o nome completo"
+                      disabled={isConfigReadOnly}
                     />
                   </div>
                   <div>
@@ -284,6 +290,7 @@ export function OperatorManagement() {
                       onChange={(e) => setNewOperatorEmail(e.target.value)}
                       placeholder="exemplo@spaceinformatica.com.br"
                       onKeyDown={(e) => e.key === 'Enter' && handleAddOperator()}
+                      disabled={isConfigReadOnly}
                     />
                   </div>
                   
@@ -292,14 +299,15 @@ export function OperatorManagement() {
                       id="participates-evaluation"
                       checked={newOperatorParticipatesInEvaluation}
                       onCheckedChange={setNewOperatorParticipatesInEvaluation}
+                      disabled={isConfigReadOnly}
                     />
                     <Label htmlFor="participates-evaluation">Participa da Avaliação</Label>
                   </div>
-                  <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                       Cancelar
                     </Button>
-                    <Button onClick={handleAddOperator}>
+                    <Button onClick={handleAddOperator} disabled={isConfigReadOnly}>
                       Adicionar
                     </Button>
                   </div>
@@ -363,6 +371,7 @@ export function OperatorManagement() {
                               size="sm"
                               className="flex-1"
                               onClick={() => openEditDialog(operador)}
+                              disabled={isConfigReadOnly}
                             >
                               <Edit className="h-3 w-3 mr-1" />
                               Editar
@@ -379,6 +388,7 @@ export function OperatorManagement() {
                                   value={newOperatorName}
                                   onChange={(e) => setNewOperatorName(e.target.value)}
                                   placeholder="Digite o nome completo"
+                                  disabled={isConfigReadOnly}
                                 />
                               </div>
                               <div>
@@ -389,6 +399,7 @@ export function OperatorManagement() {
                                   onChange={(e) => setNewOperatorEmail(e.target.value)}
                                   placeholder="exemplo@spaceinformatica.com.br"
                                   onKeyDown={(e) => e.key === 'Enter' && handleEditOperator()}
+                                  disabled={isConfigReadOnly}
                                 />
                               </div>
                               
@@ -397,14 +408,15 @@ export function OperatorManagement() {
                                   id="edit-participates-evaluation"
                                   checked={newOperatorParticipatesInEvaluation}
                                   onCheckedChange={setNewOperatorParticipatesInEvaluation}
+                                  disabled={isConfigReadOnly}
                                 />
                                 <Label htmlFor="edit-participates-evaluation">Participa da Avaliação</Label>
                               </div>
-                              <div className="flex justify-end gap-2">
+                                <div className="flex justify-end gap-2">
                                 <Button variant="outline" onClick={cancelEdit}>
                                   Cancelar
                                 </Button>
-                                <Button onClick={handleEditOperator}>
+                                <Button onClick={handleEditOperator} disabled={isConfigReadOnly}>
                                   Salvar
                                 </Button>
                               </div>
@@ -417,13 +429,14 @@ export function OperatorManagement() {
                           size="sm"
                           onClick={() => toggleOperatorStatus(operador)}
                           className="flex-1"
+                          disabled={isConfigReadOnly}
                         >
                           {operador.ativo ? "Desativar" : "Ativar"}
                         </Button>
 
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="sm">
+                            <Button variant="destructive" size="sm" disabled={isConfigReadOnly}>
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           </AlertDialogTrigger>
