@@ -7,6 +7,7 @@ import { DEFAULT_OPERADORES, DEFAULT_CRITERIOS } from '@/data/defaultData';
 import { Download, Upload, RotateCcw, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getAuthToken } from '@/config/apiConfig';
+import { sendEmailWithAttachment } from '@/services/reportService';
 import emailConfig from '@/config/emailConfig';
 import { 
   serializeData, 
@@ -154,7 +155,7 @@ export function SystemSettings() {
               <label className="text-sm font-medium mb-2 block">Email de teste</label>
               <input id="testEmail" placeholder="destinatario@exemplo.com" className="w-full p-2 border rounded" />
             </div>
-            <div className="flex items-end">
+              <div className="flex items-end">
               <Button onClick={async () => {
                 const input = (document.getElementById('testEmail') as HTMLInputElement | null);
                 const to = input?.value?.trim();
@@ -176,17 +177,31 @@ export function SystemSettings() {
                 };
 
                 try {
-                  const token = getAuthToken();
-                  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-                  if (token) headers['Authorization'] = `Bearer ${token}`;
+                  // Primeiro, tente enviar um anexo PDF mínimo (emula ReportsPanel)
+                  const minimalPdf = '%PDF-1.4\n%âãÏÓ\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length 44 >>\nstream\nBT /F1 24 Tf 72 72 Td (Teste) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000010 00000 n \n0000000060 00000 n \n0000000117 00000 n \n0000000210 00000 n \ntrailer\n<< /Root 1 0 R >>\nstartxref\n300\n%%EOF';
+                  const pdfBlob = new Blob([minimalPdf], { type: 'application/pdf' });
+                  const pdfName = `teste-email-${new Date().toISOString().split('T')[0]}.pdf`;
 
-                  const { BASE_URL, API_ENDPOINTS } = await import('@/config/apiConfig');
-                  const resp = await fetch(`${BASE_URL}${API_ENDPOINTS.EMAIL_SEND}`, { method: 'POST', headers, body: JSON.stringify(emailPayload) });
-                  const text = await resp.text().catch(() => '<no body>');
+                  let resp = await sendEmailWithAttachment({ ...emailPayload }, pdfBlob, pdfName);
+                  let respText = await resp.text().catch(() => '<no body>');
+
+                  if (!resp.ok) {
+                    console.warn('Envio com PDF falhou, tentando fallback para TXT', resp.status, respText);
+
+                    // fallback para .txt (mais simples)
+                    const contentText = `Este é um email de teste enviado a partir do sistema Avalia+.\nData: ${new Date().toLocaleString()}`;
+                    const txtFile = new Blob([contentText], { type: 'text/plain' });
+                    const txtName = `teste-email-${new Date().toISOString().split('T')[0]}.txt`;
+
+                    resp = await sendEmailWithAttachment({ ...emailPayload }, txtFile, txtName);
+                    respText = await resp.text().catch(() => '<no body>');
+                  }
+
                   if (resp.ok) {
-                    toast({ title: 'Enviado', description: 'Email de teste enviado com sucesso.' });
+                    toast({ title: 'Enviado', description: 'Email de teste enviado com sucesso (com anexo).' });
                   } else {
-                    toast({ title: 'Erro', description: 'Envio de teste falhou. Veja console para mais detalhes.', variant: 'destructive' });
+                    console.error('Envio de teste falhou', resp.status, respText);
+                    toast({ title: 'Erro', description: `Envio falhou: ${resp.status} - ${respText}`, variant: 'destructive' });
                   }
                 } catch (e) {
                   toast({ title: 'Erro', description: 'Falha ao enviar email de teste.', variant: 'destructive' });
