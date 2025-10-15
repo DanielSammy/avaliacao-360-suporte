@@ -283,6 +283,12 @@ export function EvaluateOperators() {
         if (response.success) {
           toast({ title: "Sucesso!", description: `Avaliações para o critério "${selectedCriterion.nome}" foram salvas.` });
           dispatch({ type: 'ADD_AVALIACAO_BULK', payload: { criterioId: selectedCriterion.id, avaliacoes: avaliacoesParaDispatch } });
+          // Marcar no estado de sessão como avaliado imediatamente para atualizar UI (ícone e disabled)
+          setSessionEvaluatedIds(prev => {
+            const s = new Set(prev);
+            s.add(selectedCriterion.id);
+            return s;
+          });
           const nextCriterion = findNextCriterion(selectedCriterionId);
           checkAndSetCriterion(nextCriterion);
         } else {
@@ -615,8 +621,8 @@ export function EvaluateOperators() {
                     <SelectItem key={criterio.id} value={criterio.id.toString()} disabled={isEvaluated || isImportable}>
                       <div className="flex items-center justify-between w-full">
                         <span>{`${criterio.nome} - ( ${tipoLabel} )`}</span>
-                        <div className="flex items-center gap-2">
-                          {(isEvaluated || isEvaluatedAny) && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+                                <div className="flex items-center gap-2">
+                                  {isEvaluated && <CheckCircle2 className="h-5 w-5 text-green-500" />}
                           {isImportable && (
                             <Tooltip>
                               <TooltipTrigger asChild>
