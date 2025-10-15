@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { useEvaluation } from '@/contexts/EvaluationContext';
 import { Criterio, TipoCriterio } from '@/types/evaluation';
 import { formatarMoeda } from '@/utils/calculations';
-import { Target, Save, Trash2, TrendingUp, TrendingDown, Info } from 'lucide-react';
+import { Target, Save, Trash2, TrendingUp, TrendingDown, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { createCriterio, updateCriterio, deleteCriterio, getTipoCriterios, getCriterios } from '@/services/criteriaService';
@@ -331,7 +331,7 @@ export function CriteriaManagement() {
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <div className="flex items-center">
-                                      <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                                      <Download className="h-4 w-4 text-muted-foreground cursor-pointer" />
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent>{autoDetail}</TooltipContent>

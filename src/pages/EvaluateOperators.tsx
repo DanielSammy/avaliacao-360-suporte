@@ -12,7 +12,8 @@ import { updateCriterio } from '@/services/criteriaService';
 import { getMySuitePerformanceAvaliacoes, MySuitePerformanceRequest, getMySuiteConcluidosPorContato } from '@/services/operatorService';
 import { calcularValorAlcancadoFinal } from '../utils/calculations';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { CheckCircle2, Loader2, ArrowLeft } from 'lucide-react';
+import { CheckCircle2, Loader2, ArrowLeft, Download } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useNavigate, Link } from 'react-router-dom';
 
@@ -605,12 +606,26 @@ export function EvaluateOperators() {
               <SelectContent>
                 {filteredCriterios.map(criterio => {
                   const isEvaluated = allEvaluatedIds.has(criterio.id);
+                  // verificar se existe alguma avaliação para este critério no estado (inclui importações)
+                  const isEvaluatedAny = state.avaliacoes.some(av => Array.isArray(av.criterios) && av.criterios.some((c: any) => c.criterioId === criterio.id));
                   const tipoLabel = tipoCriterioLabel(criterio.idCriterio);
+                  const metaCalcNum = Number(criterio.metaCalculo ?? -1);
+                  const isImportable = [1,2,3].includes(metaCalcNum) && !!criterio.ativo;
                   return (
-                    <SelectItem key={criterio.id} value={criterio.id.toString()} disabled={isEvaluated}>
+                    <SelectItem key={criterio.id} value={criterio.id.toString()} disabled={isEvaluated || isImportable}>
                       <div className="flex items-center justify-between w-full">
                         <span>{`${criterio.nome} - ( ${tipoLabel} )`}</span>
-                        {isEvaluated && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+                        <div className="flex items-center gap-2">
+                          {(isEvaluated || isEvaluatedAny) && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+                          {isImportable && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div><Download className="h-4 w-4 text-muted-foreground" /></div>
+                              </TooltipTrigger>
+                              <TooltipContent>Este critério é avaliado por importação e não pode ser avaliado manualmente.</TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
                       </div>
                     </SelectItem>
                   );
@@ -636,6 +651,18 @@ export function EvaluateOperators() {
                   Este critério já foi avaliado.
                 </div>
               )}
+              {(() => {
+                const metaCalcNum = Number(selectedCriterion.metaCalculo ?? -1);
+                const isImportableSelected = [1,2,3].includes(metaCalcNum) && !!selectedCriterion.ativo;
+                if (isImportableSelected) {
+                  return (
+                    <div className="text-center text-yellow-800 font-semibold bg-yellow-50 p-3 rounded-md">
+                      Este critério é avaliado automaticamente por importação e não pode ser avaliado manualmente.
+                    </div>
+                  );
+                }
+                return null;
+              })()}
               {activeOperators.map(operator => (
                 <div key={operator.id} className="flex items-center justify-between p-3 border rounded-md gap-4">
                   <div className="flex-1">
@@ -646,7 +673,7 @@ export function EvaluateOperators() {
                       onValueChange={(value) => handleEvaluationChange(operator.id.toString(), value)}
                       value={evaluationValues[operator.id.toString()]?.toString() || ''}
                       className="flex gap-4"
-                      disabled={isCurrentCriterionEvaluated}
+                      disabled={isCurrentCriterionEvaluated || ([1,2,3].includes(Number(selectedCriterion.metaCalculo ?? -1)) && !!selectedCriterion.ativo)}
                     >
                       <div className="flex items-center space-x-2"><RadioGroupItem value="25" id={`op-${operator.id}-r1`} /><label htmlFor={`op-${operator.id}-r1`}>1 Nunca</label></div>
                       <div className="flex items-center space-x-2"><RadioGroupItem value="50" id={`op-${operator.id}-r2`} /><label htmlFor={`op-${operator.id}-r2`}>2 Às Vezes</label></div>
@@ -661,7 +688,7 @@ export function EvaluateOperators() {
                       placeholder={`Valor para ${selectedCriterion.nome}`}
                       className="w-40 text-center"
                       min="0"
-                      disabled={isCurrentCriterionEvaluated}
+                      disabled={isCurrentCriterionEvaluated || ([1,2,3].includes(Number(selectedCriterion.metaCalculo ?? -1)) && !!selectedCriterion.ativo)}
                     />
                   )}
                 </div>
@@ -670,7 +697,7 @@ export function EvaluateOperators() {
                 <Button 
                   onClick={handleSaveAndNext} 
                   className="w-full mt-6" 
-                  disabled={isSubmitting || !allOperatorsEvaluated || isCurrentCriterionEvaluated}
+                  disabled={isSubmitting || !allOperatorsEvaluated || isCurrentCriterionEvaluated || ([1,2,3].includes(Number(selectedCriterion.metaCalculo ?? -1)) && !!selectedCriterion.ativo)}
                 >
                   {isSubmitting ? 'Salvando...' : 'Salvar e Ir para Próximo Critério'}
                 </Button>
