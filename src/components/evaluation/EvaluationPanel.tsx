@@ -177,6 +177,16 @@ export function EvaluationPanel() {
     return info;
   }, [tiposCriterio]);
 
+  // Helper: retorna totalValue do bloco ajustado ao nível do operador atual
+  const getBlockTotalValue = (blockId: number) => {
+    const tipo = tiposCriterio.find(tc => tc.id === blockId);
+    if (!tipo) return blockInfo[blockId]?.totalValue || 0;
+    const nivelStr = operadorAtual?.nivel || '';
+    if (nivelStr && nivelStr.includes('2') && typeof tipo.valorNvl2 === 'number') return Number(tipo.valorNvl2);
+    if (nivelStr && nivelStr.includes('3') && typeof tipo.valorNvl3 === 'number') return Number(tipo.valorNvl3);
+    return Number(tipo.valorNvl1 ?? blockInfo[blockId]?.totalValue ?? 0);
+  };
+
   if (loading) {
     return <div>Loading...</div>; 
   }
@@ -209,7 +219,7 @@ export function EvaluationPanel() {
                 title={block?.title || `Bloco ${groupId}`}
                 criterios={groupedCriteria[groupIdNum]}
                 criteriosAvaliacao={criteriosAvaliacao}
-                totalValue={block?.totalValue || 0}
+                totalValue={getBlockTotalValue(groupIdNum)}
               />
             )
           })}

@@ -87,10 +87,11 @@ import { useToast } from '@/hooks/use-toast';
             // Carregar nomes dos tipos de critério (para títulos dos blocos) e valores totais por bloco
             const tipoCriterioMap: Record<number, string> = {};
             const tipoValorMap: Record<number, number> = {};
+            let tipos: any[] = [];
             try {
               // import dinamico para evitar aumentar bundle no componente (apenas runtime)
               const { getTipoCriterios } = await import('@/services/criteriaService');
-              const tipos = await getTipoCriterios();
+              tipos = await getTipoCriterios();
               tipos.forEach((t: { id: number; descricao: string; valorNvl1?: number; valorNvl2?: number; valorNvl3?: number; valorSpa?: number }) => {
                 tipoCriterioMap[t.id] = t.descricao;
                 // definir valor total do bloco conforme convenção do sistema
@@ -143,8 +144,20 @@ import { useToast } from '@/hooks/use-toast';
 
               // valorPossivel por bloco
               let valorPossivel = criteriosDoBloco.reduce((acc, c) => acc + getValorCriterio(c), 0);
-              if ((idBloco === 1 || idBloco === 2) && tipoValorMap[idBloco] !== undefined) {
-                valorPossivel = tipoValorMap[idBloco];
+              if (idBloco === 1 || idBloco === 2) {
+                const tipoObj = tipos.find((t: any) => t.id === idBloco);
+                if (tipoObj) {
+                  const nivelStr = operador?.nivel || '';
+                  if (nivelStr && nivelStr.includes('2') && typeof tipoObj.valorNvl2 === 'number') {
+                    valorPossivel = Number(tipoObj.valorNvl2 ?? valorPossivel);
+                  } else if (nivelStr && nivelStr.includes('3') && typeof tipoObj.valorNvl3 === 'number') {
+                    valorPossivel = Number(tipoObj.valorNvl3 ?? valorPossivel);
+                  } else {
+                    valorPossivel = Number(tipoObj.valorNvl1 ?? valorPossivel);
+                  }
+                } else if (tipoValorMap[idBloco] !== undefined) {
+                  valorPossivel = tipoValorMap[idBloco];
+                }
               }
 
               // mapear percentuais por criterio (0-100)

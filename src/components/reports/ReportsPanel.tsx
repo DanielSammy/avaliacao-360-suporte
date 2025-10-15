@@ -59,23 +59,15 @@ export function ReportsPanel() {
     return Array.from(periodos).sort().reverse();
   }, [state.avaliacoes]);
 
-  // Buscar tipos de critério para calcular valores possíveis por bloco (usado no resumo)
-  const [tipoValorMap, setTipoValorMap] = React.useState<Record<number, number>>({});
+  // Buscar tipos de critério (usados para escolher valores por nível conforme operador)
+  const [tiposCriterio, setTiposCriterio] = React.useState<any[]>([]);
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
         const tipos = await getTipoCriterios();
         if (!mounted) return;
-        const map: Record<number, number> = {};
-        tipos.forEach((t: any) => {
-          let total = 0;
-          if (t.id === 1) total = Number(t.valorNvl1 ?? 0);
-          else if (t.id === 2) total = Number(t.valorNvl2 ?? 0);
-          else if (t.id === 3) total = Number(t.valorNvl3 ?? 0);
-          map[t.id] = total;
-        });
-        setTipoValorMap(map);
+        setTiposCriterio(tipos || []);
       } catch (err) {
         console.warn('Não foi possível carregar tipos de critério (ReportsPanel):', err);
       }
@@ -159,8 +151,20 @@ export function ReportsPanel() {
       const criteriosDoBloco = blocosMap[idBloco];
 
       let valorPossivel = criteriosDoBloco.reduce((acc: number, c: any) => acc + getValorCriterio(c), 0);
-      if ((idBloco === 1 || idBloco === 2) && tipoValorMap[idBloco] !== undefined) {
-        valorPossivel = tipoValorMap[idBloco];
+      if (idBloco === 1 || idBloco === 2) {
+        // escolher valor possível conforme o nível do operador (quando tiposCriterio estiver disponível)
+        const operador = state.operadores.find((op: any) => String(op.id) === String(avaliacao.operadorId));
+        const nivelStr = operador?.nivel || ''; // ex: 'Nivel 1'
+        const tipoObj = tiposCriterio.find(t => t.id === idBloco);
+        if (tipoObj) {
+          if (nivelStr && nivelStr.includes('2') && typeof tipoObj.valorNvl2 === 'number') {
+            valorPossivel = Number(tipoObj.valorNvl2 ?? valorPossivel);
+          } else if (nivelStr && nivelStr.includes('3') && typeof tipoObj.valorNvl3 === 'number') {
+            valorPossivel = Number(tipoObj.valorNvl3 ?? valorPossivel);
+          } else {
+            valorPossivel = Number(tipoObj.valorNvl1 ?? valorPossivel);
+          }
+        }
       }
 
       // mapear percentuais por criterio (0-100)
