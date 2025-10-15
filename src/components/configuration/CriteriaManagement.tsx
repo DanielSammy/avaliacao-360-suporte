@@ -43,7 +43,12 @@ export function CriteriaManagement() {
   const [newCriterionValorBonus, setNewCriterionValorBonus] = useState<number>(0);
   const [newCriterionOrdem, setNewCriterionOrdem] = useState<number>(0);
 
+<<<<<<< HEAD
   // Nota: não usamos mais totalTeamTickets neste componente.
+=======
+  // totalTeamTickets is now managed globally via EvaluationContext (updated by import);
+  // we no longer expose UI to edit it here.
+>>>>>>> 17af4a4dcf319ffc04e3511c56de2964d56895bc
   const [criterionToDelete, setCriterionToDelete] = useState<number | null>(null);
   const [tiposCriterio, setTiposCriterio] = useState<TipoCriterio[]>([]);
   const { toast } = useToast();
@@ -101,8 +106,39 @@ export function CriteriaManagement() {
     fetchTiposCriterio();
   }, [toast]);
 
+<<<<<<< HEAD
   // O cálculo automático de valorMeta baseado em `totalTeamTickets` foi removido.
   // Os critérios agora utilizam o valor vindo da API (`criterio.valorMeta`) como os demais.
+=======
+  useEffect(() => {
+    // Usa o total armazenado no estado global (`state.totalTeamTickets`) que é atualizado
+    // automaticamente pela importação; não expomos mais edição manual aqui.
+    const activeOperatorsCount = state.operadores.filter(op => op.participaAvaliacao).length;
+    let calculatedValorMeta = 0;
+
+    if (activeOperatorsCount > 0) {
+      calculatedValorMeta = Math.round((state.totalTeamTickets / activeOperatorsCount) * 0.80);
+    }
+
+    state.criterios.forEach(criterio => {
+      // aplicar quando mediaGeral é true
+      // ou quando for bloco 3 (Metas), tipo quantitativo e metaCalculo === 2
+      const isQuantitativoMetaCalculo2 = Number(criterio.idCriterio) === 3 && criterio.tipo === 'quantitativo' && criterio.metaCalculo === 2;
+      if (criterio.mediaGeral || isQuantitativoMetaCalculo2) { 
+        const currentValorMeta = editedCriteria[criterio.id]?.valorMeta ?? criterio.valorMeta;
+        if (currentValorMeta !== calculatedValorMeta) {
+          setEditedCriteria((prev) => ({
+            ...prev,
+            [criterio.id]: {
+              ...prev[criterio.id],
+              valorMeta: calculatedValorMeta,
+            },
+          }));
+        }
+      }
+    });
+  }, [state.totalTeamTickets, state.criterios, state.operadores, editedCriteria]);
+>>>>>>> 17af4a4dcf319ffc04e3511c56de2964d56895bc
 
   const addNewCriterion = async () => {
     if (!newCriterionName.trim()) {
