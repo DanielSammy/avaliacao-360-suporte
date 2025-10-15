@@ -1,44 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useEvaluation } from '@/contexts/EvaluationContext';
 import { Header } from '@/components/layout/Header';
 import { NavigationTabs } from '@/components/navigation/NavigationTabs';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { getCriterios } from '@/services/criteriaService';
 
 const Index = () => {
   const { state } = useEvaluation();
-  const [totalActiveCriteria, setTotalActiveCriteria] = useState(0);
-
-  useEffect(() => {
-    const fetchCriteria = async () => {
-      try {
-        const response = await getCriterios();
-        if (response.success) {
-          const activeCriteria = response.data.filter(c => c.ativo);
-          setTotalActiveCriteria(activeCriteria.length);
-        }
-      } catch (error) {
-        console.error("Failed to fetch criteria:", error);
-      }
-    };
-
-    fetchCriteria();
-  }, []);
 
   const hoje = new Date();
   const periodoAtual = `${hoje.getFullYear()}-${(hoje.getMonth() + 1).toString().padStart(2, '0')}`;
-  const totalOperadores = state.operadores.filter(op => op.ativo).length;
+  const allActiveOperators = state.operadores.filter(op => op.ativo);
+  const totalOperadores = allActiveOperators.length;
 
-  const avaliacoesPendentes = state.operadores.reduce((acc, op) => {
-    if (!op.ativo || !op.participaAvaliacao) return acc;
+  // critérios aplicáveis: somente critérios ativos com idCriterio === 2 (mesma regra de EvaluationTracking)
+  const applicableCriterios = state.criterios.filter(criterio => criterio.ativo && criterio.idCriterio === 2);
+  const applicableCriterioIds = new Set(applicableCriterios.map(c => c.id));
 
-    const avaliacoesFeitasPeloOperador = state.avaliacoes.filter(a => a.avaliadorId === op.id && a.periodo === periodoAtual);
-    const criteriosAvaliados = new Set(avaliacoesFeitasPeloOperador.flatMap(a => a.criterios.map(c => c.criterioId)));
-    const pendentes = totalActiveCriteria - criteriosAvaliados.size;
-    
-    return acc + (pendentes > 0 ? pendentes : 0);
-  }, 0);
+  // calcular totalCompletedAcrossAll: para cada operador ativo, contar critérios aplicáveis que ele já avaliou
+  let totalCompletedAcrossAll = 0;
+  for (const op of allActiveOperators) {
+    const evalsByOp = state.avaliacoes.filter(ev => {
+      if (ev.periodo !== periodoAtual) return false;
+      if (ev.avaliadorId === op.id) return true;
+      if (!Array.isArray(ev.criterios)) return false;
+      return ev.criterios.some((c: any) => Number(c.avaliadorId) === op.id);
+    });
+
+    const criteriaEvaluatedByOp = new Set<number>();
+    for (const ev of evalsByOp) {
+      if (!Array.isArray(ev.criterios)) continue;
+      for (const c of ev.criterios) {
+        const criterioAplicavel = applicableCriterioIds.has(c.criterioId);
+        const criterioPorEsseAvaliador = (c.avaliadorId !== undefined && Number(c.avaliadorId) === op.id) || ev.avaliadorId === op.id;
+        if (criterioAplicavel && criterioPorEsseAvaliador) criteriaEvaluatedByOp.add(c.criterioId);
+      }
+    }
+
+    totalCompletedAcrossAll += criteriaEvaluatedByOp.size;
+  }
+
+  const totalPossible = allActiveOperators.length * applicableCriterios.length;
+  const avaliacoesPendentes = Math.max(0, totalPossible - totalCompletedAcrossAll);
 
   return (
     <div className="min-h-screen bg-background">

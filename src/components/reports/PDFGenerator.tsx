@@ -5,6 +5,7 @@ import { Avaliacao, Operador, Criterio } from '@/types/evaluation';
 import { formatarMoeda, formatarPeriodo, metaAtingida } from '@/utils/calculations';
 import { FileDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useEvaluation } from '@/contexts/EvaluationContext';
 
       interface PDFGeneratorProps {
         avaliacao: Avaliacao;
@@ -429,10 +430,60 @@ import { useToast } from '@/hooks/use-toast';
       }
 
       export function PDFGenerator({ avaliacao, operador, criterios }: PDFGeneratorProps) {
-        const { toast } = useToast();
+              const { toast } = useToast();
+              const { state } = useEvaluation();
+
+              // Helper: calcula totalPending para o período da avaliação usando a mesma regra da tela de acompanhamento
+              const calculaTotalPendentes = (periodo: string) => {
+                const hojePeriodo = periodo;
+                const allActiveOperators = state.operadores.filter(op => op.ativo);
+                const applicableCriterios = state.criterios.filter(criterio => criterio.ativo && criterio.idCriterio === 2);
+                const applicableCriterioIds = new Set(applicableCriterios.map(c => c.id));
+
+                let totalCompletedAcrossAll = 0;
+                for (const op of allActiveOperators) {
+                  const evalsByOp = state.avaliacoes.filter(ev => {
+                    if (ev.periodo !== hojePeriodo) return false;
+                    if (ev.avaliadorId === op.id) return true;
+                    if (!Array.isArray(ev.criterios)) return false;
+                    return ev.criterios.some((c: any) => Number(c.avaliadorId) === op.id);
+                  });
+
+                  const criteriaEvaluatedByOp = new Set<number>();
+                  for (const ev of evalsByOp) {
+                    if (!Array.isArray(ev.criterios)) continue;
+                    for (const c of ev.criterios) {
+                      const criterioAplicavel = applicableCriterioIds.has(c.criterioId);
+                      const criterioPorEsseAvaliador = (c.avaliadorId !== undefined && Number(c.avaliadorId) === op.id) || ev.avaliadorId === op.id;
+                      if (criterioAplicavel && criterioPorEsseAvaliador) criteriaEvaluatedByOp.add(c.criterioId);
+                    }
+                  }
+
+                  totalCompletedAcrossAll += criteriaEvaluatedByOp.size;
+                }
+
+                const totalPossible = allActiveOperators.length * applicableCriterios.length;
+                return Math.max(0, totalPossible - totalCompletedAcrossAll);
+              };
 
         const generatePDF = async () => {
           try {
+            // verificar pré-condições: contador de pendentes deve ser 0
+            const periodo = avaliacao?.periodo || '';
+            const totalPendentes = calculaTotalPendentes(periodo);
+            const criteriosAtivosCount = state.criterios.filter(c => c.ativo).length;
+            const criteriosAvaliadosCount = Array.isArray(avaliacao?.criterios) ? avaliacao.criterios.length : 0;
+
+            if (totalPendentes > 0) {
+              toast({ title: 'Impressão bloqueada', description: `Ainda existem ${totalPendentes} avaliações pendentes. Aguarde finalizar todas as avaliações antes de gerar o PDF.`, variant: 'destructive' });
+              return;
+            }
+
+            if (criteriosAvaliadosCount !== criteriosAtivosCount) {
+              toast({ title: 'Impressão bloqueada', description: `Número de critérios avaliados (${criteriosAvaliadosCount}) diferente do número de critérios ativos (${criteriosAtivosCount}). Complete todas as avaliações antes de gerar o PDF.`, variant: 'destructive' });
+              return;
+            }
+
             toast({ title: 'Gerando PDF', description: 'Preparando relatório...' });
             const { pdf, fileName } = await buildPdf(avaliacao, operador, criterios);
             pdf.save(fileName);

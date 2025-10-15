@@ -669,80 +669,131 @@ export function ReportsPanel() {
                               className="px-3 py-1 rounded bg-muted text-muted-foreground text-sm"
                               onClick={async () => {
                                 try {
-                                  // buscar dados do dashboard para garantir mesma fonte que EvaluationPanel
-                                  const dashboard = await getEvaluationDashboard(avaliacao.operadorId, avaliacao.periodo);
-                                  const criteriosResp = dashboard.data.criterios || [];
-                                  // Calcular valorBonusAlcancado usando a mesma lógica do EvaluationPanel
-                                  const { calcularBonusAlcancado } = await import('@/utils/calculations');
-                                  const criteriosAvaliacao = criteriosResp.map((c: any) => {
-                                    const valorAlcancadoNum = parseFloat(c.metaAlcancada) || 0;
-                                    // construir um objeto Criterio mínimo para o cálculo (preservar valorCriterio quando possível)
-                                    const original = (state.criterios.find((crit: any) => crit.id === c.criterioId) as any) || {};
-                                    const criterioForCalc = {
-                                      id: c.criterioId,
-                                      idCriterio: original.idCriterio || 0,
-                                      nome: c.criterioNome,
-                                      tipo: c.criterioTipo,
-                                      tipoMeta: c.criterioTipoMeta,
-                                      valorMeta: c.metaObjetivo || 0,
-                                      valorCriterio: original.valorCriterio,
-                                      valorBonus: parseFloat(c.valorMeta) || 0,
+                                  // pré-checagem: bloquear geração se houver avaliações pendentes ou número de critérios avaliados diferente do número de critérios ativos
+                                  const periodo = avaliacao.periodo;
+                                  const allActiveOperators = state.operadores.filter(op => op.ativo);
+                                  const applicableCriterios = state.criterios.filter(criterio => criterio.ativo && criterio.idCriterio === 2);
+                                  const applicableCriterioIds = new Set(applicableCriterios.map(c => c.id));
+
+                                  let totalCompletedAcrossAll = 0;
+                                  for (const op of allActiveOperators) {
+                                    const evalsByOp = state.avaliacoes.filter(ev => {
+                                      if (ev.periodo !== periodo) return false;
+                                      if (ev.avaliadorId === op.id) return true;
+                                      if (!Array.isArray(ev.criterios)) return false;
+                                      return ev.criterios.some((c: any) => Number(c.avaliadorId) === op.id);
+                                    });
+
+                                    const criteriaEvaluatedByOp = new Set<number>();
+                                    for (const ev of evalsByOp) {
+                                      if (!Array.isArray(ev.criterios)) continue;
+                                      for (const c of ev.criterios) {
+                                        const criterioAplicavel = applicableCriterioIds.has(c.criterioId);
+                                        const criterioPorEsseAvaliador = (c.avaliadorId !== undefined && Number(c.avaliadorId) === op.id) || ev.avaliadorId === op.id;
+                                        if (criterioAplicavel && criterioPorEsseAvaliador) criteriaEvaluatedByOp.add(c.criterioId);
+                                      }
+                                    }
+
+                                    totalCompletedAcrossAll += criteriaEvaluatedByOp.size;
+                                  }
+
+                                  const totalPossible = allActiveOperators.length * applicableCriterios.length;
+                                  const totalPendentes = Math.max(0, totalPossible - totalCompletedAcrossAll);
+
+                                  const criteriosAtivosCount = state.criterios.filter(c => c.ativo).length;
+                                  const criteriosRespCheck = (await getEvaluationDashboard(avaliacao.operadorId, avaliacao.periodo)).data.criterios || [];
+                                  const criteriosAvaliadosCount = criteriosRespCheck.length;
+
+                                  if (totalPendentes > 0) {
+                                    toast({ title: 'Impressão bloqueada', description: `Ainda existem ${totalPendentes} avaliações pendentes. Aguarde finalizar todas as avaliações antes de gerar o PDF.`, variant: 'destructive' });
+                                    return;
+                                  }
+
+                                  if (criteriosAvaliadosCount !== criteriosAtivosCount) {
+                                    toast({ title: 'Impressão bloqueada', description: `Número de critérios avaliados (${criteriosAvaliadosCount}) diferente do número de critérios ativos (${criteriosAtivosCount}). Complete todas as avaliações antes de gerar o PDF.`, variant: 'destructive' });
+                                    return;
+                                  }
+
+                                  // seguir com geração do PDF (mesma lógica existente)
+                                  try {
+                                    // buscar dados do dashboard para garantir mesma fonte que EvaluationPanel
+                                    const dashboard = await getEvaluationDashboard(avaliacao.operadorId, avaliacao.periodo);
+                                    const criteriosResp = dashboard.data.criterios || [];
+                                    // Calcular valorBonusAlcancado usando a mesma lógica do EvaluationPanel
+                                    const { calcularBonusAlcancado } = await import('@/utils/calculations');
+                                    const criteriosAvaliacao = criteriosResp.map((c: any) => {
+                                      const valorAlcancadoNum = parseFloat(c.metaAlcancada) || 0;
+                                      // construir um objeto Criterio mínimo para o cálculo (preservar valorCriterio quando possível)
+                                      const original = (state.criterios.find((crit: any) => crit.id === c.criterioId) as any) || {};
+                                      const criterioForCalc = {
+                                        id: c.criterioId,
+                                        idCriterio: original.idCriterio || 0,
+                                        nome: c.criterioNome,
+                                        tipo: c.criterioTipo,
+                                        tipoMeta: c.criterioTipoMeta,
+                                        valorMeta: c.metaObjetivo || 0,
+                                        valorCriterio: original.valorCriterio,
+                                        valorBonus: parseFloat(c.valorMeta) || 0,
+                                      } as any;
+
+                                      const bonusCalculado = calcularBonusAlcancado(criterioForCalc, valorAlcancadoNum);
+
+                                      return {
+                                        criterioId: c.criterioId,
+                                        valorAlcancado: String(valorAlcancadoNum),
+                                        valorBonusAlcancado: bonusCalculado,
+                                        metaAtingida: c.metaAtingida,
+                                        metaAlcancada: c.metaAlcancada,
+                                      };
+                                    });
+
+                                    const avaliacaoParaPdf = {
+                                      id: 0,
+                                      operadorId: avaliacao.operadorId,
+                                      avaliadorId: 0,
+                                      periodo: avaliacao.periodo,
+                                      criterios: criteriosAvaliacao,
+                                      valorTotalMeta: parseFloat(dashboard.data.valorTotalMeta) || 0,
+                                      valorTotalAlcancado: parseFloat(dashboard.data.valorTotalAlcancado) || 0,
+                                      dataCriacao: new Date(),
+                                      dataUltimaEdicao: new Date(),
                                     } as any;
 
-                                    const bonusCalculado = calcularBonusAlcancado(criterioForCalc, valorAlcancadoNum);
+                                    const { generatePdfBlob } = await import('./PDFGenerator');
+                                    // passar os critérios enriquecidos (com valorCriterio) para o PDF em vez do state.criterios cru
+                                    const criteriosParaPdf = criteriosResp.map((c: any) => {
+                                      const original = (state.criterios.find((crit: any) => crit.id === c.criterioId) as any) || {};
+                                      return {
+                                        id: c.criterioId,
+                                        idCriterio: original.idCriterio || 0,
+                                        nome: c.criterioNome,
+                                        tipo: c.criterioTipo,
+                                        tipoMeta: c.criterioTipoMeta,
+                                        valorMeta: c.metaObjetivo,
+                                        ordem: original.ordem || 0,
+                                        ativo: original.ativo !== false,
+                                        valorCriterio: original.valorCriterio,
+                                        valorBonus: parseFloat(c.valorMeta) || 0,
+                                      } as any;
+                                    });
 
-                                    return {
-                                      criterioId: c.criterioId,
-                                      valorAlcancado: String(valorAlcancadoNum),
-                                      valorBonusAlcancado: bonusCalculado,
-                                      metaAtingida: c.metaAtingida,
-                                      metaAlcancada: c.metaAlcancada,
-                                    };
-                                  });
-
-                                  const avaliacaoParaPdf = {
-                                    id: 0,
-                                    operadorId: avaliacao.operadorId,
-                                    avaliadorId: 0,
-                                    periodo: avaliacao.periodo,
-                                    criterios: criteriosAvaliacao,
-                                    valorTotalMeta: parseFloat(dashboard.data.valorTotalMeta) || 0,
-                                    valorTotalAlcancado: parseFloat(dashboard.data.valorTotalAlcancado) || 0,
-                                    dataCriacao: new Date(),
-                                    dataUltimaEdicao: new Date(),
-                                  } as any;
-
-                                  const { generatePdfBlob } = await import('./PDFGenerator');
-                                  // passar os critérios enriquecidos (com valorCriterio) para o PDF em vez do state.criterios cru
-                                  const criteriosParaPdf = criteriosResp.map((c: any) => {
-                                    const original = (state.criterios.find((crit: any) => crit.id === c.criterioId) as any) || {};
-                                    return {
-                                      id: c.criterioId,
-                                      idCriterio: original.idCriterio || 0,
-                                      nome: c.criterioNome,
-                                      tipo: c.criterioTipo,
-                                      tipoMeta: c.criterioTipoMeta,
-                                      valorMeta: c.metaObjetivo,
-                                      ordem: original.ordem || 0,
-                                      ativo: original.ativo !== false,
-                                      valorCriterio: original.valorCriterio,
-                                      valorBonus: parseFloat(c.valorMeta) || 0,
-                                    } as any;
-                                  });
-
-                                  const { fileName, blob } = await generatePdfBlob(avaliacaoParaPdf, operador as any, criteriosParaPdf);
-                                  // download
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  a.download = fileName;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  a.remove();
-                                  URL.revokeObjectURL(url);
+                                    const { fileName, blob } = await generatePdfBlob(avaliacaoParaPdf, operador as any, criteriosParaPdf);
+                                    // download
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = fileName;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    a.remove();
+                                    URL.revokeObjectURL(url);
+                                  } catch (err) {
+                                    console.error('Erro ao gerar PDF enriquecido:', err);
+                                    toast({ title: 'Erro', description: 'Falha ao gerar o PDF enriquecido.', variant: 'destructive' });
+                                  }
                                 } catch (err) {
-                                  console.error('Erro ao gerar PDF enriquecido:', err);
-                                  toast({ title: 'Erro', description: 'Falha ao gerar o PDF enriquecido.', variant: 'destructive' });
+                                  console.error('Erro no fluxo de geração de PDF:', err);
+                                  toast({ title: 'Erro', description: 'Falha ao gerar o PDF.', variant: 'destructive' });
                                 }
                               }}
                             >Gerar PDF</button>
@@ -752,6 +803,51 @@ export function ReportsPanel() {
                             className="px-3 py-1 rounded bg-primary text-white text-sm"
                             onClick={async () => {
                               try {
+                                // pré-checagem: bloquear envio se houver avaliações pendentes ou número de critérios avaliados diferente do número de critérios ativos
+                                const periodo = avaliacao.periodo;
+                                const allActiveOperators = state.operadores.filter(op => op.ativo);
+                                const applicableCriterios = state.criterios.filter(criterio => criterio.ativo && criterio.idCriterio === 2);
+                                const applicableCriterioIds = new Set(applicableCriterios.map(c => c.id));
+
+                                let totalCompletedAcrossAll = 0;
+                                for (const op of allActiveOperators) {
+                                  const evalsByOp = state.avaliacoes.filter(ev => {
+                                    if (ev.periodo !== periodo) return false;
+                                    if (ev.avaliadorId === op.id) return true;
+                                    if (!Array.isArray(ev.criterios)) return false;
+                                    return ev.criterios.some((c: any) => Number(c.avaliadorId) === op.id);
+                                  });
+
+                                  const criteriaEvaluatedByOp = new Set<number>();
+                                  for (const ev of evalsByOp) {
+                                    if (!Array.isArray(ev.criterios)) continue;
+                                    for (const c of ev.criterios) {
+                                      const criterioAplicavel = applicableCriterioIds.has(c.criterioId);
+                                      const criterioPorEsseAvaliador = (c.avaliadorId !== undefined && Number(c.avaliadorId) === op.id) || ev.avaliadorId === op.id;
+                                      if (criterioAplicavel && criterioPorEsseAvaliador) criteriaEvaluatedByOp.add(c.criterioId);
+                                    }
+                                  }
+
+                                  totalCompletedAcrossAll += criteriaEvaluatedByOp.size;
+                                }
+
+                                const totalPossible = allActiveOperators.length * applicableCriterios.length;
+                                const totalPendentes = Math.max(0, totalPossible - totalCompletedAcrossAll);
+
+                                const criteriosAtivosCount = state.criterios.filter(c => c.ativo).length;
+                                const criteriosRespCheck = (await getEvaluationDashboard(avaliacao.operadorId, avaliacao.periodo)).data.criterios || [];
+                                const criteriosAvaliadosCount = criteriosRespCheck.length;
+
+                                if (totalPendentes > 0) {
+                                  toast({ title: 'Envio bloqueado', description: `Ainda existem ${totalPendentes} avaliações pendentes. Aguarde finalizar todas as avaliações antes de enviar.`, variant: 'destructive' });
+                                  return;
+                                }
+
+                                if (criteriosAvaliadosCount !== criteriosAtivosCount) {
+                                  toast({ title: 'Envio bloqueado', description: `Número de critérios avaliados (${criteriosAvaliadosCount}) diferente do número de critérios ativos (${criteriosAtivosCount}). Complete todas as avaliações antes de enviar.`, variant: 'destructive' });
+                                  return;
+                                }
+
                                 // Buscar dados do dashboard para montar a avaliação completa (mesma lógica do EvaluationPanel)
                                 const dashboard = await getEvaluationDashboard(avaliacao.operadorId, avaliacao.periodo);
                                 const criteriosResp = dashboard.data.criterios || [];
