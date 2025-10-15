@@ -43,8 +43,8 @@ export function CriteriaManagement() {
   const [newCriterionValorBonus, setNewCriterionValorBonus] = useState<number>(0);
   const [newCriterionOrdem, setNewCriterionOrdem] = useState<number>(0);
 
-  const [totalTeamTickets, setTotalTeamTickets] = useState<number>(state.totalTeamTickets);
-  const [isTicketsConfigLocked, setIsTicketsConfigLocked] = useState<boolean>(true);
+  // totalTeamTickets is now managed globally via EvaluationContext (updated by import);
+  // we no longer expose UI to edit it here.
   const [criterionToDelete, setCriterionToDelete] = useState<number | null>(null);
   const [tiposCriterio, setTiposCriterio] = useState<TipoCriterio[]>([]);
   const { toast } = useToast();
@@ -103,11 +103,13 @@ export function CriteriaManagement() {
   }, [toast]);
 
   useEffect(() => {
+    // Usa o total armazenado no estado global (`state.totalTeamTickets`) que é atualizado
+    // automaticamente pela importação; não expomos mais edição manual aqui.
     const activeOperatorsCount = state.operadores.filter(op => op.participaAvaliacao).length;
     let calculatedValorMeta = 0;
 
     if (activeOperatorsCount > 0) {
-      calculatedValorMeta = Math.round((totalTeamTickets / activeOperatorsCount) * 0.80);
+      calculatedValorMeta = Math.round((state.totalTeamTickets / activeOperatorsCount) * 0.80);
     }
 
     state.criterios.forEach(criterio => {
@@ -127,7 +129,7 @@ export function CriteriaManagement() {
         }
       }
     });
-  }, [totalTeamTickets, state.criterios, state.operadores, editedCriteria]);
+  }, [state.totalTeamTickets, state.criterios, state.operadores, editedCriteria]);
 
   const addNewCriterion = async () => {
     if (!newCriterionName.trim()) {
@@ -287,41 +289,8 @@ export function CriteriaManagement() {
   return (
     <TooltipProvider>
       <div className="space-y-6">
-        <Card className="shadow-medium">
-          <CardHeader>
-            <CardTitle>Configuração de Tickets</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div>
-              <label htmlFor="total-team-tickets" className="block text-sm font-medium text-gray-700 mb-2">
-                Total de Tickets Atendidos pela Equipe:
-              </label>
-              <Input
-                id="total-team-tickets"
-                type="number"
-                value={totalTeamTickets}
-                onChange={(e) => setTotalTeamTickets(parseInt(e.target.value) || 0)}
-                placeholder="Digite a quantidade total de tickets"
-                min="0"
-                disabled={isTicketsConfigLocked}
-              />
-            </div>
-            <Button
-              variant={isTicketsConfigLocked ? "secondary" : "default"}
-              onClick={() => {
-                if (isTicketsConfigLocked) {
-                  setIsTicketsConfigLocked(false);
-                } else {
-                  dispatch({ type: 'SET_TOTAL_TEAM_TICKETS', payload: totalTeamTickets });
-                  setIsTicketsConfigLocked(true);
-                  toast({ title: "Configuração Salva", description: "O total de tickets da equipe foi salvo." });
-                }
-              }}
-            >
-              {isTicketsConfigLocked ? 'Alterar Configuração de Tickets' : 'Salvar Configuração de Tickets'}
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Total de tickets agora é calculado automaticamente pela importação do MySuite
+            e armazenado em `state.totalTeamTickets`. Removemos a UI de configuração manual. */}
 
         <Card className="shadow-medium">
           <CardHeader className="bg-gradient-card">

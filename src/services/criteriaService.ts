@@ -124,3 +124,17 @@ export const updateTipoCriterio = async (id: number, tipoCriterio: TipoCriterio)
         throw new Error(`HTTP error! status: ${response.status}`);
     }
 };
+
+export const getCriterio = async (id: number): Promise<Criterio> => {
+  const response = await fetch(`${BASE_URL}${API_ENDPOINTS.CRITERIOS}/${id}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  const responseData = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(responseData.message || `HTTP error! status: ${response.status}`);
+  }
+  // backend pode retornar { success, data } ou diretamente o objeto
+  if (responseData && responseData.data) return responseData.data as Criterio;
+  return responseData as Criterio;
+};

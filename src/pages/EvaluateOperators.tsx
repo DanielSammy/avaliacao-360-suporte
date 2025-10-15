@@ -410,13 +410,65 @@ export function EvaluateOperators() {
             const soma = valores.reduce((acc, v) => acc + v, 0);
             const media = valores.length > 0 ? soma / valores.length : 0;
             const mediaArredondada = Math.round(media);
-            // atualizar no backend
-            const upd = await updateCriterio(criterio.id, { valorMeta: mediaArredondada });
-            if (upd && (upd as any).success && (upd as any).data) {
-              // atualizar estado local para refletir nova meta
-              dispatch({ type: 'UPDATE_CRITERIO', payload: (upd as any).data });
-            } else {
-              // fallback: atualizar estado local manualmente
+            // tentar buscar critério atual no servidor para mesclar, evitando sobrescrever campos
+            let payloadToUpdate: Record<string, unknown> = { valorMeta: mediaArredondada };
+            try {
+              const serverCriterio = await (await import('@/services/criteriaService')).getCriterio(criterio.id);
+              payloadToUpdate = { ...(serverCriterio as any), valorMeta: mediaArredondada };
+              delete (payloadToUpdate as any).id;
+              delete (payloadToUpdate as any).totalAvaliacoes;
+            } catch (getErr) {
+              // fallback para usar estado local se GET falhar
+              const existing = state.criterios.find(c => c.id === criterio.id) as any;
+              payloadToUpdate = existing ? { ...existing, valorMeta: mediaArredondada } : { valorMeta: mediaArredondada };
+              delete (payloadToUpdate as any).id;
+              delete (payloadToUpdate as any).totalAvaliacoes;
+            }
+
+            // criar payload reduzido com apenas os campos esperados pelo backend
+            const allowedPayload: Record<string, unknown> = {};
+            // ativo: backend espera 0/1
+            if ((payloadToUpdate as any).ativo !== undefined) allowedPayload.ativo = (payloadToUpdate as any).ativo ? 1 : 0;
+            if ((payloadToUpdate as any).nome !== undefined) allowedPayload.nome = (payloadToUpdate as any).nome;
+            if ((payloadToUpdate as any).idCriterio !== undefined) allowedPayload.idCriterio = Number((payloadToUpdate as any).idCriterio);
+            if ((payloadToUpdate as any).tipo !== undefined) allowedPayload.tipo = (payloadToUpdate as any).tipo;
+            if ((payloadToUpdate as any).tipoMeta !== undefined) allowedPayload.tipoMeta = (payloadToUpdate as any).tipoMeta;
+            // valorMeta deve ser número
+            allowedPayload.valorMeta = Number(mediaArredondada);
+            if ((payloadToUpdate as any).ordem !== undefined) allowedPayload.ordem = Number((payloadToUpdate as any).ordem) || null;
+            // valorCriterio: preferir se já existir como string; senão usar valorBonus formatado
+            let valorCriterioStr = undefined as string | undefined;
+            if ((payloadToUpdate as any).valorCriterio !== undefined && (payloadToUpdate as any).valorCriterio !== null) {
+              valorCriterioStr = String((payloadToUpdate as any).valorCriterio);
+            } else if ((payloadToUpdate as any).valorBonus !== undefined) {
+              const vb = typeof (payloadToUpdate as any).valorBonus === 'number' ? (payloadToUpdate as any).valorBonus : parseFloat(String((payloadToUpdate as any).valorBonus) || '0');
+              valorCriterioStr = vb.toFixed(2);
+            }
+            if (valorCriterioStr !== undefined) allowedPayload.valorCriterio = valorCriterioStr;
+
+            try {
+              const upd = await updateCriterio(criterio.id, allowedPayload as any);
+              if (upd && (upd as any).success && (upd as any).data) {
+                // atualizar estado local para refletir nova meta
+                dispatch({ type: 'UPDATE_CRITERIO', payload: (upd as any).data });
+              } else {
+                // fallback: atualizar estado local apenas com valorMeta para não perder outros campos
+                dispatch({ type: 'UPDATE_CRITERIO', payload: { ...criterio, valorMeta: mediaArredondada } });
+              }
+            } catch (errUpdate) {
+              // tentar extrair mensagem de erro do corpo se possível
+              let errMsg = errUpdate instanceof Error ? errUpdate.message : 'Erro desconhecido';
+              try {
+                // se for Response-like com text, tentar ler
+                if ((errUpdate as any).response && typeof (errUpdate as any).response.text === 'function') {
+                  const txt = await (errUpdate as any).response.text();
+                  errMsg = txt || errMsg;
+                }
+              } catch (_) {
+                // ignore
+              }
+              toast({ title: 'Erro ao atualizar critério', description: `${criterio.nome}: ${errMsg}`, variant: 'destructive' });
+              // fallback local
               dispatch({ type: 'UPDATE_CRITERIO', payload: { ...criterio, valorMeta: mediaArredondada } });
             }
           } catch (err) {
