@@ -16,7 +16,6 @@ interface EvaluationState {
   configuracao: ConfiguracaoSistema;
   loading: boolean;
   error: string | null;
-  totalTeamTickets: number; // Added
 }
 
 // Ações do sistema
@@ -51,7 +50,6 @@ type EvaluationAction =
 
 // Estado inicial
 const initialState: EvaluationState = (() => {
-  const storedTotalTeamTickets = localStorage.getItem('totalTeamTickets');
   return {
     operadores: [],
     criterios: [],
@@ -64,7 +62,6 @@ const initialState: EvaluationState = (() => {
     },
     loading: false,
     error: null,
-    totalTeamTickets: storedTotalTeamTickets ? parseInt(storedTotalTeamTickets, 10) : 0,
   };
 })();
 
@@ -208,8 +205,7 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
         ...state,
         avaliacoes: state.avaliacoes.filter(av => av.id !== action.payload)
       };
-    case 'SET_TOTAL_TEAM_TICKETS': // Added
-      return { ...state, totalTeamTickets: action.payload };
+    // removed SET_TOTAL_TEAM_TICKETS handling because totalTeamTickets is no longer tracked
     default:
       return state;
   }
@@ -372,9 +368,7 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
     }
   }, [user, fetchOperadores]); // Add fetchOperadores to dependency array
 
-  useEffect(() => {
-    localStorage.setItem('totalTeamTickets', state.totalTeamTickets.toString());
-  }, [state.totalTeamTickets]);
+  // totalTeamTickets was removed from the global state; no need to persist it anymore.
 
   return (
     <EvaluationContext.Provider value={{ state, dispatch, fetchOperadores, fetchAvaliacoes, addOperator, updateOperator, deleteOperator }}>
