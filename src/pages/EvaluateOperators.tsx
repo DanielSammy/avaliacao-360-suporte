@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Criterio } from '@/types/evaluation';
 import { createBulkEvaluations, checkCriterionEvaluated } from '../services/evaluationService';
+import { updateCriterio } from '@/services/criteriaService';
 import { getMySuitePerformanceAvaliacoes, MySuitePerformanceRequest, getMySuiteConcluidosPorContato } from '@/services/operatorService';
 import { calcularValorAlcancadoFinal } from '../utils/calculations';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -401,6 +402,28 @@ export function EvaluateOperators() {
                 metaAlcancada: String(baseValue.toFixed(2)),
               };
             });
+        
+        // Se for quantitativo (metaCalculo === 2), calcular a média dos valores base e gravar como valorMeta no critério
+        if (criterio.metaCalculo === 2 && avaliacoesParaApi.length > 0) {
+          try {
+            const valores = avaliacoesParaApi.map(a => parseFloat(String((a as Record<string, unknown>).valorAlcancado).replace(',', '.')) || 0);
+            const soma = valores.reduce((acc, v) => acc + v, 0);
+            const media = valores.length > 0 ? soma / valores.length : 0;
+            const mediaArredondada = Math.round(media);
+            // atualizar no backend
+            const upd = await updateCriterio(criterio.id, { valorMeta: mediaArredondada });
+            if (upd && (upd as any).success && (upd as any).data) {
+              // atualizar estado local para refletir nova meta
+              dispatch({ type: 'UPDATE_CRITERIO', payload: (upd as any).data });
+            } else {
+              // fallback: atualizar estado local manualmente
+              dispatch({ type: 'UPDATE_CRITERIO', payload: { ...criterio, valorMeta: mediaArredondada } });
+            }
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'Erro desconhecido ao atualizar critério';
+            toast({ title: 'Aviso', description: `Falha ao atualizar média do critério ${criterio.nome}: ${message}`, variant: 'destructive' });
+          }
+        }
         }
 
         if (avaliacoesParaApi.length === 0) continue;
