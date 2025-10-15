@@ -7,9 +7,9 @@ import { Switch } from '@/components/ui/switch';
 import { useEvaluation } from '@/contexts/EvaluationContext';
 import { Criterio, TipoCriterio } from '@/types/evaluation';
 import { formatarMoeda } from '@/utils/calculations';
-import { Target, Save, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Target, Save, Trash2, TrendingUp, TrendingDown, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { createCriterio, updateCriterio, deleteCriterio, getTipoCriterios, getCriterios } from '@/services/criteriaService';
 import {
   AlertDialog,
@@ -305,14 +305,39 @@ export function CriteriaManagement() {
                         return displayName;
                       };
 
+                      // Mostrar ícone/tooltip apenas para critérios que serão importados
+                      // na tela de EvaluateOperators: metaCalculo === 1|2|3 e ativo === true
+                      const metaCalcNum = Number(currentCriterio.metaCalculo ?? -1);
+                      const isAutomatic = [1, 2, 3].includes(metaCalcNum) && !!currentCriterio.ativo;
+
+                      const autoDetail = metaCalcNum === 1
+                        ? 'Avaliado automaticamente (tickets concluídos).'
+                        : metaCalcNum === 2
+                        ? 'Avaliado automaticamente (quantitativo - importado).'
+                        : metaCalcNum === 3
+                        ? 'Avaliado automaticamente (metas - importado).'
+                        : 'Avaliado automaticamente por importação.';
+
                       return (
                         <tr key={criterio.id} className={`border-b hover:bg-muted/30 transition-colors`}>
                           <td className="p-4">
-                            <Input
-                              value={getCriterioDisplayName()}
-                              disabled
-                              className="font-medium"
-                            />
+                            <div className="flex items-center justify-start gap-2">
+                              <Input
+                                value={getCriterioDisplayName()}
+                                disabled
+                                className="font-medium"
+                              />
+                              {isAutomatic && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center">
+                                      <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent>{autoDetail}</TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
                           </td>
                               <td className="p-4 text-center">
                                 {Number(currentCriterio.idCriterio) === 3 ? (
@@ -391,19 +416,60 @@ export function CriteriaManagement() {
                             </Select>
                           </td>
                           <td className="p-4 text-center">
-                            <Input
-                              type="number"
-                              value={currentCriterio.valorMeta}
-                              onChange={(e) => handleInputChange(criterio.id, 'valorMeta', parseInt(e.target.value) || 0)}
-                              className="w-24 text-center mx-auto"
-                              step="1"
-                              min="0"
-                              max="100"
-                              disabled={
-                                currentCriterio.mediaGeral ||
-                                (Number(currentCriterio.idCriterio) === 3 && currentCriterio.tipo === 'quantitativo' && currentCriterio.metaCalculo === 2)
+                            {(() => {
+                              const isDisabledForValorMeta = currentCriterio.mediaGeral || (Number(currentCriterio.idCriterio) === 3 && currentCriterio.tipo === 'quantitativo' && currentCriterio.metaCalculo === 2);
+                              if (isDisabledForValorMeta) {
+                                // Se for importável (metaCalculo 1|2|3 e ativo), mostrar tooltip explicativo
+                                if (isAutomatic) {
+                                  return (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div>
+                                          <Input
+                                            type="number"
+                                            value={currentCriterio.valorMeta}
+                                            onChange={(e) => handleInputChange(criterio.id, 'valorMeta', parseInt(e.target.value) || 0)}
+                                            className="w-24 text-center mx-auto"
+                                            step="1"
+                                            min="0"
+                                            max="100"
+                                            disabled
+                                          />
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent>{autoDetail}</TooltipContent>
+                                    </Tooltip>
+                                  );
+                                }
+
+                                // Caso esteja desabilitado por mediaGeral, mas não seja importável, apenas mostrar input desabilitado sem tooltip
+                                return (
+                                  <Input
+                                    type="number"
+                                    value={currentCriterio.valorMeta}
+                                    onChange={(e) => handleInputChange(criterio.id, 'valorMeta', parseInt(e.target.value) || 0)}
+                                    className="w-24 text-center mx-auto"
+                                    step="1"
+                                    min="0"
+                                    max="100"
+                                    disabled
+                                  />
+                                );
                               }
-                            />
+
+                              // não desabilitado -> input editável
+                              return (
+                                <Input
+                                  type="number"
+                                  value={currentCriterio.valorMeta}
+                                  onChange={(e) => handleInputChange(criterio.id, 'valorMeta', parseInt(e.target.value) || 0)}
+                                  className="w-24 text-center mx-auto"
+                                  step="1"
+                                  min="0"
+                                  max="100"
+                                />
+                              );
+                            })()}
                           </td>
                         </tr>
                       );
