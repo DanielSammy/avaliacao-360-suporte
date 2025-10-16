@@ -20,7 +20,7 @@ export function Header({ periodoAtual, totalOperadores, avaliacoesPendentes }: H
             <img src={logo} alt="Logo Space" className="h-14 w-auto" />
             <div>
               <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                Space Informática
+                Space Sistemas
               </h1>
               <p className="text-muted-foreground">Sistema de Avaliação de Desempenho</p>
             </div>
