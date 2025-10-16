@@ -15,6 +15,7 @@ import { getEvaluationDashboard } from '@/services/evaluationService';
 import { CalculationReportGenerator } from './CalculationReportGenerator';
 import { formatarMoeda, formatarPeriodo, formatarPercentual, calcularBonusAlcancado, calcularResultadoBloco, calcularResultadoFinal } from '@/utils/calculations';
 import { BarChart3, TrendingUp, Users, Award, Calendar, FileText } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 
 export function ReportsPanel() {
   const SHOW_RANKING_BUTTON = false; // toggle para exibir/ocultar botão de Ranking
@@ -597,16 +598,24 @@ export function ReportsPanel() {
                       </td>
                       {(() => {
                         const resumo = calcularResumoAvaliacao(avaliacao);
+                        const pct = Math.max(0, Math.min(resumo.percentualPerformance, 100));
+                        const getColorClass = (value: number) => {
+                          if (isNaN(value)) return 'bg-muted';
+                          if (value <= 25) return 'bg-red-600';
+                          if (value <= 50) return 'bg-orange-600';
+                          if (value <= 75) return 'bg-amber-400';
+                          return 'bg-green-600';
+                        };
+
                         return (
                           <>
                             <td className="p-4 text-center">
-                              <div className="flex flex-col items-center gap-1">
-                                <span className="font-medium">{formatarPercentual(resumo.percentualPerformance)}</span>
-                                <div className="w-20 bg-muted rounded-full h-2">
-                                  <div 
-                                    className="bg-primary h-2 rounded-full" 
-                                    style={{ width: `${Math.min(resumo.percentualPerformance, 100)}%` }}
-                                  />
+                              <div className="flex flex-col items-center gap-2">
+                                <span className={`font-medium ${pct <= 25 ? 'text-red-600' : pct <= 50 ? 'text-orange-600' : pct <= 75 ? 'text-amber-400' : 'text-green-600'}`}>
+                                  {formatarPercentual(resumo.percentualPerformance)}
+                                </span>
+                                <div className="w-32">
+                                  <Progress value={pct} indicatorClassName={getColorClass(pct)} />
                                 </div>
                               </div>
                             </td>
