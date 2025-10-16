@@ -511,7 +511,7 @@ import { useEvaluation } from '@/contexts/EvaluationContext';
         };
 
         return (
-          <Button onClick={generatePDF} variant="accent" className="w-full">
+          <Button onClick={generatePDF} className="w-full">
             <FileDown className="h-4 w-4 mr-2" />
             Gerar Relatório PDF
           </Button>
