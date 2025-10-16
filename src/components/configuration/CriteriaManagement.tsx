@@ -289,7 +289,7 @@ export function CriteriaManagement() {
                     <th className="text-center p-4 font-semibold">Bloco</th>
                     <th className="text-center p-4 font-semibold">Tipo</th>
                     <th className="text-center p-4 font-semibold">Tipo de Meta</th>
-                    <th className="text-center p-4 font-semibold">Valor da Meta</th>
+                    <th className="text-center p-4 font-semibold">Meta Objetivo</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -551,7 +551,7 @@ export function CriteriaManagement() {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="goal-value" className="text-right">
-                  Valor da Meta
+                  Meta Objetivo
                 </Label>
                 <Input id="goal-value" type="number" value={newCriterionValorMeta} onChange={(e) => setNewCriterionValorMeta(Number(e.target.value))} className="col-span-3" />
               </div>
