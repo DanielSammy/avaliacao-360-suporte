@@ -41,11 +41,11 @@ export function OperatorSelector({
   const getStatusBadge = (status: StatusAvaliacao) => {
     switch (status) {
       case 'concluida':
-        return <Badge variant="default" className="bg-success text-success-foreground">Concluída</Badge>;
+        return <Badge variant="success" className="bg-green-600 text-white">Concluída</Badge>;
       case 'em_andamento':
-        return <Badge variant="secondary" className="bg-warning text-warning-foreground">Em Andamento</Badge>;
+        return <Badge variant="default" className="bg-blue-600 text-white">Em Andamento</Badge>;
       case 'pendente':
-        return <Badge variant="outline" className="text-muted-foreground">Pendente</Badge>;
+        return <Badge variant="destructive" className="bg-red-600 text-white">Pendente</Badge>;
     }
   };
 
@@ -70,10 +70,13 @@ export function OperatorSelector({
                 return (
                   <SelectItem key={operador.id} value={operador.id.toString()}>
                     <div className="flex items-center justify-between w-full">
-                      <span className="font-medium">{operador.nome}</span>
-                      <div className="ml-4">
-                        {getStatusBadge(status)}
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-medium">{operador.nome}</span>
+                        {operador.nivel ? (
+                          <span className="text-sm text-muted-foreground">({operador.nivel})</span>
+                        ) : null}
                       </div>
+                      <div className="ml-4">{getStatusBadge(status)}</div>
                     </div>
                   </SelectItem>
                 );
