@@ -649,9 +649,15 @@ export function EvaluateOperators() {
 
           {!isLoadingCriterion && selectedCriterion && (
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold mb-4">
-                Avaliando Operadores para: <span className="font-bold">{selectedCriterion.nome}</span>
-              </h3>
+              <div className="mb-4">
+                <h1 className="text-2xl sm:text-3xl font-extrabold mb-1 bg-gradient-primary bg-clip-text text-transparent">
+                  Avaliando Operadores para:
+                </h1>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl sm:text-2xl font-bold">{selectedCriterion.nome}</h2>
+                  <span className="inline-block px-2 py-1 text-sm font-semibold rounded-full bg-muted/60 text-muted-foreground">{tipoCriterioLabel(selectedCriterion.idCriterio)}</span>
+                </div>
+              </div>
               {isCurrentCriterionEvaluated && (
                 <div className="text-center text-green-600 font-semibold bg-green-50 p-3 rounded-md">
                   Este critério já foi avaliado.
