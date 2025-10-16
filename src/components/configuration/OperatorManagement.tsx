@@ -33,6 +33,7 @@ export function OperatorManagement() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false); // New state for edit dialog
   const [editingOperator, setEditingOperator] = useState<Operador | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
   const [newOperatorName, setNewOperatorName] = useState('');
   const [newOperatorEmail, setNewOperatorEmail] = useState('');
   
@@ -249,9 +250,15 @@ export function OperatorManagement() {
       <Card className="shadow-medium">
         <CardHeader className="bg-gradient-card">
           <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              Gerenciar Operadores
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                Gerenciar Operadores
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch id="show-inactive" checked={showInactive} onCheckedChange={setShowInactive} />
+                <Label htmlFor="show-inactive" className="text-sm">Mostrar inativos</Label>
+              </div>
             </div>
             <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
               if (!open) {
@@ -318,7 +325,7 @@ export function OperatorManagement() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
-            {state.operadores.map((operador) => { // Use 'operators' state
+            {state.operadores.filter(op => showInactive || op.ativo).map((operador) => { // Use 'operators' state
               const stats = getOperatorStats(operador.id);
 
               return (
