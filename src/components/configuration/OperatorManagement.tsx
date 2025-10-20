@@ -38,6 +38,7 @@ export function OperatorManagement() {
   const [newOperatorEmail, setNewOperatorEmail] = useState('');
   
   const [newOperatorParticipatesInEvaluation, setNewOperatorParticipatesInEvaluation] = useState(true);
+  const [newOperatorMeiaAvaliacao, setNewOperatorMeiaAvaliacao] = useState(false);
 
   const handleAddOperator = async () => {
     if (!newOperatorName.trim() || !newOperatorEmail.trim()) {
@@ -79,6 +80,7 @@ export function OperatorManagement() {
         ativo: true,
         grupo: 0, // Definir um grupo padrão
         participaAvaliacao: newOperatorParticipatesInEvaluation,
+        meiaAvaliacao: newOperatorMeiaAvaliacao,
         
       };
 
@@ -138,6 +140,7 @@ export function OperatorManagement() {
         nome: newOperatorName.trim(),
         login: newOperatorEmail.trim(),
         participaAvaliacao: newOperatorParticipatesInEvaluation,
+        meiaAvaliacao: newOperatorMeiaAvaliacao,
         
       };
 
@@ -218,13 +221,14 @@ export function OperatorManagement() {
     setNewOperatorEmail(operador.login);
     
     setNewOperatorParticipatesInEvaluation(operador.participaAvaliacao);
+    setNewOperatorMeiaAvaliacao(!!operador.meiaAvaliacao);
   };
 
   const cancelEdit = () => {
     setEditingOperator(null);
     setNewOperatorName('');
     setNewOperatorEmail('');
-    
+    setNewOperatorMeiaAvaliacao(false);
   };
 
   if (state.loading) {
@@ -266,6 +270,7 @@ export function OperatorManagement() {
                 setNewOperatorEmail('');
                  // Reset level on close
                 setNewOperatorParticipatesInEvaluation(true); // Reset participates on close
+                setNewOperatorMeiaAvaliacao(false); // Reset meiaAvaliacao on close
               }
               setIsAddDialogOpen(open);
             }}>
@@ -309,6 +314,15 @@ export function OperatorManagement() {
                       disabled={isConfigReadOnly}
                     />
                     <Label htmlFor="participates-evaluation">Participa da Avaliação</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="meia-avaliacao"
+                      checked={newOperatorMeiaAvaliacao}
+                      onCheckedChange={setNewOperatorMeiaAvaliacao}
+                      disabled={isConfigReadOnly}
+                    />
+                    <Label htmlFor="meia-avaliacao">Meia Avaliação</Label>
                   </div>
                     <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -418,6 +432,15 @@ export function OperatorManagement() {
                                   disabled={isConfigReadOnly}
                                 />
                                 <Label htmlFor="edit-participates-evaluation">Participa da Avaliação</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Switch
+                                  id="edit-meia-avaliacao"
+                                  checked={newOperatorMeiaAvaliacao}
+                                  onCheckedChange={setNewOperatorMeiaAvaliacao}
+                                  disabled={isConfigReadOnly}
+                                />
+                                <Label htmlFor="edit-meia-avaliacao">Meia Avaliação</Label>
                               </div>
                                 <div className="flex justify-end gap-2">
                                 <Button variant="outline" onClick={cancelEdit}>

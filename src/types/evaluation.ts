@@ -10,6 +10,7 @@ export interface Operador {
   participaAvaliacao: boolean;
   nivel?: string;
   codigoMysuite?: number;
+  meiaAvaliacao?: boolean;
 }
 
 export interface Criterio {

@@ -359,7 +359,7 @@ export function EvaluateOperators() {
           // calcular quantidade total de tickets no período somando quantidadeTotalTicket de results (se existir)
           // quando não houver `results` (ou resultsByCodigo), consideramos soma 0
           const totalTicketsPeriodo = results && Array.isArray(results)
-            ? results.reduce((acc, r: any) => acc + (Number(r.quantidadeTotalTicket || 0)), 0)
+            ? results.reduce((acc, r) => acc + (Number(((r as import('@/services/operatorService').MySuitePerformanceItem).quantidadeTotalTicket) || 0)), 0)
             : 0;
 
           // evitar divisão por zero: percentual será 0 se totalTicketsPeriodo === 0
@@ -423,43 +423,45 @@ export function EvaluateOperators() {
             let payloadToUpdate: Record<string, unknown> = { valorMeta: mediaArredondada };
             try {
               const serverCriterio = await (await import('@/services/criteriaService')).getCriterio(criterio.id);
-              payloadToUpdate = { ...(serverCriterio as any), valorMeta: mediaArredondada };
-              delete (payloadToUpdate as any).id;
-              delete (payloadToUpdate as any).totalAvaliacoes;
+                payloadToUpdate = { ...(serverCriterio as unknown as Record<string, unknown>), valorMeta: mediaArredondada };
+                delete (payloadToUpdate as Record<string, unknown>).id;
+                delete (payloadToUpdate as Record<string, unknown>).totalAvaliacoes;
             } catch (getErr) {
               // fallback para usar estado local se GET falhar
-              const existing = state.criterios.find(c => c.id === criterio.id) as any;
+              const existing = state.criterios.find(c => c.id === criterio.id) as import('@/types/evaluation').Criterio | undefined;
               payloadToUpdate = existing ? { ...existing, valorMeta: mediaArredondada } : { valorMeta: mediaArredondada };
-              delete (payloadToUpdate as any).id;
-              delete (payloadToUpdate as any).totalAvaliacoes;
+              delete (payloadToUpdate as Record<string, unknown>).id;
+              delete (payloadToUpdate as Record<string, unknown>).totalAvaliacoes;
             }
 
             // criar payload reduzido com apenas os campos esperados pelo backend
             const allowedPayload: Record<string, unknown> = {};
+            // trabalhar com vista tipada
+            const ptu = payloadToUpdate as Record<string, unknown>;
             // ativo: backend espera 0/1
-            if ((payloadToUpdate as any).ativo !== undefined) allowedPayload.ativo = (payloadToUpdate as any).ativo ? 1 : 0;
-            if ((payloadToUpdate as any).nome !== undefined) allowedPayload.nome = (payloadToUpdate as any).nome;
-            if ((payloadToUpdate as any).idCriterio !== undefined) allowedPayload.idCriterio = Number((payloadToUpdate as any).idCriterio);
-            if ((payloadToUpdate as any).tipo !== undefined) allowedPayload.tipo = (payloadToUpdate as any).tipo;
-            if ((payloadToUpdate as any).tipoMeta !== undefined) allowedPayload.tipoMeta = (payloadToUpdate as any).tipoMeta;
+            if (ptu.ativo !== undefined) allowedPayload.ativo = ptu.ativo ? 1 : 0;
+            if (ptu.nome !== undefined) allowedPayload.nome = ptu.nome;
+            if (ptu.idCriterio !== undefined) allowedPayload.idCriterio = Number(ptu.idCriterio);
+            if (ptu.tipo !== undefined) allowedPayload.tipo = ptu.tipo;
+            if (ptu.tipoMeta !== undefined) allowedPayload.tipoMeta = ptu.tipoMeta;
             // valorMeta deve ser número
             allowedPayload.valorMeta = Number(mediaArredondada);
-            if ((payloadToUpdate as any).ordem !== undefined) allowedPayload.ordem = Number((payloadToUpdate as any).ordem) || null;
+            if (ptu.ordem !== undefined) allowedPayload.ordem = Number(ptu.ordem) || null;
             // valorCriterio: preferir se já existir como string; senão usar valorBonus formatado
             let valorCriterioStr = undefined as string | undefined;
-            if ((payloadToUpdate as any).valorCriterio !== undefined && (payloadToUpdate as any).valorCriterio !== null) {
-              valorCriterioStr = String((payloadToUpdate as any).valorCriterio);
-            } else if ((payloadToUpdate as any).valorBonus !== undefined) {
-              const vb = typeof (payloadToUpdate as any).valorBonus === 'number' ? (payloadToUpdate as any).valorBonus : parseFloat(String((payloadToUpdate as any).valorBonus) || '0');
+            if (ptu.valorCriterio !== undefined && ptu.valorCriterio !== null) {
+              valorCriterioStr = String(ptu.valorCriterio);
+            } else if (ptu.valorBonus !== undefined) {
+              const vb = typeof ptu.valorBonus === 'number' ? ptu.valorBonus : parseFloat(String(ptu.valorBonus) || '0');
               valorCriterioStr = vb.toFixed(2);
             }
             if (valorCriterioStr !== undefined) allowedPayload.valorCriterio = valorCriterioStr;
 
             try {
-              const upd = await updateCriterio(criterio.id, allowedPayload as any);
-              if (upd && (upd as any).success && (upd as any).data) {
+              const upd = await updateCriterio(criterio.id, allowedPayload as unknown as Record<string, unknown>);
+              if (upd && (upd as Record<string, unknown>).success && (upd as Record<string, unknown>).data) {
                 // atualizar estado local para refletir nova meta
-                dispatch({ type: 'UPDATE_CRITERIO', payload: (upd as any).data });
+                dispatch({ type: 'UPDATE_CRITERIO', payload: (upd as Record<string, unknown>).data as any });
               } else {
                 // fallback: atualizar estado local apenas com valorMeta para não perder outros campos
                 dispatch({ type: 'UPDATE_CRITERIO', payload: { ...criterio, valorMeta: mediaArredondada } });
@@ -469,8 +471,9 @@ export function EvaluateOperators() {
               let errMsg = errUpdate instanceof Error ? errUpdate.message : 'Erro desconhecido';
               try {
                 // se for Response-like com text, tentar ler
-                if ((errUpdate as any).response && typeof (errUpdate as any).response.text === 'function') {
-                  const txt = await (errUpdate as any).response.text();
+                const maybeResp = (errUpdate as unknown as Record<string, unknown>).response;
+                if (maybeResp && typeof (maybeResp as any).text === 'function') {
+                  const txt = await (maybeResp as any).text();
                   errMsg = txt || errMsg;
                 }
               } catch (_) {

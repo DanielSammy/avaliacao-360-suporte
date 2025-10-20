@@ -250,10 +250,17 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
           if (mm && mm.email) mysIndex[String(mm.email).toLowerCase()] = Number(mm.codigo ?? mm.id ?? 0);
         });
 
-        operadores = operadores.map(op => ({
-          ...op,
-          codigoMysuite: mysIndex[String(op.login || '').toLowerCase()]
-        }));
+        operadores = operadores.map(op => {
+          const emailKey = String(op.login || '').toLowerCase();
+          const mysEntry = (mys || []).find((m: unknown) => String(((m as Record<string, unknown>).email) || '').toLowerCase() === emailKey) as Record<string, unknown> | undefined;
+          const meiaFromMys = mysEntry && typeof mysEntry.meiaAvaliacao === 'boolean' ? (mysEntry.meiaAvaliacao as boolean) : undefined;
+          return {
+            ...op,
+            codigoMysuite: mysIndex[emailKey],
+            // se o MySuite fornecer meiaAvaliacao, preferir esse valor; caso contrário manter o valor do backend
+            meiaAvaliacao: meiaFromMys !== undefined ? meiaFromMys : op.meiaAvaliacao,
+          } as Operador;
+        });
       } catch (mysErr) {
         console.warn('fetchOperadores - Failed to fetch MySuite operadores, continuing without merge:', mysErr);
       }

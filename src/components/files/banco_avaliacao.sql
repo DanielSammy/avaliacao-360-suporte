@@ -83,6 +83,7 @@ CREATE TABLE `operadores` (
   `data_inclusao` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `participa_avaliacao` tinyint(1) NOT NULL DEFAULT '1',
   `nivel` enum('Nivel 1','Nivel 2','Nivel 3','Sup Avançado') NOT NULL,
+  `meia_avaliacao` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `login` (`login`)
 ) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
@@ -94,7 +95,19 @@ CREATE TABLE `operadores` (
 
 LOCK TABLES `operadores` WRITE;
 /*!40000 ALTER TABLE `operadores` DISABLE KEYS */;
-INSERT INTO `operadores` VALUES (1,'Ana Carolina Ribeiro','anacarolina@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 3'),(2,'Erick Douglas','erick@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 1'),(3,'Evandro Pereira','evandro@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 2'),(4,'Gabriel Medeiros','gabrielmedeiros@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 1'),(5,'Jonathan Nascimento','jonathan.nascimento@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 1'),(6,'Luciano Augusto','luciano@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 2'),(7,'Luís Romero','luis.romero@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 2'),(8,'Mayara Duarte','mayaraduarte@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 1'),(9,'Paulo Silva','paulosilva@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 1'),(10,'Samuel Ivens','samuelxavier@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 2'),(11,'Wesley Fagundes','wesleylima@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 2'),(12,'Daniel Sammy','danielsammy@spaceinformatica.com.br',1,0,'2025-09-11 16:15:40',0,'Nivel 3');
+INSERT INTO `operadores` VALUES (1,'Ana Carolina Ribeiro','anacarolina@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 3',0),
+  (2,'Erick Douglas','erick@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 1',0),
+  (3,'Evandro Pereira','evandro@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 2',0),
+  (4,'Gabriel Medeiros','gabrielmedeiros@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 1',0),
+  (5,'Jonathan Nascimento','jonathan.nascimento@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 1',0),
+  (6,'Luciano Augusto','luciano@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 2',0),
+  (7,'Luís Romero','luis.romero@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 2',0),
+  (8,'Mayara Duarte','mayaraduarte@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 1',0),
+  (9,'Paulo Silva','paulosilva@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 1',0),
+  (10,'Samuel Ivens','samuelxavier@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 2',0),
+  (11,'Wesley Fagundes','wesleylima@spaceinformatica.com.br',1,4,'2025-09-04 12:56:28',1,'Nivel 2',0),
+  (12,'Isabela Santos','isabela@spaceinformatica.com.br',1,6,'2025-09-11 16:15:40',0,'Nivel 1',0),
+  (13,'Daniel Sammy','danielsammy@spaceinformatica.com.br',1,0,'2025-09-11 16:15:40',0,'Nivel 3',0);
 /*!40000 ALTER TABLE `operadores` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -130,11 +143,11 @@ CREATE TABLE `criterios` (
 
 LOCK TABLES `criterios` WRITE;
 /*!40000 ALTER TABLE `criterios` DISABLE KEYS */;
-INSERT INTO `criterios` VALUES (1,3,'Ticket concluído no primeiro contato dentro de 1 hora ','qualitativo','maior_melhor',1,1,10,0,70.00,1),
+INSERT INTO `criterios` VALUES (1,3,'Ticket concluído no primeiro contato dentro de 1 hora ','qualitativo','menor_melhor',1,1,10,0,70.00,1),
 (2,3,'Preenchimento incorreto de Ticktes ','quantitativo','menor_melhor',2,1,5,0,0.00,4),
 (3,3,'Satisfação/Avaliação de Clientes ','qualitativo','maior_melhor',3,1,3,0,0.00,3),
 (4,3,'Solicitação de apoio Indevido ','quantitativo','menor_melhor',4,1,5,0,0.00,5),
-(5,3,'Reabertura de Tiket ','qualitativo','menor_melhor',5,1,15,0,0.00,0),
+(5,3,'Reabertura de Tiket ','quantitativo','menor_melhor',5,1,15,0,0.00,0),
 (6,3,'Quantidade de Concluídos no mês ','quantitativo','maior_melhor',6,1,145,1,0.00,2),
 (7,2,'Entrega soluções precisas e eficazes para as demandas apresentadas pelos clientes.','qualitativo','maior_melhor',8,1,85,0,0.00,0),
 (8,2,'Comunica-se com clareza e objetividade, garantindo compreensão de colaboradores e clientes.','qualitativo','maior_melhor',9,1,85,0,0.00,0),

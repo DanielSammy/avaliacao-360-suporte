@@ -52,6 +52,7 @@ export const updateOperador = async (operador: Operador): Promise<Operador> => {
     grupo: number;
     participaAvaliacao: boolean;
     nivel?: string | null;
+    meiaAvaliacao?: boolean;
   } = {
     nome: String(operador.nome ?? ''),
     login: String(operador.login ?? ''),
@@ -59,6 +60,7 @@ export const updateOperador = async (operador: Operador): Promise<Operador> => {
     grupo: Number(operador.grupo ?? 0),
     participaAvaliacao: Boolean(operador.participaAvaliacao ?? false),
     nivel: operador.nivel ?? null,
+    meiaAvaliacao: operador.meiaAvaliacao ?? false,
   };
 
   const response = await fetch(`${BASE_URL}${API_ENDPOINTS.OPERADORES}/${id}`, {
