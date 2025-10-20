@@ -353,34 +353,36 @@ export function EvaluateOperators() {
         if (criterio.metaCalculo === 1) {
           // buscar tickets concluidos por contato
           const tickets = await getMySuiteConcluidosPorContato(payload);
-          // contar por codigoOperador
-          const countsByCodigo: Record<number, number> = {};
-          (tickets || []).forEach((t: import('@/services/operatorService').MySuiteConcluidoItem | unknown) => {
-            const tt = t as import('@/services/operatorService').MySuiteConcluidoItem;
-            const cod = Number(tt.codigoOperador || 0);
-            if (!cod) return;
-            countsByCodigo[cod] = (countsByCodigo[cod] || 0) + 1;
-          });
+          // total de tickets concluídos no primeiro contato
+          const totalConcluidosFirstContact = (tickets || []).length;
 
-          // calcular totalConcluidos a partir do endpoint de contato (todos os tickets retornados)
-          const totalConcluidos = (tickets || []).length;
+          // calcular quantidade total de tickets no período somando quantidadeTotalTicket de results (se existir)
+          // quando não houver `results` (ou resultsByCodigo), consideramos soma 0
+          const totalTicketsPeriodo = results && Array.isArray(results)
+            ? results.reduce((acc, r: any) => acc + (Number(r.quantidadeTotalTicket || 0)), 0)
+            : 0;
+
+          // evitar divisão por zero: percentual será 0 se totalTicketsPeriodo === 0
+          const percentageForAll = totalTicketsPeriodo > 0
+            ? (totalConcluidosFirstContact / totalTicketsPeriodo) * 100
+            : 0;
+
+          const potentialBonusFromCriterio = criterio.valorBonus || 0;
+
+          // aplicar mesmo percentual para todos operadores que tenham codigoMysuite (mesmo valor para todos)
           avaliacoesParaApi = state.operadores
-            .filter(op => op.codigoMysuite && countsByCodigo[op.codigoMysuite])
+            .filter(op => op.codigoMysuite)
             .map(op => {
-              const qty = countsByCodigo[op.codigoMysuite] || 0;
-              // calcular porcentagem = (qty / totalConcluidos) * 100
-              const percentage = totalConcluidos > 0 ? (qty / totalConcluidos) * 100 : 0;
-              const potentialBonusFromCriterio = criterio.valorBonus || 0;
-              // usar a porcentagem para calcular o bônus
-              const bonusValue = calcularValorAlcancadoFinal(criterio, percentage, potentialBonusFromCriterio);
+              // usar percentageForAll para cálculo de bônus
+              const bonusValue = calcularValorAlcancadoFinal(criterio, percentageForAll, potentialBonusFromCriterio);
               return {
                 operadorId: op.id,
                 periodo: currentPeriod,
                 valorObjetivo: String(potentialBonusFromCriterio.toFixed(2)),
-                // usar a porcentagem como valorAlcancado/metaAlcancada
-                valorAlcancado: String(percentage.toFixed(2)),
+                // usar o mesmo percentual para valorAlcancado/metaAlcancada
+                valorAlcancado: String(percentageForAll.toFixed(2)),
                 metaObjetivo: Math.round(Number(criterio.valorMeta)),
-                metaAlcancada: String(percentage.toFixed(2)),
+                metaAlcancada: String(percentageForAll.toFixed(2)),
               };
             });
         } else {
