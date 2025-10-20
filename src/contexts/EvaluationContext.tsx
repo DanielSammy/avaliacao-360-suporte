@@ -149,13 +149,18 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
         const inputValueNum = parseFloat(valorAlcancado);
         const bonusValue = parseFloat(valorBonusAlcancado);
 
+        // garantir que metaAlcancada seja enviada como string com 2 casas decimais (ex: "59.03").
+        const metaAlcancadaStr = Number.isFinite(inputValueNum)
+          ? inputValueNum.toFixed(2)
+          : String(valorAlcancado);
+
         const newCriterioAvaliacao: CriterioAvaliacao = {
           criterioId: criterioId,
           // armazenar como string para preservar casas decimais
           valorAlcancado: String(valorAlcancado),
           valorBonusAlcancado: bonusValue,
           metaAtingida: metaAtingida(criterio, inputValueNum),
-          metaAlcancada: String(inputValueNum),
+          metaAlcancada: metaAlcancadaStr,
         };
 
         if (existingEvalIndex > -1) {

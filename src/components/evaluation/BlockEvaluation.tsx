@@ -88,7 +88,7 @@ export function BlockEvaluation({ title, criterios, criteriosAvaliacao, totalVal
     if (criterio.tipo === 'quantitativo') {
       return parseInt(valor.toString(), 10).toString();
     }
-    return `${parseFloat(valor.toString()).toFixed(1)}%`;
+  return `${parseFloat(valor.toString()).toFixed(2)}%`;
   };
 
   const calculatedValues = useMemo(() => {
@@ -238,7 +238,7 @@ export function BlockEvaluation({ title, criterios, criteriosAvaliacao, totalVal
                           const colorClass = (!isGerencia && !isAvaliacao360) ? (atingiu ? 'text-green-600' : 'text-red-600') : getColorForPercentage(rowPercent);
 
                           if (criterio.tipo === 'qualitativo') {
-                            const text = isNaN(rowPercent) ? 'N/A' : `${rowPercent.toFixed(1)}%`;
+                            const text = isNaN(rowPercent) ? 'N/A' : `${rowPercent.toFixed(2)}%`;
                             return <span className={`font-medium ${colorClass}`}>{text}</span>;
                           }
 
