@@ -14,6 +14,7 @@ interface EvaluationState {
   criterios: Criterio[];
   avaliacoes: Avaliacao[];
   configuracao: ConfiguracaoSistema;
+  operadoresLoaded: boolean;
   loading: boolean;
   error: string | null;
 }
@@ -60,6 +61,7 @@ const initialState: EvaluationState = (() => {
       criterios: [],
       operadores: []
     },
+    operadoresLoaded: false,
     loading: false,
     error: null,
   };
@@ -73,11 +75,11 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
     case 'SET_ERROR':
       return { ...state, error: action.payload };
     case 'FETCH_OPERADORES_REQUEST':
-      return { ...state, loading: true, error: null };
+      return { ...state, loading: true, error: null, operadoresLoaded: false };
     case 'FETCH_OPERADORES_SUCCESS':
-      return { ...state, loading: false, error: null, operadores: action.payload };
+      return { ...state, loading: false, error: null, operadores: action.payload, operadoresLoaded: true };
     case 'FETCH_OPERADORES_FAILURE':
-      return { ...state, loading: false, error: action.payload, operadores: [] };
+      return { ...state, loading: false, error: action.payload, operadores: [], operadoresLoaded: false };
     case 'ADD_OPERADOR':
       return { 
         ...state, 

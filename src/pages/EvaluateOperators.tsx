@@ -35,6 +35,7 @@ export function EvaluateOperators() {
   }, [state.operadores, user?.login]);
 
   const avaliadorId = loggedInOperatorAsEvaluator?.id || null;
+  const avaliadorEstaAtivo = loggedInOperatorAsEvaluator ? !!loggedInOperatorAsEvaluator.ativo : true;
 
   const activeOperators = state.operadores.filter(op => op.ativo && op.participaAvaliacao);
   const currentPeriod = new Date().getFullYear().toString() + '-' + (new Date().getMonth() + 1).toString().padStart(2, '0');
@@ -206,6 +207,12 @@ export function EvaluateOperators() {
   };
 
   const handleSaveAndNext = async () => {
+    // proteção adicional: garantir que o avaliador ainda esteja ativo antes de enviar
+    if (loggedInOperatorAsEvaluator && !loggedInOperatorAsEvaluator.ativo) {
+      toast({ title: 'Erro', description: 'Seu usuário está inativo e não pode submeter avaliações.', variant: 'destructive' });
+      return;
+    }
+
     if (!avaliadorId || !selectedCriterionId || !selectedCriterion) {
         toast({ title: "Erro", description: "Avaliador não encontrado ou dados de avaliação insuficientes.", variant: "destructive" });
         return;
@@ -559,11 +566,49 @@ export function EvaluateOperators() {
   const allOperatorsEvaluated = activeOperators.length === Object.keys(evaluationValues).length;
   const isCurrentCriterionEvaluated = selectedCriterionId ? allEvaluatedIds.has(parseInt(selectedCriterionId, 10)) : false;
 
+  // Se ainda estamos carregando o critério inicial, manter loader
   if (isLoadingCriterion && !selectedCriterionId) {
     return (
         <div className="flex justify-center items-center h-screen">
             <Loader2 className="h-16 w-16 animate-spin text-primary" />
         </div>
+    );
+  }
+
+  // Evita condição de race: se há um usuário logado e os operadores ainda
+  // não foram carregados, bloquear a tela até sabermos se o avaliador está ativo.
+  if (user && !state.operadoresLoaded) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Se o avaliador logado existir e não estiver ativo, bloquear a tela de avaliação
+  if (loggedInOperatorAsEvaluator && !avaliadorEstaAtivo) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card className="shadow-lg">
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle className="text-2xl font-bold">Acesso Negado</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center p-6">
+              <h2 className="text-xl font-semibold">Você não está ativo</h2>
+              <p className="mt-2 text-muted-foreground">Operadores inativos não podem avaliar outros operadores.</p>
+              {/* mostrar botão Voltar apenas para usuários com grupo 6 ou 7 */}
+              {user && (user.grupo === 6 || user.grupo === 7) && (
+                <div className="mt-6">
+                  <Link to="/">
+                    <Button variant="outline">Voltar</Button>
+                  </Link>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
