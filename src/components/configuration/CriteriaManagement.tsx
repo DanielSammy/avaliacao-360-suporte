@@ -553,7 +553,26 @@ export function CriteriaManagement() {
                 <Label htmlFor="goal-value" className="text-right">
                   Meta Objetivo
                 </Label>
-                <Input id="goal-value" type="number" value={newCriterionValorMeta} onChange={(e) => setNewCriterionValorMeta(Number(e.target.value))} className="col-span-3" />
+                <div className="col-span-3 flex items-center gap-2">
+                  <Input id="goal-value" type="number" value={newCriterionValorMeta} onChange={(e) => setNewCriterionValorMeta(Number(e.target.value))} className="flex-1" />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="text-muted-foreground cursor-help">?</div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" align="center">
+                      <div className="max-w-xs text-sm">
+                        <p className="font-semibold">Meta Objetivo</p>
+                        <p className="mt-1">Define o valor alvo usado para comparar o resultado do critério.</p>
+                        <p className="mt-1">Exemplos:</p>
+                        <ul className="list-disc ml-4">
+                          <li>Qualitativo: representa um percentual (ex: 75 para 75%).</li>
+                          <li>Quantitativo: representa uma quantidade absoluta (ex: 20 tickets).</li>
+                        </ul>
+                        <p className="mt-1 text-xs text-muted-foreground">O campo é usado pelo cálculo de atingimento e para exibição nos relatórios.</p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
               </div>
               {Number(newCriterionBlock) === 3 && (
                 <div className="grid grid-cols-4 items-center gap-4">
