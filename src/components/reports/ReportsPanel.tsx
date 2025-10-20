@@ -14,7 +14,8 @@ import { PDFGenerator } from './PDFGenerator';
 import { getEvaluationDashboard } from '@/services/evaluationService';
 import { CalculationReportGenerator } from './CalculationReportGenerator';
 import { formatarMoeda, formatarPeriodo, formatarPercentual, calcularBonusAlcancado, calcularResultadoBloco, calcularResultadoFinal } from '@/utils/calculations';
-import { BarChart3, TrendingUp, Users, Award, Calendar, FileText } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Award, Calendar, FileText, Info } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
 
 export function ReportsPanel() {
@@ -620,7 +621,31 @@ export function ReportsPanel() {
                               </div>
                             </td>
                             <td className="p-4 text-center font-bold text-success">
-                              {formatarMoeda(resumo.globalTotalAlcancado)}
+                              {(() => {
+                                const meia = operador && (operador.meiaAvaliacao === true || Number(operador.meiaAvaliacao) === 1);
+                                const displayed = meia ? (resumo.globalTotalAlcancado / 2) : resumo.globalTotalAlcancado;
+                                return (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <span>{formatarMoeda(displayed)}</span>
+                                    {meia && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className="inline-flex items-center justify-center rounded-full bg-amber-100 text-amber-700 p-1 cursor-help">
+                                            <Info className="h-4 w-4" />
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="min-w-[220px]">
+                                          <div className="flex flex-col gap-1">
+                                            <strong className="text-sm">Meia Avaliação</strong>
+                                            <span className="text-xs text-muted-foreground">Este operador recebeu metade do valor alcançado — o valor exibido foi reduzido em 50%.</span>
+                                            <span className="text-xs font-medium">Valor alcançado: {formatarMoeda(resumo.globalTotalAlcancado)}</span>
+                                          </div>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </td>
                           </>
                         );

@@ -379,8 +379,19 @@ import { useEvaluation } from '@/contexts/EvaluationContext';
             pdf.text(`Valor Total Possível: ${formatarMoeda(globalValorPossivel)}`, margin, yPosition);
             yPosition += 6;
             checkPageBreak();
-            pdf.text(`Valor Total Alcançado: ${formatarMoeda(globalTotalAlcancado)}`, margin, yPosition);
+            // aplicar meiaAvaliacao apenas na apresentação do PDF (não altera os dados originais)
+            const meiaPdf = operador && (operador.meiaAvaliacao === true || Number((operador as any).meiaAvaliacao) === 1);
+            const displayedTotalAlcancado = meiaPdf ? (globalTotalAlcancado / 2) : globalTotalAlcancado;
+            pdf.text(`Valor Total Alcançado: ${formatarMoeda(displayedTotalAlcancado)}`, margin, yPosition);
             yPosition += 6;
+            if (meiaPdf) {
+              pdf.setFontSize(9);
+              pdf.setFont('helvetica', 'italic');
+              pdf.text(`Nota: Operador com meia avaliação — valor exibido é metade do valor alcançado pelo operador.`, margin, yPosition);
+              yPosition += 6;
+              pdf.setFont('helvetica', 'normal');
+              pdf.setFontSize(10);
+            }
             checkPageBreak();
             pdf.text(`Performance Geral: ${percentualPerformance.toFixed(1)}%`, margin, yPosition);
             yPosition += 6;
