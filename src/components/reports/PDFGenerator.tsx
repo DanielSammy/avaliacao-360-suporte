@@ -389,6 +389,9 @@ import { useEvaluation } from '@/contexts/EvaluationContext';
               pdf.setFont('helvetica', 'italic');
               pdf.text(`Nota: Operador com meia avaliação — valor exibido é metade do valor alcançado pelo operador.`, margin, yPosition);
               yPosition += 6;
+              // Observação adicional solicitada
+              pdf.text(`Obs: Redução aplicada devido a férias ou período de experiência.`, margin, yPosition);
+              yPosition += 6;
               pdf.setFont('helvetica', 'normal');
               pdf.setFontSize(10);
             }
