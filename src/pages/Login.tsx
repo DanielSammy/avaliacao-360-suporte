@@ -37,7 +37,7 @@ export function Login() {
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="flex flex-col items-center space-y-4">
-          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Avalia+ Logo" className="h-30 w-60" /> {/* Added logo */}
+          <img src={`${import.meta.env.BASE_URL}logo_login.png`} alt="Avalia+ Logo" className="h-30 w-60" /> {/* Added logo */}
           {/* <CardTitle className="text-2xl font-bold text-center">Login</CardTitle> */}
         </CardHeader>
         <CardContent>
