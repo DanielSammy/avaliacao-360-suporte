@@ -207,6 +207,11 @@ export function EvaluateOperators() {
   };
 
   const handleSaveAndNext = async () => {
+    // proteção por data: não permitir submissão antes do dia 21
+    if (!canEvaluateNow) {
+      toast({ title: 'Atenção', description: 'As avaliações só podem ser enviadas a partir do dia 21 de cada mês.', variant: 'default' });
+      return;
+    }
     // proteção adicional: garantir que o avaliador ainda esteja ativo antes de enviar
     if (loggedInOperatorAsEvaluator && !loggedInOperatorAsEvaluator.ativo) {
       toast({ title: 'Erro', description: 'Seu usuário está inativo e não pode submeter avaliações.', variant: 'destructive' });
@@ -566,6 +571,16 @@ export function EvaluateOperators() {
   const allOperatorsEvaluated = activeOperators.length === Object.keys(evaluationValues).length;
   const isCurrentCriterionEvaluated = selectedCriterionId ? allEvaluatedIds.has(parseInt(selectedCriterionId, 10)) : false;
 
+  // validação de início do período de avaliação: somente a partir do dia 21 de cada mês
+  const canEvaluateNow = useMemo(() => {
+    try {
+      const today = new Date();
+      return today.getDate() >= 21;
+    } catch {
+      return false;
+    }
+  }, []);
+
   // Se ainda estamos carregando o critério inicial, manter loader
   if (isLoadingCriterion && !selectedCriterionId) {
     return (
@@ -735,7 +750,7 @@ export function EvaluateOperators() {
                       onValueChange={(value) => handleEvaluationChange(operator.id.toString(), value)}
                       value={evaluationValues[operator.id.toString()]?.toString() || ''}
                       className="flex gap-4"
-                      disabled={isCurrentCriterionEvaluated || ([1,2,3].includes(Number(selectedCriterion.metaCalculo ?? -1)) && !!selectedCriterion.ativo)}
+                      disabled={isCurrentCriterionEvaluated || !canEvaluateNow || ([1,2,3].includes(Number(selectedCriterion.metaCalculo ?? -1)) && !!selectedCriterion.ativo)}
                     >
                       <div className="flex items-center space-x-2"><RadioGroupItem value="25" id={`op-${operator.id}-r1`} /><label htmlFor={`op-${operator.id}-r1`}>1 Nunca</label></div>
                       <div className="flex items-center space-x-2"><RadioGroupItem value="50" id={`op-${operator.id}-r2`} /><label htmlFor={`op-${operator.id}-r2`}>2 Às Vezes</label></div>
@@ -750,16 +765,21 @@ export function EvaluateOperators() {
                       placeholder={`Valor para ${selectedCriterion.nome}`}
                       className="w-40 text-center"
                       min="0"
-                      disabled={isCurrentCriterionEvaluated || ([1,2,3].includes(Number(selectedCriterion.metaCalculo ?? -1)) && !!selectedCriterion.ativo)}
+                      disabled={isCurrentCriterionEvaluated || !canEvaluateNow || ([1,2,3].includes(Number(selectedCriterion.metaCalculo ?? -1)) && !!selectedCriterion.ativo)}
                     />
                   )}
                 </div>
               ))}
               <div className="flex flex-col gap-2">
+                {!canEvaluateNow && (
+                  <div className="text-center text-yellow-800 font-semibold bg-yellow-50 p-3 rounded-md">
+                    As avaliações só podem ser feitas a partir do dia 21 de cada mês.
+                  </div>
+                )}
                 <Button 
                   onClick={handleSaveAndNext} 
                   className="w-full mt-6" 
-                  disabled={isSubmitting || !allOperatorsEvaluated || isCurrentCriterionEvaluated || ([1,2,3].includes(Number(selectedCriterion.metaCalculo ?? -1)) && !!selectedCriterion.ativo)}
+                  disabled={isSubmitting || !allOperatorsEvaluated || isCurrentCriterionEvaluated || !canEvaluateNow || ([1,2,3].includes(Number(selectedCriterion.metaCalculo ?? -1)) && !!selectedCriterion.ativo)}
                 >
                   {isSubmitting ? 'Salvando...' : 'Salvar e Ir para Próximo Critério'}
                 </Button>
