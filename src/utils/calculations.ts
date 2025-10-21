@@ -10,11 +10,12 @@ import { Criterio, CriterioAvaliacao, Avaliacao, Operador } from '../types/evalu
  * @param valorAlcancado O valor alcançado pelo operador.
  * @returns `true` se a meta foi atingida, `false` caso contrário.
  */
-export function metaAtingida(criterio: Criterio, valorAlcancado: number): boolean {
+export function metaAtingida(criterio: Criterio, valorAlcancado: number | string): boolean {
+  const v = typeof valorAlcancado === 'string' ? parseFloat(valorAlcancado.replace(',', '.')) || 0 : valorAlcancado || 0;
   if (criterio.tipoMeta === 'menor_melhor') {
-    return valorAlcancado <= criterio.valorMeta;
+    return v <= criterio.valorMeta;
   } else {
-    return valorAlcancado >= criterio.valorMeta;
+    return v >= criterio.valorMeta;
   }
 }
 
@@ -26,29 +27,48 @@ export function metaAtingida(criterio: Criterio, valorAlcancado: number): boolea
  * @param valorAlcancado O valor alcançado pelo operador.
  * @returns O valor do bônus calculado.
  */
-export function calcularBonusAlcancado(criterio: Criterio, valorAlcancado: number): number {
+export function calcularBonusAlcancado(criterio: Criterio, valorAlcancado: number | string): number {
+  const v = typeof valorAlcancado === 'string' ? parseFloat(valorAlcancado.replace(',', '.')) || 0 : valorAlcancado || 0;
   const target = criterio.valorMeta;
   const bonus = criterio.valorBonus;
+  // Se for TipoCriterio 3: o valor do critério (valorCriterio) define o bônus base — usamos preferencialmente valorCriterio
+  const valorCriterioRaw = (criterio as unknown as Record<string, unknown>)['valorCriterio'];
+  const valorCriterioNum = valorCriterioRaw !== undefined && valorCriterioRaw !== null
+    ? (typeof valorCriterioRaw === 'string' ? parseFloat(String(valorCriterioRaw).replace(',', '.')) || 0 : Number(valorCriterioRaw))
+    : NaN;
 
   if (criterio.tipoMeta === 'maior_melhor') {
-    const atingiuMeta = valorAlcancado >= target;
+    const atingiuMeta = v >= target;
+    if (criterio.idCriterio === 3) {
+      // Regra especial para tipoCriterio 3: usar valorCriterio como base
+      if (!isNaN(valorCriterioNum)) {
+        if (atingiuMeta) return valorCriterioNum;
+        if (target <= 0) return 0;
+        const proporcao = Math.min(v / target, 1);
+        return Math.max(0, valorCriterioNum * proporcao);
+      }
+    }
     if (atingiuMeta) {
       return bonus;
     }
     // Cálculo proporcional para metas não atingidas
     if (target <= 0) return 0;
-    const proporcao = Math.min(valorAlcancado / target, 1);
+    const proporcao = Math.min(v / target, 1);
     return Math.max(0, bonus * proporcao);
   } else { // menor_melhor
-    if (valorAlcancado < 0) return 0; // Valor negativo não deve contar
+    if (v < 0) return 0; // Valor negativo não deve contar
 
-    if (valorAlcancado > target) {
+    if (v > target) {
       // Se alcançado passar do objetivo, multiplica o bônus por 1%.
       return bonus * 0.01;
     }
     
     // Cálculo principal: (1 - (alcançado / meta)) * bônus
-    const proportion = 1 - (valorAlcancado / target);
+    const proportion = 1 - (v / target);
+    // Para tipoCriterio 3, usar valorCriterio como base do proporcional (quando disponível)
+    if (criterio.idCriterio === 3 && !isNaN(valorCriterioNum)) {
+      return Math.max(0, valorCriterioNum * proportion);
+    }
     return Math.max(0, bonus * proportion);
   }
 }
@@ -63,24 +83,25 @@ export function calcularBonusAlcancado(criterio: Criterio, valorAlcancado: numbe
  */
 export function calcularValorAlcancadoFinal(
   criterio: Criterio,
-  inputValue: number,
+  inputValue: number | string,
   potentialBonus: number
 ): number {
+  const v = typeof inputValue === 'string' ? parseFloat(inputValue.replace(',', '.')) || 0 : inputValue || 0;
   const target = criterio.valorMeta;
 
   if (criterio.tipoMeta === 'maior_melhor') {
     // Atingiu ou superou a meta
-    if (inputValue >= target) {
+    if (v >= target) {
       return potentialBonus;
     }
     // Cálculo proporcional se não atingiu a meta
     if (target <= 0) return 0;
-    const proportion = inputValue / target;
+    const proportion = v / target;
     return Math.max(0, potentialBonus * proportion);
   } else { // menor_melhor
-    if (inputValue < 0) return 0; // Não permitir valores negativos
+    if (v < 0) return 0; // Não permitir valores negativos
 
-    if (inputValue > target) {
+    if (v > target) {
       // Se o valor alcançado for maior que a meta, o bônus é de 1%
       return potentialBonus * 0.01;
     }
@@ -88,7 +109,7 @@ export function calcularValorAlcancadoFinal(
     // A meta é ser menor, então a proporção é inversa.
     // Se inputValue é 0, proportion é 1 (bônus máximo).
     // Se inputValue é igual a target, proportion é 0.
-    const proportion = 1 - (inputValue / target);
+    const proportion = 1 - (v / target);
     return Math.max(0, potentialBonus * proportion);
   }
 }
@@ -105,13 +126,19 @@ export function calcularTotaisAvaliacao(
 ): { valorTotalMeta: number; valorTotalAlcancado: number } {
   const valorTotalMeta = criterios.reduce((total, criterio) => {
     if (criterio.ativo) {
+      // se for tipoCriterio 3 e tiver valorCriterio, usar esse como valor da meta possível
+      const raw = (criterio as unknown as Record<string, unknown>)['valorCriterio'];
+      const rawNum = raw !== undefined && raw !== null ? (typeof raw === 'string' ? parseFloat(String(raw).replace(',', '.')) || 0 : Number(raw)) : NaN;
+      if (criterio.idCriterio === 3 && !isNaN(rawNum)) {
+        return total + rawNum;
+      }
       return total + criterio.valorBonus;
     }
     return total;
   }, 0);
 
   const valorTotalAlcancado = criteriosAvaliacao.reduce((total, criterioAvaliacao) => {
-    return total + criterioAvaliacao.valorBonusAlcancado;
+    return total + (criterioAvaliacao.valorBonusAlcancado || 0);
   }, 0);
 
   return { valorTotalMeta, valorTotalAlcancado };
@@ -139,7 +166,7 @@ export function calcularResultadoFinal(criterio: Criterio, avaliacoes: Avaliacao
 
     if (managerEvaluation) {
       const criterioAvaliado = managerEvaluation.criterios.find(c => c.criterioId === criterio.id);
-      return criterioAvaliado?.valorAlcancado || 0;
+      return criterioAvaliado ? (parseFloat(String(criterioAvaliado.valorAlcancado).replace(',', '.')) || 0) : 0;
     }
     return 0;
   } else {
@@ -150,7 +177,7 @@ export function calcularResultadoFinal(criterio: Criterio, avaliacoes: Avaliacao
 
     const allScores = nonManagerEvaluations.flatMap(av => {
       const criterioAvaliado = av.criterios.find(c => c.criterioId === criterio.id);
-      return criterioAvaliado ? [criterioAvaliado.valorAlcancado] : [];
+      return criterioAvaliado ? [parseFloat(String(criterioAvaliado.valorAlcancado).replace(',', '.')) || 0] : [];
     });
 
     if (allScores.length === 0) {
@@ -160,6 +187,43 @@ export function calcularResultadoFinal(criterio: Criterio, avaliacoes: Avaliacao
     const sum = allScores.reduce((a, b) => a + b, 0);
     return sum / allScores.length;
   }
+}
+
+/**
+ * Calcula o resultado final de um bloco de critérios.
+ * A lógica é: a soma das médias de todos os critérios do bloco, dividida pela quantidade de critérios no bloco.
+ * @param idCriterioBloco O ID do bloco de critérios (e.g., 1 para gestão, 2 para pares).
+ * @param todosCriterios A lista de todos os critérios disponíveis na aplicação.
+ * @param todasAvaliacoes A lista de todas as avaliações do período.
+ * @param todosOperadores A lista de todos os operadores.
+ * @returns A média final para o bloco.
+ */
+export function calcularResultadoBloco(
+  idCriterioBloco: number,
+  todosCriterios: Criterio[],
+  todasAvaliacoes: Avaliacao[],
+  todosOperadores: Operador[]
+): number {
+  // 1. Filtrar os critérios ativos que pertencem a este bloco
+  const criteriosDoBloco = todosCriterios.filter(
+    c => c.idCriterio === idCriterioBloco && c.ativo
+  );
+
+  if (criteriosDoBloco.length === 0) {
+    return 0;
+  }
+
+  // 2. Para cada critério do bloco, calcular sua média final.
+  // A função `calcularResultadoFinal` já calcula a média de um critério com base em múltiplas avaliações.
+  const mediasDosCriterios = criteriosDoBloco.map(criterio =>
+    calcularResultadoFinal(criterio, todasAvaliacoes, todosOperadores)
+  );
+
+  // 3. Somar as médias calculadas.
+  const somaDasMedias = mediasDosCriterios.reduce((acc, media) => acc + media, 0);
+
+  // 4. Dividir pela quantidade de critérios no bloco para obter a média do bloco.
+  return somaDasMedias / criteriosDoBloco.length;
 }
 
 // =================================================================================

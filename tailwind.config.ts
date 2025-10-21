@@ -25,9 +25,19 @@ export default {
                 ring: "hsl(222.2 84% 4.9%)",
                 background: "hsl(0 0% 100%)",
                 foreground: "hsl(222.2 84% 4.9%)",
+                // Aplicando cor primária da empresa (#020080) com tonalidades
                 primary: {
-                    DEFAULT: "hsl(222.2 47.4% 11.2%)",
-                    foreground: "hsl(210 40% 98%)",
+                    50:  "#eef0ff",
+                    100: "#dfe2ff",
+                    200: "#c0c8ff",
+                    300: "#91a0ff",
+                    400: "#5066ff",
+                    DEFAULT: "#020080",
+                    600: "#00006b",
+                    700: "#000055",
+                    800: "#00003f",
+                    900: "#000029",
+                    foreground: "#ffffff",
                 },
                 secondary: {
                     DEFAULT: "hsl(210 40% 96.1%)",

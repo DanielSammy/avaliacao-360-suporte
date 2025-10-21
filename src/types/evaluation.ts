@@ -1,12 +1,4 @@
 // src/types/evaluation.ts
-export type NivelOperador = 'Nivel 1' | 'Nivel 2' | 'Nivel 3' | 'Sup Avançado';
-
-export const valoresNivel: { [key in NivelOperador]: number } = {
-  'Nivel 1': 799.50,
-  'Nivel 2': 855.47,
-  'Nivel 3': 941.01,
-  'Sup Avançado': 979.00,
-};
 
 export interface Operador {
   id: number;
@@ -16,7 +8,9 @@ export interface Operador {
   grupo: number; // Adicionado para o campo 'grupo' da API
   dataInclusao: Date; // Manter para compatibilidade com dados locais
   participaAvaliacao: boolean;
-  nivel: NivelOperador;
+  nivel?: string;
+  codigoMysuite?: number;
+  meiaAvaliacao?: boolean;
 }
 
 export interface Criterio {
@@ -26,26 +20,43 @@ export interface Criterio {
   tipo: 'qualitativo' | 'quantitativo';
   tipoMeta: 'maior_melhor' | 'menor_melhor';
   valorMeta: number;
-  peso: number;
   ordem: number;
   ativo: boolean;
-  totalAvaliacoes: number;
+  totalAvaliacoes?: number; // pode vir ausente quando for 0
   valorBonus: number;
+  // preserva o valor bruto vindo do backend (campo `valorCriterio`) quando presente
+  valorCriterio?: string | number;
   mediaGeral: boolean;
+  metaCalculo?: number;
+}
+
+export interface TipoCriterio {
+  id: number;
+  descricao: string;
+  valorNvl1: number;
+  valorNvl2: number;
+  valorNvl3: number;
+  valorSpa: number;
 }
 
 export interface CriterioAvaliacao {
   criterioId: number;
-  valorAlcancado: number;
-  valorBonusAlcancado: number;
-  metaAtingida: boolean;
-  metaAlcancada: string;
+  // agora armazenamos o valor alcançado como string (decimal) para preservar precisão
+  valorAlcancado?: string;
+  // valorMeta pode vir como string na API (ex: "85.75")
+  valorMeta?: string;
+  // alguns responses colocam o avaliadorId no próprio critério
+  avaliadorId?: number;
+  valorBonusAlcancado?: number;
+  metaAtingida?: boolean;
+  metaAlcancada?: string;
 }
 
 export interface Avaliacao {
   id: number;
   operadorId: number; // ID do operador avaliado
-  avaliadorId: number; // ID do operador que realizou a avaliação
+  // em alguns endpoints o avaliadorId fica no nível superior, em outros dentro de cada criterio
+  avaliadorId?: number; // ID do operador que realizou a avaliação (opcional)
   periodo: string; // formato: "YYYY-MM"
   criterios: CriterioAvaliacao[];
   valorTotalMeta: number;

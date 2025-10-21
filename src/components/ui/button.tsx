@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
@@ -13,7 +15,8 @@ const buttonVariants = cva(
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 hover:shadow-medium",
         outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground hover:shadow-soft",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:shadow-soft",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
+  // ghost: sem borda por padrão; no hover usamos borda primária suave e fundo translúcido
+  ghost: "border border-transparent hover:border-primary/60 hover:bg-primary/10 hover:text-primary-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         success: "bg-gradient-success text-success-foreground hover:shadow-medium hover:scale-105",
         warning: "bg-warning text-warning-foreground hover:bg-warning/90 hover:shadow-medium",

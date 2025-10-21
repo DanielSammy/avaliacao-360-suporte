@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { Operador } from '@/types/evaluation';
 import { getOperadores } from '../services/operatorService';

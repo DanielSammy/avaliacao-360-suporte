@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tutorial do usuário — Avaliação 360 Suporte</title>
+  <style>
+    body{font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;line-height:1.6;color:#111;background:#fff;padding:24px}
+    h1,h2,h3{color:#0f172a}
+    nav{margin-bottom:20px}
+    nav a{display:inline-block;margin-right:12px;color:#0366d6;text-decoration:none}
+    section{margin-bottom:28px}
+    pre{background:#f3f4f6;padding:10px;border-radius:6px;overflow:auto}
+    .note{background:#fffbeb;border:1px solid #fef3c7;padding:10px;border-radius:6px}
+    ul{margin-left:18px}
+  </style>
+</head>
+<body>
+  <h1>Tutorial do usuário — Avaliação 360 (Suporte)</h1>
+  <p>Este documento descreve, em linguagem simples, como usar as funcionalidades principais do sistema de avaliação. Use-o como guia rápido para avaliadores, gestores e administradores.</p>
+
+  <nav>
+    <a href="#login">Login</a>
+    <a href="#index">Visão Geral (Dashboard)</a>
+    <a href="#avaliar">Avaliar Operadores</a>
+    <a href="#tracking">Acompanhamento de Avaliações</a>
+    <a href="#relatorios">Relatórios / PDF</a>
+    <a href="#config">Configurações (Admin)</a>
+    <a href="#import">Importar Dados</a>
+    <a href="#faq">Dicas & FAQ</a>
+  </nav>
+
+  <section id="login">
+    <h2>1. Login</h2>
+    <p>Abra a aplicação no navegador e faça login com suas credenciais.</p>
+    <ul>
+      <li>Se você não tiver credenciais, peça ao administrador para criar um usuário via painel de <strong>Operadores</strong> (administrador).</li>
+      <li>Após o login, o sistema armazena um token de sessão localmente; mantenha-o seguro.</li>
+    </ul>
+  </section>
+
+  <section id="index">
+    <h2>2. Visão Geral (Dashboard)</h2>
+    <p>A página inicial exibe contadores rápidos: número de operadores, critérios, avaliações e versão do sistema.</p>
+    <ul>
+      <li>Use o menu de navegação para acessar as telas de avaliação, relatórios e configurações.</li>
+    </ul>
+  </section>
+
+  <section id="avaliar">
+    <h2>3. Avaliar Operadores</h2>
+    <p>Tela principal para registrar avaliações dos operadores.</p>
+    <h3>Como funciona</h3>
+    <ol>
+      <li>O filtro de período (mês/ano) na tela é somente para consulta — ele permite ver avaliações de meses anteriores. <strong>As avaliações sempre são gravadas no mês corrente</strong>. Ou seja, mesmo que você selecione outro período apenas para visualizar, ao salvar uma avaliação ela será registrada no mês atual.</li>
+      <li>Selecione o operador a ser avaliado. A lista de critérios aparecerá agrupada por bloco. Para cada critério ativo, escolha o valor correspondente.</li>
+      <li>Alguns critérios são marcados com um ícone de importação — esses critérios são preenchidos automaticamente por import de dados (por exemplo, tickets). Nesses casos:</li>
+      <ul>
+        <li>Você não pode editar manualmente o valor (campo desabilitado).</li>
+        <li>O sistema exibirá um ✓ quando houver qualquer avaliação (importada ou manual) para o critério no período atual.</li>
+      </ul>
+      <li>Após preencher, clique em "Salvar" para registrar as avaliações.</li>
+    </ol>
+    <h3>Notas importantes</h3>
+    <ul>
+      <li>Critérios importáveis são controlados pelo campo <code>metaCalculo</code> e só são editáveis pelo processo de import.</li>
+      <li>Se houver avaliações pendentes (não salvas) a geração de PDF/relatórios pode ser bloqueada até que sejam resolvidas.</li>
+    </ul>
+  </section>
+
+  <section id="tracking">
+    <h2>4. Acompanhamento de Avaliações</h2>
+    <p>A tela de acompanhamento mostra o progresso das avaliações por período e permite identificar pendências.</p>
+    <ul>
+      <li>Veja o total esperado de avaliações (operadores ativos × critérios ativos) e quantas já foram completadas.</li>
+      <li>Use filtros por bloco, operador e período para encontrar avaliações incompletas.</li>
+      <li>Correção: se o número de critérios avaliados não bater com os critérios ativos, documentos/relatórios podem ser bloqueados.</li>
+    </ul>
+  </section>
+
+  <section id="relatorios">
+    <h2>5. Relatórios e geração de PDF</h2>
+    <p>O sistema gera relatórios em PDF com a metodologia e dados de avaliação.</p>
+    <ul>
+      <li>Antes de gerar o PDF (ou enviar por email), o sistema checa:</li>
+      <ul>
+        <li>Se existem avaliações pendentes no período — se sim, a geração é bloqueada.</li>
+        <li>Se a quantidade de critérios avaliados é igual à quantidade de critérios ativos — se não for, também bloqueia.</li>
+      </ul>
+      <li>Ao enviar por email, o backend realiza o envio. Se o teste de envio falhar, verifique credenciais (SMTP), token de autenticação e disponibilidade do backend.</li>
+    </ul>
+  </section>
+
+  <section id="config">
+    <h2>6. Configurações e telas de administração</h2>
+    <p>As telas de configuração permitem cadastrar e editar Operadores, Critérios e Blocos.</p>
+    <h3>Operadores</h3>
+    <ul>
+      <li>Adicionar, editar, ativar/desativar e excluir operadores.</li>
+      <li>Quando existir qualquer avaliação no mês corrente, a tela de operadores fica visível mas em modo somente leitura (campos e ações de adicionar/editar/excluir desabilitados).</li>
+    </ul>
+    <h3>Critérios</h3>
+    <ul>
+      <li>Cadastrar critérios com: bloco, tipo, tipo de meta e valor (R$).</li>
+      <li>Se <strong>tipoCriterio = 2</strong>, o campo <em>valorMeta</em> é preenchido a partir dos dados da API/import — não altere manualmente.</li>
+      <li>Critérios importáveis exibem um ícone/tooltip explicando sua origem. Esses critérios aparecem também na tela de avaliação, mas não podem ser avaliados manualmente (campo desabilitado).</li>
+      <li>Se houver avaliações no mês atual, a tela de critérios também fica somente leitura.</li>
+    </ul>
+    <h3>Blocos</h3>
+    <ul>
+      <li>Gerencie níveis de pontuação por bloco. Em meses com avaliações existentes, a edição é bloqueada (somente leitura).</li>
+    </ul>
+  </section>
+
+  <section id="import">
+    <h2>7. Importar Dados</h2>
+    <p>O sistema suporta importação de métricas (por exemplo, número de tickets) que preenchem critérios automaticamente.</p>
+    <ul>
+      <li>Use a tela de Importação para subir arquivos CSV/XLSX no formato esperado.</li>
+      <li>Após o processamento, critérios marcados como importáveis receberão valores automaticamente para o período importado.</li>
+      <li>Importante: verifique o relatório de importação para confirmar que os dados foram mapeados corretamente para operadores e critérios.</li>
+    </ul>
+  </section>
+
+  <section id="smtp">
+    <h2>8. Teste de envio de email (Sistema)</h2>
+    <p>Na tela <strong>Configurações → SMTP</strong> há um formulário para testar o envio de email.</p>
+    <ul>
+      <li>Preencha SMTP Host, Port, User e Password e salve (valores são persistidos localmente).</li>
+      <li>Informe um email de teste e clique em "Testar Envio". O frontend envia uma requisição ao endpoint do backend (<code>/api/email/send</code>), que é responsável por conectar ao servidor SMTP e efetuar o envio.</li>
+      <li>Se o teste retornar erro 401, isso indica que o backend exigiu autenticação — faça login antes ou configure um token válido.</li>
+      <li>Se o erro for de rede (timeout) ou falha de conexão com SMTP, verifique host/porta/credencial e logs do backend.</li>
+    </ul>
+    <div class="note">
+      Segurança: nunca publique credenciais SMTP em arquivos públicos. O ideal é que o backend faça o envio usando credenciais armazenadas de forma segura.
+    </div>
+  </section>
+
+  <section id="faq">
+    <h2>9. Dicas & FAQ</h2>
+    <h3>Não consigo gerar o PDF — aparece aviso de pendências</h3>
+    <ol>
+      <li>Vá em <strong>Acompanhamento de Avaliações</strong> e verifique se há avaliações pendentes.</li>
+      <li>Verifique se para cada operador ativo todos os critérios ativos foram avaliados no período.</li>
+    </ol>
+    <h3>Como diferenciar avaliação manual de importada?</h3>
+    <p>Critérios importados apresentam um ícone (download/arquivo). O valor importado aparece preenchido e o campo é desabilitado para edição.</p>
+    <h3>Preciso alterar valores de meta que vêm da API</h3>
+    <p>Se o critério tem <code>tipoCriterio = 2</code>, o valor base da meta vem da API/import. Para alterar esse comportamento fale com o responsável técnico — alterar manualmente no frontend não é recomendado e pode ser bloqueado.</p>
+    <h3>Onde os administradores configuram as regras?</h3>
+    <p>As telas de administração (Operadores / Critérios / Blocos / Sistema) concentram a configuração. Lembre-se: se o período atual já tem avaliações, muitas ações ficam somente leitura para evitar inconsistências.</p>
+  </section>
+
+  <footer>
+    <p>Se quiser, posso converter este arquivo em PDF ou adicionar imagens/screenshot para cada tela (enviar exemplos de tela ajuda).</p>
+    <p>Arquivo gerado automaticamente em: <code>src/components/files/tutorial-avaliacao.html</code></p>
+  </footer>
+</body>
+</html>

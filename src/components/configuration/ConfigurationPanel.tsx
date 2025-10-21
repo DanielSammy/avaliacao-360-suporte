@@ -3,7 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OperatorManagement } from './OperatorManagement';
 import { CriteriaManagement } from './CriteriaManagement';
 import { SystemSettings } from './SystemSettings';
-import { Users, Target, Wrench } from 'lucide-react';
+import { BlockManagement } from './BlockManagement';
+import { Users, Target, Wrench, Blocks } from 'lucide-react';
 
 export function ConfigurationPanel() {
   return (
@@ -14,7 +15,7 @@ export function ConfigurationPanel() {
       </div>
 
       <Tabs defaultValue="operators" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px] mx-auto">
+        <TabsList className="grid w-full grid-cols-4 lg:w-[500px] mx-auto">
           <TabsTrigger value="operators" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Operadores</span>
@@ -22,6 +23,10 @@ export function ConfigurationPanel() {
           <TabsTrigger value="criteria" className="flex items-center gap-2">
             <Target className="h-4 w-4" />
             <span className="hidden sm:inline">Critérios</span>
+          </TabsTrigger>
+          <TabsTrigger value="blocks" className="flex items-center gap-2">
+            <Blocks className="h-4 w-4" />
+            <span className="hidden sm:inline">Blocos</span>
           </TabsTrigger>
           <TabsTrigger value="system" className="flex items-center gap-2">
             <Wrench className="h-4 w-4" />
@@ -35,6 +40,10 @@ export function ConfigurationPanel() {
 
         <TabsContent value="criteria" className="space-y-6">
           <CriteriaManagement />
+        </TabsContent>
+
+        <TabsContent value="blocks" className="space-y-6">
+          <BlockManagement />
         </TabsContent>
 
         <TabsContent value="system" className="space-y-6">

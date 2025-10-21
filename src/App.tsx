@@ -12,6 +12,7 @@ import { ConfigurationPanel } from "./components/configuration/ConfigurationPane
 import Index from "./pages/Index";
 import { EvaluationTracking } from "./pages/EvaluationTracking";
 import { AppHeader } from "./components/layout/AppHeader";
+import AppFooter from "./components/layout/AppFooter";
 import RankingPage  from "./pages/Ranking";
 import React from 'react'; // Import React for React.ReactNode
 
@@ -42,20 +43,31 @@ const ProtectedRoute = ({ children, allowedGroups }: { children: React.ReactNode
   return (
     <>
       <AppHeader />
-      <main className="flex-1 container mx-auto py-6">
+      <main className="flex-1 container mx-auto py-6 pb-20">
         {children}
       </main>
+      <AppFooter />
     </>
   );
 };
 
-const App = () => (
+import { useRealtime } from './hooks/use-realtime';
+
+// Componente leve para inicializar o realtime hook dentro do Router
+const RealtimeInitializer = () => {
+  useRealtime();
+  return null;
+};
+
+const App = () => {
+  return (
   <QueryClientProvider client={queryClient}>
     <EvaluationProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
         <HashRouter>
+          <RealtimeInitializer />
           <Routes>
             <Route
               path="/login"
@@ -120,7 +132,8 @@ const App = () => (
       </TooltipProvider>
     </EvaluationProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 // Component to handle redirection based on authentication status and user group
 const AuthRedirect = ({ children }: { children: JSX.Element }) => {

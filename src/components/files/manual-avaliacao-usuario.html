@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentação — Avaliação 360</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://rsms.me/">
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* Styles for active nav link */
+        .nav-link.active {
+            color: #2563eb;
+            background-color: #eff6ff;
+            font-weight: 600;
+            border-right: 2px solid #2563eb;
+        }
+        /* Add space for the sticky header on mobile when jumping to an anchor */
+        section[id] {
+            scroll-margin-top: 80px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-700">
+
+    <div class="flex min-h-screen">
+        <!-- Sidebar Navigation -->
+        <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 p-6 fixed h-full transition-transform -translate-x-full md:translate-x-0 md:block z-20">
+            <div class="flex items-center gap-3 mb-8">
+                <div class="bg-blue-600 p-2 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
+                </div>
+                <h1 class="text-xl font-bold text-slate-800">Avaliação 360</h1>
+            </div>
+            <nav id="desktop-nav" class="space-y-2">
+                <a href="#login" class="nav-link flex items-center gap-3 px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 transition-colors duration-200">Login</a>
+                <a href="#index" class="nav-link flex items-center gap-3 px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 transition-colors duration-200">Dashboard</a>
+                <a href="#avaliar" class="nav-link flex items-center gap-3 px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 transition-colors duration-200">Avaliar Operadores</a>
+                <a href="#tracking" class="nav-link flex items-center gap-3 px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 transition-colors duration-200">Acompanhamento</a>
+                <a href="#relatorios" class="nav-link flex items-center gap-3 px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 transition-colors duration-200">Relatórios / PDF</a>
+                <a href="#config" class="nav-link flex items-center gap-3 px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 transition-colors duration-200">Configurações</a>
+                <a href="#teste-email" class="nav-link flex items-center gap-3 px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 transition-colors duration-200">Teste de Email</a>
+                <a href="#faq" class="nav-link flex items-center gap-3 px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 transition-colors duration-200">Dicas & FAQ</a>
+            </nav>
+        </aside>
+
+        <!-- Mobile Header -->
+        <header class="md:hidden sticky top-0 bg-white/80 backdrop-blur-lg border-b border-slate-200 p-4 flex justify-between items-center w-full z-10">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-2 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
+                </div>
+                <h1 class="text-lg font-bold text-slate-800">Avaliação 360</h1>
+            </div>
+            <button id="menu-toggle" class="p-2 rounded-md hover:bg-slate-100">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-600">
+                    <line x1="4" x2="20" y1="12" y2="12" />
+                    <line x1="4" x2="20" y1="6" y2="6" />
+                    <line x1="4" x2="20" y1="18" y2="18" />
+                </svg>
+            </button>
+        </header>
+
+        <!-- Main Content -->
+        <main class="md:ml-64 w-full p-6 md:p-10">
+            <div class="max-w-4xl mx-auto space-y-12">
+                <header>
+                    <h1 class="text-4xl font-bold text-slate-900 mb-2">Tutorial do Usuário</h1>
+                    <p class="text-lg text-slate-600">Este documento descreve como usar as funcionalidades do sistema. Use-o como guia rápido para avaliadores, gestores e administradores.</p>
+                </header>
+
+                <section id="login" class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
+                    <h2 class="text-2xl font-semibold text-slate-900 mb-6 border-l-4 border-blue-500 pl-4">1. Login</h2>
+                    <ul class="space-y-4 text-slate-700 leading-relaxed">
+                        <li class="flex items-start">
+                            <svg class="flex-shrink-0 w-5 h-5 text-blue-500 mr-3 mt-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" /></svg>
+                            <span>Acesse a aplicação com suas credenciais. Se não tiver, solicite a um administrador.</span>
+                        </li>
+                        <li class="flex items-start">
+                             <svg class="flex-shrink-0 w-5 h-5 text-blue-500 mr-3 mt-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2-2H4a2 2 0 01-2-2v-4z" /></svg>
+                            <span>Após o login, um token de sessão é salvo localmente para manter sua conexão ativa.</span>
+                        </li>
+                    </ul>
+                </section>
+
+                <section id="index" class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
+                    <h2 class="text-2xl font-semibold text-slate-900 mb-6 border-l-4 border-blue-500 pl-4">2. Visão Geral (Dashboard)</h2>
+                     <ul class="space-y-4 text-slate-700 leading-relaxed">
+                        <li class="flex items-start">
+                            <svg class="flex-shrink-0 w-5 h-5 text-blue-500 mr-3 mt-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" /><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" /></svg>
+                            <span>A página inicial exibe contadores rápidos do sistema: operadores, critérios e avaliações.</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="flex-shrink-0 w-5 h-5 text-blue-500 mr-3 mt-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
+                            <span>Use o menu central para navegar entre as seções de avaliação, relatórios e configurações.</span>
+                        </li>
+                    </ul>
+                </section>
+
+                <section id="avaliar" class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
+                    <h2 class="text-2xl font-semibold text-slate-900 mb-6 border-l-4 border-blue-500 pl-4">3. Avaliar Operadores</h2>
+                    <div class="space-y-6 text-slate-700 leading-relaxed">
+                        <div>
+                            <p class="font-semibold text-slate-800 mb-2">Como Funciona</p>
+                            <ul class="space-y-3 pl-2">
+                                <li class="flex items-start"><span class="mr-3 text-blue-500 font-bold text-lg">•</span><span>O filtro de período (mês/ano) serve apenas para consulta. <strong>As avaliações são sempre salvas no mês corrente</strong>.</span></li>
+                                <li class="flex items-start"><span class="mr-3 text-blue-500 font-bold text-lg">•</span><span>Selecione um critério para exibir os operadores e preencha os valores correspondentes.</span></li>
+                                <li class="flex items-start"><span class="mr-3 text-blue-500 font-bold text-lg">•</span><span>Após o preenchimento, clique em "Salvar" para registrar os dados.</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="tracking" class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
+                    <h2 class="text-2xl font-semibold text-slate-900 mb-6 border-l-4 border-blue-500 pl-4">4. Acompanhamento de Avaliações</h2>
+                    <ul class="space-y-4 text-slate-700 leading-relaxed">
+                        <li class="flex items-start">
+                            <svg class="flex-shrink-0 w-5 h-5 text-blue-500 mr-3 mt-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd" /></svg>
+                            <span>Esta tela exibe o progresso das avaliações, mostrando o total esperado versus o total concluído.</span>
+                        </li>
+                        <li class="flex items-start">
+                           <svg class="flex-shrink-0 w-5 h-5 text-blue-500 mr-3 mt-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M3 3a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 13.846 4.17 15 5.33 15h9.34a1 1 0 100-2H5.33a.25.25 0 01-.25-.25V12h10.43a1 1 0 00.99-1.22l-1.8-6.43a1 1 0 00-.99-.78H4.72L4.42 3H3z" /></svg>
+                            <span>O icone ao lado do titulo mostra quantidade de avaliação dadas até mesmo por quem não é avaliado, já o outro icone
+							mostra a legenda de como funciona a contagem de avaliações recebidas</span>
+                        </li>
+                         <li class="flex items-start">
+                            <svg class="flex-shrink-0 w-5 h-5 text-blue-500 mr-3 mt-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 010-1.06z" clip-rule="evenodd" /></svg>
+                            <span><strong>Atenção:</strong> a geração de relatórios pode ser bloqueada se o número de avaliações não for compatível com o esperado.</span>
+                        </li>
+                    </ul>
+                </section>
+
+                <section id="relatorios" class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
+                    <h2 class="text-2xl font-semibold text-slate-900 mb-6 border-l-4 border-blue-500 pl-4">5. Relatórios e Geração de PDF</h2>
+                     <div class="space-y-6 text-slate-700 leading-relaxed">
+                        <div>
+                            <p class="font-semibold text-slate-800 mb-2">Verificação Prévia</p>
+                            <p>Antes de gerar um PDF ou enviar por email, o sistema verifica os seguintes pontos:</p>
+                            <ul class="space-y-3 pl-2 mt-2">
+                                <li class="flex items-start"><span class="mr-3 text-blue-500 font-bold text-lg">•</span><span>Se existem avaliações pendentes no período selecionado.</span></li>
+                                <li class="flex items-start"><span class="mr-3 text-blue-500 font-bold text-lg">•</span><span>Se a quantidade de critérios avaliados corresponde à de critérios ativos.</span></li>
+                            </ul>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-800 mb-2">Falha no Envio de Email</p>
+                             <p>Se ocorrer um erro, verifique as credenciais SMTP, o token de autenticação ou a disponibilidade do backend.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="config" class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
+                    <h2 class="text-2xl font-semibold text-slate-900 mb-6 border-l-4 border-blue-500 pl-4">6. Configurações (Admin)</h2>
+                    <ul class="space-y-4 text-slate-700 leading-relaxed">
+                        <li class="flex items-start">
+                             <svg class="flex-shrink-0 w-5 h-5 text-blue-500 mr-3 mt-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l-2.92-2.919a4 4 0 015.656 0l2.92 2.919a4 4 0 01.885 1.343l1.262 3.155a2.5 2.5 0 01-1.942 3.326l-3.086.617a4 4 0 01-3.951 0l-3.086-.617a2.5 2.5 0 01-1.942-3.326z" /><path d="M15.75 8a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" /></svg>
+                            <span>As telas de administração permitem cadastrar, editar e gerenciar <strong>Operadores</strong>, <strong>Critérios</strong> e <strong>Blocos</strong>.</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="flex-shrink-0 w-5 h-5 text-blue-500 mr-3 mt-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" /></svg>
+                            <span><strong>Importante:</strong> se já existem avaliações no mês corrente, estas telas entram em modo <strong>somente leitura</strong> para garantir a integridade dos dados.</span>
+                        </li>
+                    </ul>
+                </section>
+                
+                <section id="teste-email" class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
+                    <h2 class="text-2xl font-semibold text-slate-900 mb-6 border-l-4 border-blue-500 pl-4">7. Teste de Envio de Email</h2>
+                     <div class="space-y-6 text-slate-700 leading-relaxed">
+                        <p>Na tela <code class="bg-slate-100 text-sm font-mono p-1 rounded">Configurações → SMTP</code> há um formulário para testar o envio de emails.</p>
+                        <ul class="space-y-3 pl-2">
+                            <li class="flex items-start"><span class="mr-3 text-blue-500 font-bold text-lg">•</span><span>Preencha os dados do servidor SMTP e salve.</span></li>
+                            <li class="flex items-start"><span class="mr-3 text-blue-500 font-bold text-lg">•</span><span>Informe um email de destino e clique em "Testar Envio".</span></li>
+                            <li class="flex items-start"><span class="mr-3 text-blue-500 font-bold text-lg">•</span><span><strong>Diagnóstico:</strong> Erro 401 indica falha de autenticação. Erros de rede podem ser problema de host, porta ou credenciais.</span></li>
+                        </ul>
+                        <div class="mt-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 p-4 rounded-r-lg">
+                            <p class="font-bold">Aviso de Segurança</p>
+                            <p>Nunca exponha credenciais SMTP. O ideal é que o backend gerencie o envio usando credenciais armazenadas de forma segura.</p>
+                        </div>
+                    </div>
+                </section>
+                
+                <section id="faq" class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
+                    <h2 class="text-2xl font-semibold text-slate-900 mb-6 border-l-4 border-blue-500 pl-4">8. Dicas & FAQ</h2>
+                    <div class="space-y-6 text-slate-700 leading-relaxed">
+                        <div>
+                            <p class="font-semibold text-slate-800">Não consigo gerar o PDF, aparece aviso de pendências.</p>
+                            <p class="mt-1">Vá em <strong>Acompanhamento de Avaliações</strong> e verifique se há avaliações pendentes ou se todos os critérios foram avaliados para cada operador.</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-800">Como diferenciar avaliação manual de importada?</p>
+                            <p class="mt-1">Critérios importados têm um ícone de download. O valor aparece preenchido e o campo é desabilitado para edição.</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-800">Preciso alterar valores de meta que vêm da API.</p>
+                            <p class="mt-1">Se o critério tem <code class="bg-slate-100 text-sm font-mono p-1 rounded">tipoCriterio = 2</code>, o valor vem da importação. Alterar manualmente não é recomendado. Fale com o responsável técnico.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const sections = document.querySelectorAll('main section[id]');
+            const navLinks = document.querySelectorAll('aside nav a');
+            const menuToggle = document.getElementById('menu-toggle');
+            const sidebar = document.getElementById('sidebar');
+
+            // --- Mobile Menu Toggle ---
+            menuToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('-translate-x-full');
+            });
+            
+            // Close sidebar when a link is clicked on mobile
+            navLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    if (window.innerWidth < 768) {
+                       sidebar.classList.add('-translate-x-full');
+                    }
+                });
+            });
+
+            // --- Scrollspy using IntersectionObserver ---
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px',
+                threshold: 0.3 // Section is considered active when 30% is visible
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                let activeId = null;
+                
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        // Prioritize the entry that is most visible or the first one in the viewport
+                         if (!activeId) {
+                            activeId = entry.target.getAttribute('id');
+                         }
+                    }
+                });
+                
+                // Fallback to the first section if nothing is active (e.g., at the very top/bottom of the page)
+                if (!activeId && window.scrollY < 200) {
+                     activeId = sections[0].getAttribute('id');
+                }
+
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (activeId && link.getAttribute('href') === `#${activeId}`) {
+                        link.classList.add('active');
+                    }
+                });
+            }, observerOptions);
+
+            sections.forEach(section => {
+                observer.observe(section);
+            });
+        });
+    </script>
+</body>
+</html>

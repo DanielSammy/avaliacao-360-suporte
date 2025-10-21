@@ -1,6 +1,9 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
 import { Operador, Criterio, Avaliacao, ConfiguracaoSistema, CriterioAvaliacao } from '../types/evaluation';
 import { getOperadores, createOperador, updateOperador, deleteOperador } from '../services/operatorService';
+import { getAvaliacoes } from '@/services/evaluationService';
 import { getCriterios } from '../services/criteriaService';
 import { useAuth } from './AuthContext';
 import { metaAtingida } from '../utils/calculations';
@@ -11,9 +14,9 @@ interface EvaluationState {
   criterios: Criterio[];
   avaliacoes: Avaliacao[];
   configuracao: ConfiguracaoSistema;
+  operadoresLoaded: boolean;
   loading: boolean;
   error: string | null;
-  totalTeamTickets: number; // Added
 }
 
 // Ações do sistema
@@ -48,7 +51,6 @@ type EvaluationAction =
 
 // Estado inicial
 const initialState: EvaluationState = (() => {
-  const storedTotalTeamTickets = localStorage.getItem('totalTeamTickets');
   return {
     operadores: [],
     criterios: [],
@@ -59,9 +61,9 @@ const initialState: EvaluationState = (() => {
       criterios: [],
       operadores: []
     },
+    operadoresLoaded: false,
     loading: false,
     error: null,
-    totalTeamTickets: storedTotalTeamTickets ? parseInt(storedTotalTeamTickets, 10) : 0,
   };
 })();
 
@@ -73,11 +75,11 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
     case 'SET_ERROR':
       return { ...state, error: action.payload };
     case 'FETCH_OPERADORES_REQUEST':
-      return { ...state, loading: true, error: null };
+      return { ...state, loading: true, error: null, operadoresLoaded: false };
     case 'FETCH_OPERADORES_SUCCESS':
-      return { ...state, loading: false, error: null, operadores: action.payload };
+      return { ...state, loading: false, error: null, operadores: action.payload, operadoresLoaded: true };
     case 'FETCH_OPERADORES_FAILURE':
-      return { ...state, loading: false, error: action.payload, operadores: [] };
+      return { ...state, loading: false, error: action.payload, operadores: [], operadoresLoaded: false };
     case 'ADD_OPERADOR':
       return { 
         ...state, 
@@ -117,8 +119,17 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
         ...state,
         criterios: state.criterios.filter(cr => cr.id !== action.payload)
       };
-    case 'SET_AVALIACOES':
-      return { ...state, avaliacoes: action.payload };
+    case 'SET_AVALIACOES': {
+      // Normaliza possíveis strings de data vindas do backend para objetos Date
+      const payload = Array.isArray(action.payload) ? action.payload : [];
+      const normalized = payload.map((av: any) => ({
+        ...av,
+        dataCriacao: av.dataCriacao ? new Date(av.dataCriacao) : new Date(),
+        dataUltimaEdicao: av.dataUltimaEdicao ? new Date(av.dataUltimaEdicao) : new Date(),
+        criterios: Array.isArray(av.criterios) ? av.criterios.map((c: any) => ({ ...c })) : [],
+      })) as Avaliacao[];
+      return { ...state, avaliacoes: normalized };
+    }
     case 'ADD_AVALIACAO':
       return {
         ...state,
@@ -137,14 +148,21 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
           ev => ev.operadorId === operadorId && ev.periodo === periodo && ev.avaliadorId === bulkAval.avaliadorId
         );
 
-        const inputValue = parseFloat(valorAlcancado);
+        const inputValueNum = parseFloat(valorAlcancado);
         const bonusValue = parseFloat(valorBonusAlcancado);
+
+        // garantir que metaAlcancada seja enviada como string com 2 casas decimais (ex: "59.03").
+        const metaAlcancadaStr = Number.isFinite(inputValueNum)
+          ? inputValueNum.toFixed(2)
+          : String(valorAlcancado);
 
         const newCriterioAvaliacao: CriterioAvaliacao = {
           criterioId: criterioId,
-          valorAlcancado: inputValue,
+          // armazenar como string para preservar casas decimais
+          valorAlcancado: String(valorAlcancado),
           valorBonusAlcancado: bonusValue,
-          metaAtingida: metaAtingida(criterio, inputValue),
+          metaAtingida: metaAtingida(criterio, inputValueNum),
+          metaAlcancada: metaAlcancadaStr,
         };
 
         if (existingEvalIndex > -1) {
@@ -194,8 +212,7 @@ function evaluationReducer(state: EvaluationState, action: EvaluationAction): Ev
         ...state,
         avaliacoes: state.avaliacoes.filter(av => av.id !== action.payload)
       };
-    case 'SET_TOTAL_TEAM_TICKETS': // Added
-      return { ...state, totalTeamTickets: action.payload };
+    // removed SET_TOTAL_TEAM_TICKETS handling because totalTeamTickets is no longer tracked
     default:
       return state;
   }
@@ -207,6 +224,7 @@ const EvaluationContext = createContext<{
   state: EvaluationState;
   dispatch: React.Dispatch<EvaluationAction>;
   fetchOperadores: () => Promise<void>;
+  fetchAvaliacoes: (periodo?: string) => Promise<void>;
   addOperator: (operator: Operador) => Promise<void>;
   updateOperator: (operator: Operador) => Promise<void>;
   deleteOperator: (id: number) => Promise<void>;
@@ -221,10 +239,51 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'FETCH_OPERADORES_REQUEST' });
     try {
       const response = await getOperadores();
-      dispatch({ type: 'FETCH_OPERADORES_SUCCESS', payload: response.data });
+      
+      let operadores: Operador[] = response.data;
+
+      // Tentar buscar dados do MySuite e mesclar codigoMysuite por email/login
+      try {
+  const mys = await (await import('@/services/operatorService')).getMySuiteOperadores();
+        // índice por email lowercased -> codigo
+        const mysIndex: Record<string, number> = {};
+        (mys || []).forEach((m: unknown) => {
+          const mm = m as Record<string, unknown>;
+          if (mm && mm.email) mysIndex[String(mm.email).toLowerCase()] = Number(mm.codigo ?? mm.id ?? 0);
+        });
+
+        operadores = operadores.map(op => {
+          const emailKey = String(op.login || '').toLowerCase();
+          const mysEntry = (mys || []).find((m: unknown) => String(((m as Record<string, unknown>).email) || '').toLowerCase() === emailKey) as Record<string, unknown> | undefined;
+          const meiaFromMys = mysEntry && typeof mysEntry.meiaAvaliacao === 'boolean' ? (mysEntry.meiaAvaliacao as boolean) : undefined;
+          return {
+            ...op,
+            codigoMysuite: mysIndex[emailKey],
+            // se o MySuite fornecer meiaAvaliacao, preferir esse valor; caso contrário manter o valor do backend
+            meiaAvaliacao: meiaFromMys !== undefined ? meiaFromMys : op.meiaAvaliacao,
+          } as Operador;
+        });
+      } catch (mysErr) {
+        console.warn('fetchOperadores - Failed to fetch MySuite operadores, continuing without merge:', mysErr);
+      }
+
+  // operadores carregados (debug logs removed)
+  dispatch({ type: 'FETCH_OPERADORES_SUCCESS', payload: operadores });
     } catch (err) {
       console.error("Failed to fetch operators:", err);
       dispatch({ type: 'FETCH_OPERADORES_FAILURE', payload: 'Failed to load operators.' });
+    }
+  }, [dispatch]);
+
+  const fetchAvaliacoes = useCallback(async (periodo?: string) => {
+    try {
+      const avaliacoes = await getAvaliacoes(periodo);
+      // dispatch to normalize dates and store
+      dispatch({ type: 'SET_AVALIACOES', payload: avaliacoes });
+    } catch (err) {
+      console.error('Failed to fetch avaliacoes:', err);
+      // don't throw, but set error state
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to load avaliacoes.' });
     }
   }, [dispatch]);
 
@@ -273,11 +332,35 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
       try {
         const response = await getCriterios();
         // Garante que idCriterio seja sempre um número para consistência da aplicação
-        const transformedCriterios = response.data.map((criterio: Criterio) => ({
-          ...criterio,
-          idCriterio: parseInt(String(criterio.idCriterio), 10),
-          valorMeta: parseFloat(String(criterio.valorMeta)), // Ensure valorMeta is a number
-        }));
+        const transformedCriterios = response.data.map((criterio: unknown) => {
+          const rc = criterio as Record<string, unknown>;
+          // preferir valorCriterio (string do backend), depois valorBonus (se o backend já enviar), depois valorMeta como fallback
+          const rawValorCriterio = rc.valorCriterio ?? rc['valorCriterio'];
+          const rawValorBonus = rc.valorBonus ?? rc['valorBonus'];
+          const resolvedValorBonus = rawValorCriterio !== undefined && rawValorCriterio !== null
+            ? parseFloat(String(rawValorCriterio))
+            : (rawValorBonus !== undefined && rawValorBonus !== null
+              ? parseFloat(String(rawValorBonus))
+              : parseFloat(String(rc.valorMeta ?? 0)));
+
+          return {
+            ...rc,
+            id: rc.id as number,
+            idCriterio: parseInt(String(rc.idCriterio ?? rc['idCriterio'] ?? 0), 10),
+            nome: String(rc.nome ?? ''),
+            tipo: (rc.tipo as 'qualitativo' | 'quantitativo') ?? 'qualitativo',
+            tipoMeta: (rc.tipoMeta as 'maior_melhor' | 'menor_melhor') ?? 'maior_melhor',
+            valorMeta: parseFloat(String(rc.valorMeta ?? 0)),
+            ordem: Number(rc.ordem ?? 0),
+            ativo: !!rc.ativo,
+            mediaGeral: !!rc.mediaGeral,
+            totalAvaliacoes: rc.totalAvaliacoes !== undefined ? parseInt(String(rc.totalAvaliacoes), 10) : undefined,
+            // preserve the raw backend value (string or number) for traceability
+            valorCriterio: rawValorCriterio !== undefined && rawValorCriterio !== null ? rawValorCriterio : undefined,
+            valorBonus: resolvedValorBonus,
+            metaCalculo: rc.metaCalculo !== undefined ? parseInt(String(rc.metaCalculo), 10) : undefined,
+          } as Criterio;
+        });
         dispatch({ type: 'SET_CRITERIOS', payload: transformedCriterios });
       } catch (err) {
         console.error("Failed to fetch criterios:", err);
@@ -290,6 +373,8 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
     if (user) {
       fetchOperadores();
       fetchCriterios();
+      // carregar avaliações iniciais (todos períodos)
+      fetchAvaliacoes();
     } else {
       // Limpa os operadores e criterios se o usuário não estiver logado
       dispatch({ type: 'FETCH_OPERADORES_SUCCESS', payload: [] }); // Use FETCH_OPERADORES_SUCCESS
@@ -297,12 +382,10 @@ export function EvaluationProvider({ children }: { children: ReactNode }) {
     }
   }, [user, fetchOperadores]); // Add fetchOperadores to dependency array
 
-  useEffect(() => {
-    localStorage.setItem('totalTeamTickets', state.totalTeamTickets.toString());
-  }, [state.totalTeamTickets]);
+  // totalTeamTickets was removed from the global state; no need to persist it anymore.
 
   return (
-    <EvaluationContext.Provider value={{ state, dispatch, fetchOperadores, addOperator, updateOperator, deleteOperator }}>
+    <EvaluationContext.Provider value={{ state, dispatch, fetchOperadores, fetchAvaliacoes, addOperator, updateOperator, deleteOperator }}>
       {children}
     </EvaluationContext.Provider>
   );

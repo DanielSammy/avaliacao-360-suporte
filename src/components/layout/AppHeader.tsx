@@ -22,7 +22,7 @@ export function AppHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background">
+  <header className="sticky top-0 z-40 w-full border-b bg-gradient-primary text-primary-foreground">
       <div className="container flex h-16 items-center justify-between py-4">
         <div className="flex items-center gap-4">
           {/* You can add your logo or app title here */}

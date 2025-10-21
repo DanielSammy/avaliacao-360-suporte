@@ -8,11 +8,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useEvaluation } from '@/contexts/EvaluationContext';
-import { Operador, NivelOperador, valoresNivel } from '@/types/evaluation';
+import { Operador } from '@/types/evaluation';
 import { gerarId } from '@/utils/calculations'; // This might not be needed if API handles IDs
 import { UserPlus, Edit, Trash2, Users, Calendar, Mail, Star, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import getCurrentPeriod from '@/lib/period';
 import {
   getOperadores,
   createOperador,
@@ -25,13 +26,19 @@ export function OperatorManagement() {
   const { state, dispatch, fetchOperadores } = useEvaluation();
   const { toast } = useToast();
 
+  // Se existir qualquer avaliação no mês atual, bloquear edição de cadastros
+  const currentPeriod = getCurrentPeriod();
+  const isConfigReadOnly = state.avaliacoes.some(av => av.periodo === currentPeriod);
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false); // New state for edit dialog
   const [editingOperator, setEditingOperator] = useState<Operador | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
   const [newOperatorName, setNewOperatorName] = useState('');
   const [newOperatorEmail, setNewOperatorEmail] = useState('');
-  const [newOperatorLevel, setNewOperatorLevel] = useState<NivelOperador>('Nivel 1');
+  
   const [newOperatorParticipatesInEvaluation, setNewOperatorParticipatesInEvaluation] = useState(true);
+  const [newOperatorMeiaAvaliacao, setNewOperatorMeiaAvaliacao] = useState(false);
 
   const handleAddOperator = async () => {
     if (!newOperatorName.trim() || !newOperatorEmail.trim()) {
@@ -73,7 +80,8 @@ export function OperatorManagement() {
         ativo: true,
         grupo: 0, // Definir um grupo padrão
         participaAvaliacao: newOperatorParticipatesInEvaluation,
-        nivel: newOperatorLevel,
+        meiaAvaliacao: newOperatorMeiaAvaliacao,
+        
       };
 
       const createdOperator = await createOperador(novoOperador);
@@ -81,7 +89,7 @@ export function OperatorManagement() {
 
       setNewOperatorName('');
       setNewOperatorEmail('');
-      setNewOperatorLevel('Nivel 1');
+      
       setEditingOperator(null); // Ensure no operator is being edited
       setIsAddDialogOpen(false);
 
@@ -132,7 +140,8 @@ export function OperatorManagement() {
         nome: newOperatorName.trim(),
         login: newOperatorEmail.trim(),
         participaAvaliacao: newOperatorParticipatesInEvaluation,
-        nivel: newOperatorLevel,
+        meiaAvaliacao: newOperatorMeiaAvaliacao,
+        
       };
 
       const updatedOp = await updateOperador(operadorAtualizado);
@@ -141,7 +150,7 @@ export function OperatorManagement() {
       setEditingOperator(null);
       setNewOperatorName('');
       setNewOperatorEmail('');
-      setNewOperatorLevel('Nivel 1');
+      
 
       toast({
         title: "Operador atualizado",
@@ -210,15 +219,16 @@ export function OperatorManagement() {
     setEditingOperator(operador);
     setNewOperatorName(operador.nome);
     setNewOperatorEmail(operador.login);
-    setNewOperatorLevel(operador.nivel || 'Nivel 1');
+    
     setNewOperatorParticipatesInEvaluation(operador.participaAvaliacao);
+    setNewOperatorMeiaAvaliacao(!!operador.meiaAvaliacao);
   };
 
   const cancelEdit = () => {
     setEditingOperator(null);
     setNewOperatorName('');
     setNewOperatorEmail('');
-    setNewOperatorLevel('Nivel 1');
+    setNewOperatorMeiaAvaliacao(false);
   };
 
   if (state.loading) {
@@ -244,21 +254,28 @@ export function OperatorManagement() {
       <Card className="shadow-medium">
         <CardHeader className="bg-gradient-card">
           <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              Gerenciar Operadores
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                Gerenciar Operadores
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch id="show-inactive" checked={showInactive} onCheckedChange={setShowInactive} />
+                <Label htmlFor="show-inactive" className="text-sm">Mostrar inativos</Label>
+              </div>
             </div>
             <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
               if (!open) {
                 setNewOperatorName('');
                 setNewOperatorEmail('');
-                setNewOperatorLevel('Nivel 1'); // Reset level on close
+                 // Reset level on close
                 setNewOperatorParticipatesInEvaluation(true); // Reset participates on close
+                setNewOperatorMeiaAvaliacao(false); // Reset meiaAvaliacao on close
               }
               setIsAddDialogOpen(open);
             }}>
               <DialogTrigger asChild>
-                <Button>
+                  <Button disabled={isConfigReadOnly}>
                   <UserPlus className="h-4 w-4 mr-2" />
                   Adicionar Operador
                 </Button>
@@ -274,6 +291,7 @@ export function OperatorManagement() {
                       value={newOperatorName}
                       onChange={(e) => setNewOperatorName(e.target.value)}
                       placeholder="Digite o nome completo"
+                      disabled={isConfigReadOnly}
                     />
                   </div>
                   <div>
@@ -284,34 +302,33 @@ export function OperatorManagement() {
                       onChange={(e) => setNewOperatorEmail(e.target.value)}
                       placeholder="exemplo@spaceinformatica.com.br"
                       onKeyDown={(e) => e.key === 'Enter' && handleAddOperator()}
+                      disabled={isConfigReadOnly}
                     />
                   </div>
-                  <div>
-                    <label className="text-sm font-medium">Nível do Operador</label>
-                    <Select value={newOperatorLevel} onValueChange={(value: NivelOperador) => setNewOperatorLevel(value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o nível" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.keys(valoresNivel).map(nivel => (
-                          <SelectItem key={nivel} value={nivel}>{nivel}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="participates-evaluation"
                       checked={newOperatorParticipatesInEvaluation}
                       onCheckedChange={setNewOperatorParticipatesInEvaluation}
+                      disabled={isConfigReadOnly}
                     />
                     <Label htmlFor="participates-evaluation">Participa da Avaliação</Label>
                   </div>
-                  <div className="flex justify-end gap-2">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="meia-avaliacao"
+                      checked={newOperatorMeiaAvaliacao}
+                      onCheckedChange={setNewOperatorMeiaAvaliacao}
+                      disabled={isConfigReadOnly}
+                    />
+                    <Label htmlFor="meia-avaliacao">Meia Avaliação</Label>
+                  </div>
+                    <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                       Cancelar
                     </Button>
-                    <Button onClick={handleAddOperator}>
+                    <Button onClick={handleAddOperator} disabled={isConfigReadOnly}>
                       Adicionar
                     </Button>
                   </div>
@@ -322,7 +339,7 @@ export function OperatorManagement() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
-            {state.operadores.map((operador) => { // Use 'operators' state
+            {state.operadores.filter(op => showInactive || op.ativo).map((operador) => { // Use 'operators' state
               const stats = getOperatorStats(operador.id);
 
               return (
@@ -345,10 +362,7 @@ export function OperatorManagement() {
                           <Calendar className="h-3 w-3" />
                           Cadastrado em {new Date(operador.dataInclusao).toLocaleDateString('pt-BR')}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Star className="h-3 w-3" />
-                          <span>{operador.nivel || 'Nível não definido'}</span>
-                        </div>
+                        
                         <div>Avaliações: {stats.totalAvaliacoes}</div>
                         {stats.ultimaAvaliacao && (
                           <div>
@@ -378,6 +392,7 @@ export function OperatorManagement() {
                               size="sm"
                               className="flex-1"
                               onClick={() => openEditDialog(operador)}
+                              disabled={isConfigReadOnly}
                             >
                               <Edit className="h-3 w-3 mr-1" />
                               Editar
@@ -394,6 +409,7 @@ export function OperatorManagement() {
                                   value={newOperatorName}
                                   onChange={(e) => setNewOperatorName(e.target.value)}
                                   placeholder="Digite o nome completo"
+                                  disabled={isConfigReadOnly}
                                 />
                               </div>
                               <div>
@@ -404,34 +420,33 @@ export function OperatorManagement() {
                                   onChange={(e) => setNewOperatorEmail(e.target.value)}
                                   placeholder="exemplo@spaceinformatica.com.br"
                                   onKeyDown={(e) => e.key === 'Enter' && handleEditOperator()}
+                                  disabled={isConfigReadOnly}
                                 />
                               </div>
-                              <div>
-                                <label className="text-sm font-medium">Nível do Operador</label>
-                                <Select value={newOperatorLevel} onValueChange={(value: NivelOperador) => setNewOperatorLevel(value)}>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Selecione o nível" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {Object.keys(valoresNivel).map(nivel => (
-                                      <SelectItem key={nivel} value={nivel}>{nivel}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
+                              
                               <div className="flex items-center space-x-2">
                                 <Switch
                                   id="edit-participates-evaluation"
                                   checked={newOperatorParticipatesInEvaluation}
                                   onCheckedChange={setNewOperatorParticipatesInEvaluation}
+                                  disabled={isConfigReadOnly}
                                 />
                                 <Label htmlFor="edit-participates-evaluation">Participa da Avaliação</Label>
                               </div>
-                              <div className="flex justify-end gap-2">
+                              <div className="flex items-center space-x-2">
+                                <Switch
+                                  id="edit-meia-avaliacao"
+                                  checked={newOperatorMeiaAvaliacao}
+                                  onCheckedChange={setNewOperatorMeiaAvaliacao}
+                                  disabled={isConfigReadOnly}
+                                />
+                                <Label htmlFor="edit-meia-avaliacao">Meia Avaliação</Label>
+                              </div>
+                                <div className="flex justify-end gap-2">
                                 <Button variant="outline" onClick={cancelEdit}>
                                   Cancelar
                                 </Button>
-                                <Button onClick={handleEditOperator}>
+                                <Button onClick={handleEditOperator} disabled={isConfigReadOnly}>
                                   Salvar
                                 </Button>
                               </div>
@@ -444,13 +459,14 @@ export function OperatorManagement() {
                           size="sm"
                           onClick={() => toggleOperatorStatus(operador)}
                           className="flex-1"
+                          disabled={isConfigReadOnly}
                         >
                           {operador.ativo ? "Desativar" : "Ativar"}
                         </Button>
 
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="sm">
+                            <Button variant="destructive" size="sm" disabled={isConfigReadOnly}>
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           </AlertDialogTrigger>
