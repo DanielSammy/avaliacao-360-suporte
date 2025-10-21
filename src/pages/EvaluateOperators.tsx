@@ -378,7 +378,7 @@ export function EvaluateOperators() {
 
           // aplicar mesmo percentual para todos operadores que tenham codigoMysuite (mesmo valor para todos)
           avaliacoesParaApi = state.operadores
-            .filter(op => op.codigoMysuite)
+            .filter(op => op.ativo && op.participaAvaliacao && op.codigoMysuite)
             .map(op => {
               // usar percentageForAll para cálculo de bônus
               const bonusValue = calcularValorAlcancadoFinal(criterio, percentageForAll, potentialBonusFromCriterio);
@@ -395,7 +395,7 @@ export function EvaluateOperators() {
         } else {
           // metaCalculo 2 ou 3 já cobertos pelo payload de performance
           avaliacoesParaApi = state.operadores
-            .filter(op => op.codigoMysuite && resultsByCodigo[op.codigoMysuite])
+            .filter(op => op.ativo && op.participaAvaliacao && op.codigoMysuite && resultsByCodigo[op.codigoMysuite])
             .map(op => {
               const mys = resultsByCodigo[op.codigoMysuite];
               // decidir o valor base conforme o tipo de meta
